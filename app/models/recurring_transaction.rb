@@ -15,6 +15,7 @@ class RecurringTransaction < ApplicationRecord
   validates :amount, presence: true
   validates :currency, presence: true
   validates :expected_day_of_month, presence: true, numericality: { greater_than: 0, less_than_or_equal_to: 31 }
+  validates :last_occurrence_date, :next_expected_date, presence: true
   validate :merchant_or_name_present
   validate :amount_variance_consistency
 

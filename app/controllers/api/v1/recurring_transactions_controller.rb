@@ -29,7 +29,7 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Error: #{e.message}"
+      message: "Internal server error"
     }, status: :internal_server_error
   end
 
@@ -41,7 +41,7 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Error: #{e.message}"
+      message: "Internal server error"
     }, status: :internal_server_error
   end
 
@@ -64,13 +64,18 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       error: "not_found",
       message: e.message
     }, status: :not_found
+  rescue ActiveRecord::RecordNotUnique
+    render json: {
+      error: "conflict",
+      message: "Recurring transaction already exists"
+    }, status: :conflict
   rescue => e
     Rails.logger.error "RecurringTransactionsController#create error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
     render json: {
       error: "internal_server_error",
-      message: "Error: #{e.message}"
+      message: "Internal server error"
     }, status: :internal_server_error
   end
 
@@ -89,13 +94,18 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       error: "not_found",
       message: e.message
     }, status: :not_found
+  rescue ActiveRecord::RecordNotUnique
+    render json: {
+      error: "conflict",
+      message: "Recurring transaction already exists"
+    }, status: :conflict
   rescue => e
     Rails.logger.error "RecurringTransactionsController#update error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
     render json: {
       error: "internal_server_error",
-      message: "Error: #{e.message}"
+      message: "Internal server error"
     }, status: :internal_server_error
   end
 
@@ -109,7 +119,7 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Error: #{e.message}"
+      message: "Internal server error"
     }, status: :internal_server_error
   end
 
