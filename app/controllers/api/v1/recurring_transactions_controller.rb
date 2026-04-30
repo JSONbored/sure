@@ -145,8 +145,7 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
         return
       end
 
-      @recurring_transaction = current_resource_owner.family.recurring_transactions
-        .accessible_by(current_resource_owner)
+      @recurring_transaction = recurring_transaction_scope_for_action
         .includes(:account, :merchant)
         .find(params[:id])
     rescue ActiveRecord::RecordNotFound
@@ -162,6 +161,14 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     def ensure_write_scope
       authorize_scope!(:write)
+    end
+
+    def recurring_transaction_scope_for_action
+      scope = current_resource_owner.family.recurring_transactions
+      return scope.accessible_by(current_resource_owner) unless action_name.in?(%w[update destroy])
+
+      writable_account_ids = current_resource_owner.family.accounts.writable_by(current_resource_owner).select(:id)
+      scope.where(account_id: writable_account_ids).or(scope.where(account_id: nil))
     end
 
     def apply_filters(query)
