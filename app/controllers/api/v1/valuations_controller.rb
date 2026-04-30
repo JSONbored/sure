@@ -21,7 +21,6 @@ class Api::V1::ValuationsController < Api::V1::BaseController
       page: safe_page_param,
       limit: safe_per_page_param
     )
-    @valuations = @entries.map(&:entryable)
     @per_page = safe_per_page_param
 
     render :index
