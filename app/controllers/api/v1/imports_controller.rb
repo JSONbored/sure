@@ -163,6 +163,47 @@ class Api::V1::ImportsController < Api::V1::BaseController
       content, filename, content_type = sure_import_upload_attributes
       return unless content
 
+      begin
+        @import = persist_sure_import!(family, content, filename, content_type)
+      rescue ActiveRecord::RecordInvalid => e
+        render json: {
+          error: "validation_failed",
+          message: "Import could not be created",
+          errors: e.record&.errors&.full_messages || @import&.errors&.full_messages || []
+        }, status: :unprocessable_entity
+        return
+      rescue StandardError => e
+        Rails.logger.error "Sure import creation failed: #{e.message}"
+        render json: {
+          error: "internal_server_error",
+          message: "Import could not be created"
+        }, status: :internal_server_error
+        return
+      end
+
+      begin
+        @import.publish_later if @import.publishable? && params[:publish] == "true"
+      rescue Import::MaxRowCountExceededError
+        render json: {
+          error: "max_row_count_exceeded",
+          message: "Import was uploaded but has too many rows to publish automatically.",
+          import_id: @import.id
+        }, status: :unprocessable_entity
+        return
+      rescue StandardError => e
+        Rails.logger.error "Sure import publish failed for import #{@import.id}: #{e.message}"
+        render json: {
+          error: "publish_failed",
+          message: "Import was uploaded but could not be queued for processing.",
+          import_id: @import.id
+        }, status: :internal_server_error
+        return
+      end
+
+      render :show, status: :created
+    end
+
+    def persist_sure_import!(family, content, filename, content_type)
       @import = family.imports.create!(type: "SureImport")
       @import.ndjson_file.attach(
         io: StringIO.new(content),
@@ -170,20 +211,10 @@ class Api::V1::ImportsController < Api::V1::BaseController
         content_type: content_type
       )
       @import.sync_ndjson_rows_count!
-      @import.publish_later if @import.publishable? && params[:publish] == "true"
-
-      render :show, status: :created
-    rescue ActiveRecord::RecordInvalid
-      render json: {
-        error: "validation_failed",
-        message: "Import could not be created",
-        errors: @import&.errors&.full_messages || []
-      }, status: :unprocessable_entity
+      @import
     rescue StandardError => e
-      Rails.logger.error "Sure import creation failed: #{e.message}"
       clean_up_failed_sure_import
-
-      render json: { error: "internal_server_error", message: e.message }, status: :internal_server_error
+      raise
     end
 
     def clean_up_failed_sure_import

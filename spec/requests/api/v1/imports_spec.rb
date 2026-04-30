@@ -162,6 +162,34 @@ RSpec.describe 'API V1 Imports', type: :request do
             type: :string,
             description: 'Header name for the notes column'
           },
+          account_col_label: {
+            type: :string,
+            description: 'Header name for the account column when importing rows across multiple accounts'
+          },
+          qty_col_label: {
+            type: :string,
+            description: 'Header name for the quantity column on trade imports'
+          },
+          ticker_col_label: {
+            type: :string,
+            description: 'Header name for the ticker column on trade imports'
+          },
+          price_col_label: {
+            type: :string,
+            description: 'Header name for the price column on trade imports'
+          },
+          entity_type_col_label: {
+            type: :string,
+            description: 'Header name for the entity type column'
+          },
+          currency_col_label: {
+            type: :string,
+            description: 'Header name for the currency column'
+          },
+          exchange_operating_mic_col_label: {
+            type: :string,
+            description: 'Header name for the exchange operating MIC column on trade imports'
+          },
           date_format: {
             type: :string,
             description: 'Date format pattern (e.g., "%m/%d/%Y")'
@@ -180,6 +208,15 @@ RSpec.describe 'API V1 Imports', type: :request do
             type: :string,
             enum: [ ',', ';' ],
             description: 'Column separator'
+          },
+          amount_type_strategy: {
+            type: :string,
+            enum: %w[signed_amount custom_column],
+            description: 'Amount parsing strategy'
+          },
+          amount_type_inflow_value: {
+            type: :string,
+            description: 'Column value that marks an amount as an inflow when using custom_column strategy'
           }
         }
       }
