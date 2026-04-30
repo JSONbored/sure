@@ -144,6 +144,21 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     assert_equal true, response_data["manual"]
   end
 
+  test "should default null manual to true when creating recurring transaction" do
+    params = valid_recurring_transaction_params.deep_dup
+    params[:recurring_transaction][:manual] = nil
+
+    assert_difference("@family.recurring_transactions.count", 1) do
+      post api_v1_recurring_transactions_url,
+           params: params,
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :created
+    response_data = JSON.parse(response.body)
+    assert_equal true, response_data["manual"]
+  end
+
   test "should require authentication when creating recurring transaction" do
     post api_v1_recurring_transactions_url, params: valid_recurring_transaction_params
 

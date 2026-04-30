@@ -183,7 +183,7 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     def recurring_transaction_attributes(default_manual: false)
       attrs = permitted_recurring_transaction_params.to_h.symbolize_keys
-      attrs[:manual] = true if default_manual && !attrs.key?(:manual)
+      attrs[:manual] = true if default_manual && attrs[:manual].nil?
       input = params.require(:recurring_transaction)
 
       if action_name == "create"
