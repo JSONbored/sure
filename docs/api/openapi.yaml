@@ -230,15 +230,22 @@ components:
           type: string
         account_type:
           type: string
+          nullable: true
+        status:
+          type: string
     AccountDetail:
       type: object
       required:
       - id
       - name
       - balance
+      - cash_balance
       - currency
       - classification
       - account_type
+      - status
+      - created_at
+      - updated_at
       properties:
         id:
           type: string
@@ -247,12 +254,37 @@ components:
           type: string
         balance:
           type: string
+        cash_balance:
+          type: string
         currency:
           type: string
         classification:
           type: string
         account_type:
           type: string
+          nullable: true
+        subtype:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - active
+          - draft
+          - disabled
+          - pending_deletion
+        institution_name:
+          type: string
+          nullable: true
+        institution_domain:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     AccountCollection:
       type: object
       required:
@@ -943,6 +975,12 @@ paths:
         description: 'Items per page (default: 25, max: 100)'
         schema:
           type: integer
+      - name: include_disabled
+        in: query
+        required: false
+        description: Include disabled accounts in the response. Defaults to false.
+        schema:
+          type: boolean
       responses:
         '200':
           description: accounts paginated
@@ -950,6 +988,40 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/AccountCollection"
+  "/api/v1/accounts/{id}":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      description: Account ID
+      schema:
+        type: string
+    get:
+      summary: Retrieve an account
+      tags:
+      - Accounts
+      security:
+      - apiKeyAuth: []
+      parameters:
+      - name: include_disabled
+        in: query
+        required: false
+        description: Allow retrieving a disabled account. Defaults to false.
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: account retrieved
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AccountDetail"
+        '404':
+          description: account not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
   "/api/v1/auth/signup":
     post:
       summary: Sign up a new user

@@ -175,19 +175,27 @@ RSpec.configure do |config|
             properties: {
               id: { type: :string, format: :uuid },
               name: { type: :string },
-              account_type: { type: :string }
+              account_type: { type: :string, nullable: true },
+              status: { type: :string }
             }
           },
           AccountDetail: {
             type: :object,
-            required: %w[id name balance currency classification account_type],
+            required: %w[id name balance cash_balance currency classification account_type status created_at updated_at],
             properties: {
               id: { type: :string, format: :uuid },
               name: { type: :string },
               balance: { type: :string },
+              cash_balance: { type: :string },
               currency: { type: :string },
               classification: { type: :string },
-              account_type: { type: :string }
+              account_type: { type: :string, nullable: true },
+              subtype: { type: :string, nullable: true },
+              status: { type: :string, enum: %w[active draft disabled pending_deletion] },
+              institution_name: { type: :string, nullable: true },
+              institution_domain: { type: :string, nullable: true },
+              created_at: { type: :string, format: :'date-time' },
+              updated_at: { type: :string, format: :'date-time' }
             }
           },
           AccountCollection: {

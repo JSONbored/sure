@@ -7,11 +7,8 @@ class Api::V1::AccountsController < Api::V1::BaseController
   before_action :ensure_read_scope
 
   def index
-    # Test with Pagy pagination
-    family = current_resource_owner.family
-    accounts_query = family.accounts.accessible_by(current_resource_owner).visible.alphabetically
+    accounts_query = accounts_scope.includes(:accountable, account_providers: :provider).alphabetically
 
-    # Handle pagination with Pagy
     @pagy, @accounts = pagy(
       accounts_query,
       page: safe_page_param,
@@ -20,17 +17,35 @@ class Api::V1::AccountsController < Api::V1::BaseController
 
     @per_page = safe_per_page_param
 
-    # Rails will automatically use app/views/api/v1/accounts/index.json.jbuilder
     render :index
   rescue => e
-    Rails.logger.error "AccountsController error: #{e.message}"
+    Rails.logger.error "AccountsController#index error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
     render json: {
       error: "internal_server_error",
       message: "An unexpected error occurred"
     }, status: :internal_server_error
-end
+  end
+
+  def show
+    @account = accounts_scope.find(params[:id])
+
+    render :show
+  rescue ActiveRecord::RecordNotFound
+    render json: {
+      error: "not_found",
+      message: "Account not found"
+    }, status: :not_found
+  rescue => e
+    Rails.logger.error "AccountsController#show error: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+
+    render json: {
+      error: "internal_server_error",
+      message: "An unexpected error occurred"
+    }, status: :internal_server_error
+  end
 
     private
 
@@ -38,7 +53,14 @@ end
         authorize_scope!(:read)
       end
 
+      def accounts_scope
+        scope = current_resource_owner.family.accounts.accessible_by(current_resource_owner)
+        include_disabled_accounts? ? scope : scope.visible
+      end
 
+      def include_disabled_accounts?
+        ActiveModel::Type::Boolean.new.cast(params[:include_disabled])
+      end
 
       def safe_page_param
         page = params[:page].to_i
