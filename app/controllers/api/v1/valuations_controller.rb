@@ -1,9 +1,45 @@
 # frozen_string_literal: true
 
 class Api::V1::ValuationsController < Api::V1::BaseController
-  before_action :ensure_read_scope, only: [ :show ]
+  include Pagy::Backend
+
+  before_action :ensure_read_scope, only: [ :index, :show ]
   before_action :ensure_write_scope, only: [ :create, :update ]
   before_action :set_valuation, only: [ :show, :update ]
+
+  def index
+    family = current_resource_owner.family
+    accessible_account_ids = family.accounts.accessible_by(current_resource_owner).select(:id)
+    valuations_query = family.entries
+      .where(entryable_type: "Valuation", account_id: accessible_account_ids)
+      .includes(:account, :entryable)
+
+    valuations_query = apply_filters(valuations_query).reverse_chronological
+
+    @pagy, @entries = pagy(
+      valuations_query,
+      page: safe_page_param,
+      limit: safe_per_page_param
+    )
+    @valuations = @entries.map(&:entryable)
+    @per_page = safe_per_page_param
+
+    render :index
+  rescue ArgumentError => e
+    render json: {
+      error: "validation_failed",
+      message: e.message,
+      errors: [ e.message ]
+    }, status: :unprocessable_entity
+  rescue => e
+    Rails.logger.error "ValuationsController#index error: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+
+    render json: {
+      error: "internal_server_error",
+      message: "Error: #{e.message}"
+    }, status: :internal_server_error
+  end
 
   def show
     render :show
@@ -13,7 +49,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "An unexpected error occurred"
+      message: "Error: #{e.message}"
     }, status: :internal_server_error
   end
 
@@ -100,7 +136,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "An unexpected error occurred"
+      message: "Error: #{e.message}"
     }, status: :internal_server_error
   end
 
@@ -181,7 +217,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "An unexpected error occurred"
+      message: "Error: #{e.message}"
     }, status: :internal_server_error
   end
 
@@ -206,6 +242,35 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     def ensure_write_scope
       authorize_scope!(:write)
+    end
+
+    def apply_filters(query)
+      query = query.where(account_id: params[:account_id]) if params[:account_id].present?
+      query = query.where("entries.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
+      query = query.where("entries.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
+      query
+    end
+
+    def parse_date_param(key)
+      Date.iso8601(params[key].to_s)
+    rescue ArgumentError
+      raise ArgumentError, "#{key} must be an ISO 8601 date"
+    end
+
+    def safe_page_param
+      page = params[:page].to_i
+      page > 0 ? page : 1
+    end
+
+    def safe_per_page_param
+      per_page = params[:per_page].to_i
+
+      case per_page
+      when 1..100
+        per_page
+      else
+        25
+      end
     end
 
     def valuation_account_id

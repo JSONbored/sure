@@ -65,9 +65,17 @@ class ApiRateLimiter
     }
   end
 
+  def clear_request_count!
+    @redis.del(redis_key)
+  end
+
   # Class method to get usage for an API key without incrementing
   def self.usage_for(api_key)
     limit(api_key).usage_info
+  end
+
+  def self.clear_request_count_for(api_key)
+    limit(api_key).clear_request_count!
   end
 
   def self.limit(api_key)
