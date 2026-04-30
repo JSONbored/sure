@@ -135,6 +135,11 @@ class SureImport < Import
   private
 
     def ndjson_blob_string
-      @ndjson_blob_string ||= ndjson_file.download.force_encoding(Encoding::UTF_8)
+      blob_id = ndjson_file.blob&.id
+
+      return @ndjson_blob_string if defined?(@ndjson_blob_string) && @ndjson_blob_id == blob_id
+
+      @ndjson_blob_id = blob_id
+      @ndjson_blob_string = ndjson_file.download.force_encoding(Encoding::UTF_8)
     end
 end

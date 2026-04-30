@@ -108,6 +108,22 @@ class SureImportTest < ActiveSupport::TestCase
     assert_equal 0, dry_run[:tags]
   end
 
+  test "cached ndjson content is refreshed when attachment is replaced" do
+    attach_ndjson(build_ndjson([
+      { type: "Account", data: { id: "uuid-1" } }
+    ]))
+    assert_equal 1, @import.dry_run[:accounts]
+
+    attach_ndjson(build_ndjson([
+      { type: "Transaction", data: { id: "uuid-2" } }
+    ]))
+
+    dry_run = @import.dry_run
+    assert_equal 0, dry_run[:accounts]
+    assert_equal 1, dry_run[:transactions]
+    assert_equal 1, @import.rows_count
+  end
+
   test "sync_ndjson_rows_count! sets total row count" do
     attach_ndjson(build_ndjson([
       { type: "Account", data: { id: "uuid-1" } },
