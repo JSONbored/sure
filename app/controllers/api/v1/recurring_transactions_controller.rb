@@ -3,6 +3,8 @@
 class Api::V1::RecurringTransactionsController < Api::V1::BaseController
   include Pagy::Backend
 
+  UUID_REGEX = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+
   before_action :ensure_read_scope, only: %i[index show]
   before_action :ensure_write_scope, only: %i[create update destroy]
   before_action :set_recurring_transaction, only: %i[show update destroy]
@@ -64,6 +66,11 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       error: "not_found",
       message: e.message
     }, status: :not_found
+  rescue ActionController::ParameterMissing, ArgumentError => e
+    render json: {
+      error: "validation_failed",
+      message: e.message
+    }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
     render json: {
       error: "conflict",
@@ -94,6 +101,11 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       error: "not_found",
       message: e.message
     }, status: :not_found
+  rescue ActionController::ParameterMissing, ArgumentError => e
+    render json: {
+      error: "validation_failed",
+      message: e.message
+    }, status: :unprocessable_entity
   rescue ActiveRecord::RecordNotUnique
     render json: {
       error: "conflict",
@@ -125,6 +137,14 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
   private
     def set_recurring_transaction
+      unless valid_uuid?(params[:id])
+        render json: {
+          error: "not_found",
+          message: "Recurring transaction not found"
+        }, status: :not_found
+        return
+      end
+
       @recurring_transaction = current_resource_owner.family.recurring_transactions
         .accessible_by(current_resource_owner)
         .includes(:account, :merchant)
@@ -146,34 +166,52 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     def apply_filters(query)
       query = query.where(status: params[:status]) if params[:status].present?
-      query = query.where(account_id: params[:account_id]) if params[:account_id].present?
+      if params[:account_id].present?
+        return query.none unless valid_uuid?(params[:account_id])
+
+        query = query.where(account_id: params[:account_id])
+      end
       query
     end
 
     def recurring_transaction_attributes(default_manual: false)
-      attrs = recurring_transaction_params.to_h.symbolize_keys
+      attrs = permitted_recurring_transaction_params.to_h.symbolize_keys
       attrs[:manual] = true if default_manual && !attrs.key?(:manual)
       input = params.require(:recurring_transaction)
 
-      attrs[:account] = writable_account(input[:account_id]) if input.key?(:account_id)
-      attrs[:merchant] = family_merchant(input[:merchant_id]) if input.key?(:merchant_id)
+      if action_name == "create"
+        attrs[:account] = writable_account(input[:account_id]) if input.key?(:account_id)
+        attrs[:merchant] = family_merchant(input[:merchant_id]) if input.key?(:merchant_id)
+      end
 
       attrs
     end
 
     def writable_account(account_id)
       return nil if account_id.blank?
+      raise ActiveRecord::RecordNotFound, "Account not found" unless valid_uuid?(account_id)
 
-      current_resource_owner.family.accounts.writable_by(current_resource_owner).find(account_id)
+      current_resource_owner.family.accounts.writable_by(current_resource_owner).find_by(id: account_id) ||
+        raise(ActiveRecord::RecordNotFound, "Account not found")
     end
 
     def family_merchant(merchant_id)
       return nil if merchant_id.blank?
+      raise ActiveRecord::RecordNotFound, "Merchant not found" unless valid_uuid?(merchant_id)
 
-      current_resource_owner.family.merchants.find(merchant_id)
+      current_resource_owner.family.merchants.find_by(id: merchant_id) ||
+        raise(ActiveRecord::RecordNotFound, "Merchant not found")
     end
 
-    def recurring_transaction_params
+    def valid_uuid?(value)
+      value.to_s.match?(UUID_REGEX)
+    end
+
+    def permitted_recurring_transaction_params
+      action_name == "update" ? recurring_transaction_update_params : recurring_transaction_create_params
+    end
+
+    def recurring_transaction_create_params
       params.require(:recurring_transaction).permit(
         :name,
         :amount,
@@ -187,6 +225,14 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
         :expected_amount_min,
         :expected_amount_max,
         :expected_amount_avg
+      )
+    end
+
+    def recurring_transaction_update_params
+      params.require(:recurring_transaction).permit(
+        :status,
+        :expected_day_of_month,
+        :next_expected_date
       )
     end
 

@@ -70,6 +70,24 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     assert_response :not_found
   end
 
+  test "should return not found for malformed recurring transaction id" do
+    get api_v1_recurring_transaction_url("not-a-uuid"), headers: api_headers(@api_key)
+
+    assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "not_found", response_data["error"]
+  end
+
+  test "should return empty list for malformed account filter" do
+    get api_v1_recurring_transactions_url,
+        params: { account_id: "not-a-uuid" },
+        headers: api_headers(@api_key)
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_equal [], response_data["recurring_transactions"]
+  end
+
   test "should require authentication when showing recurring transaction" do
     get api_v1_recurring_transaction_url(@recurring_transaction)
 
@@ -101,6 +119,51 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
          headers: api_headers(@read_only_api_key)
 
     assert_response :forbidden
+  end
+
+  test "should reject create without recurring transaction wrapper" do
+    assert_no_difference("@family.recurring_transactions.count") do
+      post api_v1_recurring_transactions_url,
+           params: { name: "Gym Membership" },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+  end
+
+  test "should reject create with malformed account id" do
+    params = valid_recurring_transaction_params.deep_dup
+    params[:recurring_transaction][:account_id] = "not-a-uuid"
+
+    assert_no_difference("@family.recurring_transactions.count") do
+      post api_v1_recurring_transactions_url,
+           params: params,
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "not_found", response_data["error"]
+    assert_equal "Account not found", response_data["message"]
+  end
+
+  test "should reject create with malformed merchant id" do
+    params = valid_recurring_transaction_params.deep_dup
+    params[:recurring_transaction].delete(:name)
+    params[:recurring_transaction][:merchant_id] = "not-a-uuid"
+
+    assert_no_difference("@family.recurring_transactions.count") do
+      post api_v1_recurring_transactions_url,
+           params: params,
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "not_found", response_data["error"]
+    assert_equal "Merchant not found", response_data["message"]
   end
 
   test "should reject create without name or merchant" do
@@ -183,6 +246,46 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
           headers: api_headers(@read_only_api_key)
 
     assert_response :forbidden
+  end
+
+  test "should reject update without recurring transaction wrapper" do
+    patch api_v1_recurring_transaction_url(@recurring_transaction),
+          params: { status: "inactive" },
+          headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+  end
+
+  test "should reject update with invalid status" do
+    patch api_v1_recurring_transaction_url(@recurring_transaction),
+          params: { recurring_transaction: { status: "paused" } },
+          headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+  end
+
+  test "should ignore internal fields on update" do
+    patch api_v1_recurring_transaction_url(@recurring_transaction),
+          params: {
+            recurring_transaction: {
+              status: "inactive",
+              occurrence_count: 99,
+              manual: false,
+              amount: 1.23
+            }
+          },
+          headers: api_headers(@api_key)
+
+    assert_response :success
+    @recurring_transaction.reload
+    assert_equal "inactive", @recurring_transaction.status
+    assert_equal 3, @recurring_transaction.occurrence_count
+    assert_equal true, @recurring_transaction.manual
+    assert_equal 19.99, @recurring_transaction.amount.to_f
   end
 
   test "should return not found when updating missing recurring transaction" do

@@ -109,6 +109,7 @@ RSpec.describe 'API V1 Recurring Transactions', type: :request do
       produces 'application/json'
       parameter name: :body, in: :body, required: true, schema: {
         type: :object,
+        required: %w[recurring_transaction],
         properties: {
           recurring_transaction: {
             type: :object,
