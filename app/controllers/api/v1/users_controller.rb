@@ -21,7 +21,7 @@ class Api::V1::UsersController < Api::V1::BaseController
 
     render json: {
       error: "reset_enqueue_failed",
-      message: "Error: #{e.message}"
+      message: "Account reset could not be queued"
     }, status: :internal_server_error
   end
 

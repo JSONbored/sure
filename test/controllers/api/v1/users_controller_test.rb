@@ -90,7 +90,8 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_response :internal_server_error
     body = JSON.parse(response.body)
     assert_equal "reset_enqueue_failed", body["error"]
-    assert_equal "Error: queue down", body["message"]
+    assert_equal "Account reset could not be queued", body["message"]
+    assert_not_includes response.body, "queue down"
   end
 
   test "reset status requires authentication" do
