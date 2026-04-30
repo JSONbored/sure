@@ -126,6 +126,15 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "not_found", response_body["error"]
   end
 
+  test "should return 404 for malformed account id on show" do
+    get "/api/v1/accounts/not-a-uuid", headers: api_headers(@api_key)
+
+    assert_response :not_found
+    response_body = JSON.parse(response.body)
+    assert_equal "not_found", response_body["error"]
+    assert_equal "Account not found", response_body["message"]
+  end
+
   test "should require authentication on show" do
     account = accounts(:depository)
 
