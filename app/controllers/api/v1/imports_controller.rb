@@ -192,6 +192,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
         return
       rescue StandardError => e
         Rails.logger.error "Sure import publish failed for import #{@import.id}: #{e.message}"
+        restore_pending_sure_import_after_publish_failure
         render json: {
           error: "publish_failed",
           message: "Import was uploaded but could not be queued for processing.",
@@ -215,6 +216,10 @@ class Api::V1::ImportsController < Api::V1::BaseController
     rescue StandardError => e
       clean_up_failed_sure_import
       raise
+    end
+
+    def restore_pending_sure_import_after_publish_failure
+      @import.update_column(:status, "pending") if @import&.persisted? && @import.importing?
     end
 
     def clean_up_failed_sure_import

@@ -110,19 +110,11 @@ RSpec.describe 'API V1 Imports', type: :request do
 
       parameter name: :body, in: :body, required: false, schema: {
         type: :object,
-        anyOf: [
-          { required: %w[raw_file_content] },
-          { required: %w[file] }
-        ],
+        required: %w[raw_file_content],
         properties: {
           raw_file_content: {
             type: :string,
-            description: 'Raw CSV or Sure NDJSON content as a string. Use this instead of file.'
-          },
-          file: {
-            type: :string,
-            format: :binary,
-            description: 'CSV or Sure NDJSON file upload. Use this instead of raw_file_content.'
+            description: 'Raw CSV or Sure NDJSON content as a string. Use multipart/form-data for file uploads.'
           },
           type: {
             type: :string,

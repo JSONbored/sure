@@ -251,7 +251,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
 
   test "should preserve Sure import if publish queueing fails" do
     ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
-    SureImport.any_instance.stubs(:publish_later).raises(StandardError, "queue offline")
+    ImportJob.stubs(:perform_later).raises(StandardError, "queue offline")
 
     assert_difference("Import.count") do
       post api_v1_imports_url,
@@ -271,6 +271,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_instance_of SureImport, import
     assert import.ndjson_file.attached?
     assert_equal 1, import.rows_count
+    assert_equal "pending", import.status
   end
 
   test "should preserve Sure import if auto publish exceeds row count" do

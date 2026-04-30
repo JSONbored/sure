@@ -2309,10 +2309,13 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+              - raw_file_content
               properties:
                 raw_file_content:
                   type: string
-                  description: The raw CSV or Sure NDJSON content as a string
+                  description: The raw CSV or Sure NDJSON content as a string. Use
+                    multipart/form-data for file uploads.
                 type:
                   type: string
                   enum:
