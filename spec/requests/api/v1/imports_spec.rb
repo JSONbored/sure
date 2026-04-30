@@ -76,7 +76,7 @@ RSpec.describe 'API V1 Imports', type: :request do
                 schema: { type: :string, enum: %w[pending complete importing reverting revert_failed failed] }
       parameter name: :type, in: :query, required: false,
                 description: 'Filter by import type',
-                schema: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport] }
+                schema: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport SureImport] }
 
       response '200', 'imports listed' do
         schema '$ref' => '#/components/schemas/ImportCollection'
@@ -102,22 +102,31 @@ RSpec.describe 'API V1 Imports', type: :request do
     end
 
     post 'Create import' do
-      description 'Create a new import from raw CSV content.'
+      description 'Create a new import from raw CSV content, inline Sure NDJSON content, or an uploaded Sure NDJSON file.'
       tags 'Imports'
       security [ { apiKeyAuth: [] } ]
-      consumes 'application/json'
+      consumes 'application/json', 'multipart/form-data'
       produces 'application/json'
 
-      parameter name: :body, in: :body, required: true, schema: {
+      parameter name: :body, in: :body, required: false, schema: {
         type: :object,
+        anyOf: [
+          { required: %w[raw_file_content] },
+          { required: %w[file] }
+        ],
         properties: {
           raw_file_content: {
             type: :string,
-            description: 'The raw CSV content as a string'
+            description: 'Raw CSV or Sure NDJSON content as a string. Use this instead of file.'
+          },
+          file: {
+            type: :string,
+            format: :binary,
+            description: 'CSV or Sure NDJSON file upload. Use this instead of raw_file_content.'
           },
           type: {
             type: :string,
-            enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport],
+            enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport SureImport],
             description: 'Import type (defaults to TransactionImport)'
           },
           account_id: {

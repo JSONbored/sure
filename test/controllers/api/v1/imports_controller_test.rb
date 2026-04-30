@@ -131,6 +131,118 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal '[{"action_type":"set_transaction_category","value":"Groceries"}]', row.actions
   end
 
+  test "should create Sure import with raw NDJSON content" do
+    ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
+
+    assert_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: ndjson_content
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :created
+
+    json_response = JSON.parse(response.body)
+    import = Import.find(json_response["data"]["id"])
+
+    assert_instance_of SureImport, import
+    assert import.ndjson_file.attached?
+    assert_equal 1, import.rows_count
+    assert_equal "pending", import.status
+  end
+
+  test "should require authentication for Sure import" do
+    ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
+
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: ndjson_content
+           }
+    end
+
+    assert_response :unauthorized
+  end
+
+  test "should reject Sure import with read-only API key" do
+    ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
+
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: ndjson_content
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :forbidden
+    json_response = JSON.parse(response.body)
+    assert_equal "insufficient_scope", json_response["error"]
+  end
+
+  test "should create Sure import with uploaded NDJSON file" do
+    ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
+    valid_file = Rack::Test::UploadedFile.new(
+      StringIO.new(ndjson_content),
+      "application/x-ndjson",
+      original_filename: "sure-backup.ndjson"
+    )
+
+    assert_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             file: valid_file
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :created
+
+    import = Import.find(JSON.parse(response.body)["data"]["id"])
+    assert_instance_of SureImport, import
+    assert import.ndjson_file.attached?
+    assert_equal 1, import.rows_count
+  end
+
+  test "should clean up Sure import if row sync fails" do
+    ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
+    SureImport.any_instance.stubs(:sync_ndjson_rows_count!).raises(StandardError, "sync failed")
+
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: ndjson_content
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :internal_server_error
+    json_response = JSON.parse(response.body)
+    assert_equal "internal_server_error", json_response["error"]
+  end
+
+  test "should reject invalid Sure import NDJSON content" do
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: "not ndjson"
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_equal "invalid_ndjson", json_response["error"]
+  end
+
   test "should create import and auto-publish when configured and requested" do
     csv_content = "date,amount,name\n2023-01-01,-10.00,Test Transaction"
 

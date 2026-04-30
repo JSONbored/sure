@@ -50,6 +50,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
     # 1. Determine type and validate
     type = params[:type].to_s
     type = "TransactionImport" unless Import::TYPES.include?(type)
+    return create_sure_import(family) if type == "SureImport"
 
     # 2. Build the import object with permitted config attributes
     @import = family.imports.build(import_config_params.merge(type: type))
@@ -156,6 +157,114 @@ class Api::V1::ImportsController < Api::V1::BaseController
         :amount_type_strategy,
         :amount_type_inflow_value
       )
+    end
+
+    def create_sure_import(family)
+      content, filename, content_type = sure_import_upload_attributes
+      return unless content
+
+      @import = family.imports.create!(type: "SureImport")
+      @import.ndjson_file.attach(
+        io: StringIO.new(content),
+        filename: filename,
+        content_type: content_type
+      )
+      @import.sync_ndjson_rows_count!
+      @import.publish_later if @import.publishable? && params[:publish] == "true"
+
+      render :show, status: :created
+    rescue ActiveRecord::RecordInvalid
+      render json: {
+        error: "validation_failed",
+        message: "Import could not be created",
+        errors: @import&.errors&.full_messages || []
+      }, status: :unprocessable_entity
+    rescue StandardError => e
+      Rails.logger.error "Sure import creation failed: #{e.message}"
+      clean_up_failed_sure_import
+
+      render json: { error: "internal_server_error", message: e.message }, status: :internal_server_error
+    end
+
+    def clean_up_failed_sure_import
+      return unless @import
+
+      begin
+        @import.ndjson_file.purge if @import.ndjson_file.attached?
+      rescue StandardError => e
+        Rails.logger.warn "Failed to purge Sure import attachment #{@import.id}: #{e.message}"
+      ensure
+        @import.destroy if @import.persisted?
+      end
+    end
+
+    def sure_import_upload_attributes
+      if params[:file].present?
+        sure_import_file_upload_attributes(params[:file])
+      elsif params[:raw_file_content].present?
+        sure_import_raw_content_attributes(params[:raw_file_content].to_s)
+      else
+        render json: {
+          error: "missing_content",
+          message: "Provide a Sure NDJSON file or raw_file_content."
+        }, status: :unprocessable_entity
+        nil
+      end
+    end
+
+    def sure_import_file_upload_attributes(file)
+      if file.size > SureImport::MAX_NDJSON_SIZE
+        render json: {
+          error: "file_too_large",
+          message: "File is too large. Maximum size is #{SureImport::MAX_NDJSON_SIZE / 1.megabyte}MB."
+        }, status: :unprocessable_entity
+        return
+      end
+
+      extension = File.extname(file.original_filename.to_s).downcase
+      unless SureImport::ALLOWED_NDJSON_CONTENT_TYPES.include?(file.content_type) || extension.in?(%w[.ndjson .json])
+        render json: {
+          error: "invalid_file_type",
+          message: "Invalid file type. Please upload a Sure NDJSON file."
+        }, status: :unprocessable_entity
+        return
+      end
+
+      content = file.read
+      file.rewind
+      sure_import_validated_attributes(
+        content: content,
+        filename: file.original_filename.presence || "sure-import.ndjson",
+        content_type: file.content_type.presence || "application/x-ndjson"
+      )
+    end
+
+    def sure_import_raw_content_attributes(content)
+      if content.bytesize > SureImport::MAX_NDJSON_SIZE
+        render json: {
+          error: "content_too_large",
+          message: "Content is too large. Maximum size is #{SureImport::MAX_NDJSON_SIZE / 1.megabyte}MB."
+        }, status: :unprocessable_entity
+        return
+      end
+
+      sure_import_validated_attributes(
+        content: content,
+        filename: "sure-import.ndjson",
+        content_type: "application/x-ndjson"
+      )
+    end
+
+    def sure_import_validated_attributes(content:, filename:, content_type:)
+      unless SureImport.valid_ndjson_first_line?(content)
+        render json: {
+          error: "invalid_ndjson",
+          message: "Invalid Sure NDJSON content."
+        }, status: :unprocessable_entity
+        return
+      end
+
+      [ content, filename, content_type ]
     end
 
     def safe_page_param

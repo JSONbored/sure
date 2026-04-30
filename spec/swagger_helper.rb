@@ -524,7 +524,7 @@ RSpec.configure do |config|
             required: %w[id type status created_at updated_at],
             properties: {
               id: { type: :string, format: :uuid },
-              type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport] },
+              type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport SureImport] },
               status: { type: :string, enum: %w[pending complete importing reverting revert_failed failed] },
               created_at: { type: :string, format: :'date-time' },
               updated_at: { type: :string, format: :'date-time' },
@@ -538,7 +538,7 @@ RSpec.configure do |config|
             required: %w[id type status created_at updated_at],
             properties: {
               id: { type: :string, format: :uuid },
-              type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport] },
+              type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport SureImport] },
               status: { type: :string, enum: %w[pending complete importing reverting revert_failed failed] },
               created_at: { type: :string, format: :'date-time' },
               updated_at: { type: :string, format: :'date-time' },
