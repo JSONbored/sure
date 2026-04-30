@@ -35,6 +35,12 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     json_response = JSON.parse(response.body)
     assert_not_empty json_response["data"]
     assert_equal @family.imports.count, json_response["meta"]["total_count"]
+
+    import_data = json_response["data"].detect { |data| data["id"] == @import.id }
+    assert_not_nil import_data
+    assert_equal @import.uploaded?, import_data["status_detail"]["uploaded"]
+    assert_equal @import.configured?, import_data["status_detail"]["configured"]
+    assert_equal @import.complete? || @import.failed? || @import.revert_failed?, import_data["status_detail"]["terminal"]
   end
 
   test "should show import" do
@@ -42,8 +48,20 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     json_response = JSON.parse(response.body)
+    rows = @import.rows.to_a
+    valid_rows_count = rows.count(&:valid?)
+    invalid_rows_count = rows.length - valid_rows_count
+
     assert_equal @import.id, json_response["data"]["id"]
     assert_equal @import.status, json_response["data"]["status"]
+    assert json_response["data"].key?("status_detail")
+    assert_equal @import.uploaded?, json_response["data"]["status_detail"]["uploaded"]
+    assert_equal @import.configured?, json_response["data"]["status_detail"]["configured"]
+    assert_equal @import.rows_count, json_response["data"]["status_detail"]["rows_count"]
+    assert_equal valid_rows_count, json_response["data"]["status_detail"]["valid_rows_count"]
+    assert_equal invalid_rows_count, json_response["data"]["status_detail"]["invalid_rows_count"]
+    assert_equal valid_rows_count, json_response["data"]["stats"]["valid_rows_count"]
+    assert_equal invalid_rows_count, json_response["data"]["stats"]["invalid_rows_count"]
   end
 
   test "should create import with raw content" do

@@ -516,7 +516,25 @@ RSpec.configure do |config|
             type: :object,
             properties: {
               rows_count: { type: :integer, minimum: 0 },
-              valid_rows_count: { type: :integer, minimum: 0, nullable: true }
+              valid_rows_count: { type: :integer, minimum: 0, nullable: true },
+              invalid_rows_count: { type: :integer, minimum: 0, nullable: true }
+            }
+          },
+          ImportStatusDetail: {
+            type: :object,
+            required: %w[uploaded configured terminal rows_count],
+            properties: {
+              uploaded: { type: :boolean },
+              configured: { type: :boolean },
+              terminal: { type: :boolean },
+              rows_count: { type: :integer, minimum: 0 },
+              cleaned: { type: :boolean, nullable: true },
+              publishable: { type: :boolean, nullable: true },
+              revertable: { type: :boolean, nullable: true },
+              valid_rows_count: { type: :integer, minimum: 0, nullable: true },
+              invalid_rows_count: { type: :integer, minimum: 0, nullable: true },
+              mappings_count: { type: :integer, minimum: 0, nullable: true },
+              unassigned_mappings_count: { type: :integer, minimum: 0, nullable: true }
             }
           },
           ImportSummary: {
@@ -530,7 +548,8 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: :'date-time' },
               account_id: { type: :string, format: :uuid, nullable: true },
               rows_count: { type: :integer, minimum: 0 },
-              error: { type: :string, nullable: true }
+              error: { type: :string, nullable: true },
+              status_detail: { '$ref' => '#/components/schemas/ImportStatusDetail' }
             }
           },
           ImportDetail: {
@@ -544,6 +563,7 @@ RSpec.configure do |config|
               updated_at: { type: :string, format: :'date-time' },
               account_id: { type: :string, format: :uuid, nullable: true },
               error: { type: :string, nullable: true },
+              status_detail: { '$ref' => '#/components/schemas/ImportStatusDetail' },
               configuration: { '$ref' => '#/components/schemas/ImportConfiguration' },
               stats: { '$ref' => '#/components/schemas/ImportStats' }
             }

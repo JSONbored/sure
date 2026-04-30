@@ -1,3 +1,7 @@
+rows = @import.rows.to_a
+valid_rows_count = rows.count(&:valid?)
+invalid_rows_count = rows.length - valid_rows_count
+
 json.data do
   json.id @import.id
   json.type @import.type
@@ -6,6 +10,13 @@ json.data do
   json.updated_at @import.updated_at
   json.account_id @import.account_id
   json.error @import.error if @import.error.present?
+  json.status_detail do
+    json.partial! "status_detail",
+                  import: @import,
+                  include_validation_stats: true,
+                  valid_rows_count: valid_rows_count,
+                  invalid_rows_count: invalid_rows_count
+  end
 
   json.configuration do
     json.date_col_label @import.date_col_label
@@ -22,7 +33,8 @@ json.data do
 
   json.stats do
     json.rows_count @import.rows_count
-    json.valid_rows_count @import.rows.select(&:valid?).count if @import.rows.loaded?
+    json.valid_rows_count valid_rows_count
+    json.invalid_rows_count invalid_rows_count
   end
 
   # Only show a subset of rows for preview if needed, or link to a separate rows endpoint
