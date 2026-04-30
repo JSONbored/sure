@@ -112,6 +112,14 @@ class SureImport < Import
     cleaned? && dry_run.values.sum.positive?
   end
 
+  def cleaned_from_validation_stats?(invalid_rows_count:)
+    cleaned?
+  end
+
+  def publishable_from_validation_stats?(invalid_rows_count:)
+    publishable?
+  end
+
   def max_row_count
     100_000
   end

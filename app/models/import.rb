@@ -266,6 +266,14 @@ class Import < ApplicationRecord
     cleaned? && mappings.all?(&:valid?)
   end
 
+  def cleaned_from_validation_stats?(invalid_rows_count:)
+    configured? && invalid_rows_count.zero?
+  end
+
+  def publishable_from_validation_stats?(invalid_rows_count:)
+    cleaned_from_validation_stats?(invalid_rows_count: invalid_rows_count) && mappings.all?(&:valid?)
+  end
+
   def revertable?
     complete? || revert_failed?
   end

@@ -1,6 +1,8 @@
 rows = @import.rows.to_a
 valid_rows_count = rows.count(&:valid?)
 invalid_rows_count = rows.length - valid_rows_count
+cleaned = @import.cleaned_from_validation_stats?(invalid_rows_count: invalid_rows_count)
+publishable = @import.publishable_from_validation_stats?(invalid_rows_count: invalid_rows_count)
 
 json.data do
   json.id @import.id
@@ -15,7 +17,9 @@ json.data do
                   import: @import,
                   include_validation_stats: true,
                   valid_rows_count: valid_rows_count,
-                  invalid_rows_count: invalid_rows_count
+                  invalid_rows_count: invalid_rows_count,
+                  cleaned: cleaned,
+                  publishable: publishable
   end
 
   json.configuration do
