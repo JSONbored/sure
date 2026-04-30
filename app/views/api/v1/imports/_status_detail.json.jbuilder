@@ -1,5 +1,10 @@
-json.uploaded import.uploaded?
-json.configured import.configured?
+uploaded = local_assigns[:uploaded]
+uploaded = import.uploaded? if uploaded.nil?
+configured = local_assigns[:configured]
+configured = import.is_a?(SureImport) ? uploaded : import.configured? if configured.nil?
+
+json.uploaded uploaded
+json.configured configured
 json.terminal import.complete? || import.failed? || import.revert_failed?
 json.rows_count import.rows_count
 

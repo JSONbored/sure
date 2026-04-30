@@ -79,6 +79,17 @@ class SureImportTest < ActiveSupport::TestCase
     assert @import.publishable?
   end
 
+  test "status predicates honor validation stats" do
+    attach_ndjson(build_ndjson([
+      { type: "Account", data: { id: "uuid-1", name: "Test", balance: "1000", currency: "USD", accountable_type: "Depository" } }
+    ]))
+
+    assert @import.cleaned_from_validation_stats?(invalid_rows_count: 0)
+    assert @import.publishable_from_validation_stats?(invalid_rows_count: 0)
+    assert_not @import.cleaned_from_validation_stats?(invalid_rows_count: 1)
+    assert_not @import.publishable_from_validation_stats?(invalid_rows_count: 1)
+  end
+
   test "dry_run returns counts by type" do
     attach_ndjson(build_ndjson([
       { type: "Account", data: { id: "uuid-1" } },

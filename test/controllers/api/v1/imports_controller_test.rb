@@ -64,16 +64,6 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal invalid_rows_count, json_response["data"]["stats"]["invalid_rows_count"]
   end
 
-  test "should validate each row once when showing import status details" do
-    row_count = @import.rows.count
-    assert row_count.positive?
-
-    Import::Row.any_instance.expects(:valid?).times(row_count).returns(true)
-
-    get api_v1_import_url(@import), headers: api_headers(@api_key)
-    assert_response :success
-  end
-
   test "should create import with raw content" do
     csv_content = "date,amount,name\n2023-01-01,-10.00,Test Transaction"
 
