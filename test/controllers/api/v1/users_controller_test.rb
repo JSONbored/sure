@@ -76,6 +76,56 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_response :ok
     body = JSON.parse(response.body)
     assert_equal "Account reset has been initiated", body["message"]
+    assert_equal "queued", body["status"]
+    assert_equal @user.family.id, body["family_id"]
+    assert body["job_id"].present?
+    assert_equal "/api/v1/users/reset/status", body["status_url"]
+  end
+
+  test "reset returns controlled error when enqueue fails" do
+    FamilyResetJob.stub(:perform_later, ->(_family) { raise StandardError, "queue down" }) do
+      delete "/api/v1/users/reset", headers: api_headers(@api_key)
+    end
+
+    assert_response :internal_server_error
+    body = JSON.parse(response.body)
+    assert_equal "reset_enqueue_failed", body["error"]
+    assert_equal "Error: queue down", body["message"]
+  end
+
+  test "reset status requires authentication" do
+    get "/api/v1/users/reset/status"
+    assert_response :unauthorized
+  end
+
+  test "reset status requires admin role" do
+    non_admin_api_key = ApiKey.create!(
+      user: users(:family_member),
+      name: "Member Read Key",
+      scopes: [ "read_write" ],
+      display_key: "test_member_read_#{SecureRandom.hex(8)}"
+    )
+
+    get "/api/v1/users/reset/status", headers: api_headers(non_admin_api_key)
+
+    assert_response :forbidden
+  end
+
+  test "reset status returns family data counts" do
+    get "/api/v1/users/reset/status", headers: api_headers(@read_only_api_key)
+
+    assert_response :ok
+    body = JSON.parse(response.body)
+    assert_equal @user.family.id, body["family_id"]
+    assert_includes %w[complete data_remaining], body["status"]
+    assert_equal body["counts"].values.sum.zero?, body["reset_complete"]
+    assert body["counts"].key?("accounts")
+    assert body["counts"].key?("categories")
+    assert body["counts"].key?("tags")
+    assert body["counts"].key?("merchants")
+    assert body["counts"].key?("plaid_items")
+    assert body["counts"].key?("imports")
+    assert body["counts"].key?("budgets")
   end
 
   # -- Delete account --------------------------------------------------------

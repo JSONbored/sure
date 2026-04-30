@@ -727,6 +727,39 @@ RSpec.configure do |config|
             properties: {
               message: { type: :string }
             }
+          },
+          ResetInitiatedResponse: {
+            type: :object,
+            required: %w[message status job_id family_id status_url],
+            properties: {
+              message: { type: :string },
+              status: { type: :string, enum: %w[queued] },
+              job_id: { type: :string },
+              family_id: { type: :string, format: :uuid },
+              status_url: { type: :string }
+            }
+          },
+          ResetStatusResponse: {
+            type: :object,
+            required: %w[status family_id reset_complete counts],
+            properties: {
+              status: { type: :string, enum: %w[complete data_remaining] },
+              family_id: { type: :string, format: :uuid },
+              reset_complete: { type: :boolean },
+              counts: {
+                type: :object,
+                required: %w[accounts categories tags merchants plaid_items imports budgets],
+                properties: {
+                  accounts: { type: :integer, minimum: 0 },
+                  categories: { type: :integer, minimum: 0 },
+                  tags: { type: :integer, minimum: 0 },
+                  merchants: { type: :integer, minimum: 0 },
+                  plaid_items: { type: :integer, minimum: 0 },
+                  imports: { type: :integer, minimum: 0 },
+                  budgets: { type: :integer, minimum: 0 }
+                }
+              }
+            }
           }
         }
       }

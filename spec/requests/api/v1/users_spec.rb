@@ -47,18 +47,22 @@ RSpec.describe 'API V1 Users', type: :request do
       produces 'application/json'
 
       response '200', 'account reset initiated' do
-        schema '$ref' => '#/components/schemas/SuccessMessage'
+        schema '$ref' => '#/components/schemas/ResetInitiatedResponse'
 
         run_test!
       end
 
       response '401', 'unauthorized' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
         let(:'X-Api-Key') { 'invalid-key' }
 
         run_test!
       end
 
       response '403', 'forbidden - requires read_write scope and admin role' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
         let(:api_key) do
           key = ApiKey.generate_secure_key
           ApiKey.create!(
@@ -69,6 +73,38 @@ RSpec.describe 'API V1 Users', type: :request do
             source: 'web'
           )
         end
+
+        run_test!
+      end
+    end
+  end
+
+  path '/api/v1/users/reset/status' do
+    get 'Retrieve reset status' do
+      tags 'Users'
+      description 'Returns counts of family-owned data targeted by account reset. ' \
+                  'Use this after DELETE /api/v1/users/reset to decide whether reset materialization has completed.'
+      security [ { apiKeyAuth: [] } ]
+      produces 'application/json'
+
+      response '200', 'reset status returned' do
+        schema '$ref' => '#/components/schemas/ResetStatusResponse'
+
+        run_test!
+      end
+
+      response '401', 'unauthorized' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:'X-Api-Key') { 'invalid-key' }
+
+        run_test!
+      end
+
+      response '403', 'forbidden - requires admin role' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:role) { :member }
 
         run_test!
       end
@@ -114,6 +150,7 @@ RSpec.describe 'API V1 Users', type: :request do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
         before do
+          api_key
           allow_any_instance_of(User).to receive(:deactivate).and_return(false)
           allow_any_instance_of(User).to receive(:errors).and_return(
             double(full_messages: [ 'Cannot deactivate admin with other users' ])
