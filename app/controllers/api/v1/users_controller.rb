@@ -7,7 +7,17 @@ class Api::V1::UsersController < Api::V1::BaseController
 
   def reset
     family = current_resource_owner.family
-    job = FamilyResetJob.perform_later(family)
+    begin
+      job = FamilyResetJob.perform_later(family)
+    rescue => e
+      Rails.logger.error "Failed to enqueue FamilyResetJob for family #{family.id}: #{e.message}"
+
+      render json: {
+        error: "reset_enqueue_failed",
+        message: "Account reset could not be queued"
+      }, status: :internal_server_error
+      return
+    end
 
     render json: {
       message: "Account reset has been initiated",
@@ -16,13 +26,6 @@ class Api::V1::UsersController < Api::V1::BaseController
       family_id: family.id,
       status_url: api_v1_users_reset_status_path
     }
-  rescue => e
-    Rails.logger.error "Failed to enqueue FamilyResetJob for family #{family&.id}: #{e.message}"
-
-    render json: {
-      error: "reset_enqueue_failed",
-      message: "Account reset could not be queued"
-    }, status: :internal_server_error
   end
 
   def reset_status
