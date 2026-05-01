@@ -1,4 +1,5 @@
 require "test_helper"
+require "webauthn/fake_client"
 
 class MfaControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -64,6 +65,19 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", verify_mfa_path
   end
 
+  test "verify shows WebAuthn option when credentials are registered" do
+    @user.setup_mfa!
+    @user.enable_mfa!
+    register_webauthn_credential
+    sign_out
+
+    post sessions_path, params: { email: @user.email, password: user_password_test }
+    get verify_mfa_path
+
+    assert_response :success
+    assert_select "button", text: I18n.t("mfa.verify.webauthn_button")
+  end
+
   test "verify_code authenticates with valid TOTP" do
     @user.setup_mfa!
     @user.enable_mfa!
@@ -105,9 +119,70 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_not Session.exists?(user_id: @user.id)
   end
 
+  test "webauthn_options require a pending MFA session" do
+    post webauthn_options_mfa_path, as: :json
+
+    assert_response :unprocessable_entity
+  end
+
+  test "verify_webauthn authenticates with a registered credential" do
+    @user.setup_mfa!
+    @user.enable_mfa!
+    client = register_webauthn_credential
+    stored_credential = @user.webauthn_credentials.first
+    sign_out
+
+    post sessions_path, params: { email: @user.email, password: user_password_test }
+    post webauthn_options_mfa_path, as: :json
+    assert_response :success
+
+    options = JSON.parse(response.body)
+    assertion = client.get(
+      challenge: options.fetch("challenge"),
+      rp_id: "www.example.com",
+      allow_credentials: [ stored_credential.credential_id ]
+    )
+
+    post verify_webauthn_mfa_path, params: { credential: assertion }, as: :json
+
+    assert_response :success
+    assert_equal root_path, JSON.parse(response.body).fetch("redirect_url")
+    assert Session.exists?(user_id: @user.id)
+    assert stored_credential.reload.last_used_at.present?
+    assert_operator stored_credential.sign_count, :>, 0
+  end
+
+  test "verify_webauthn rejects invalid credentials" do
+    @user.setup_mfa!
+    @user.enable_mfa!
+    client = register_webauthn_credential
+    stored_credential = @user.webauthn_credentials.first
+    sign_out
+
+    post sessions_path, params: { email: @user.email, password: user_password_test }
+    post webauthn_options_mfa_path, as: :json
+    options = JSON.parse(response.body)
+    assertion = client.get(
+      challenge: options.fetch("challenge"),
+      rp_id: "www.example.com",
+      allow_credentials: [ stored_credential.credential_id ]
+    )
+    assertion["id"] = "invalid"
+
+    post verify_webauthn_mfa_path, params: { credential: assertion }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_not Session.exists?(user_id: @user.id)
+  end
+
   test "disable removes MFA" do
     @user.setup_mfa!
     @user.enable_mfa!
+    @user.webauthn_credentials.create!(
+      nickname: "YubiKey",
+      credential_id: "disable-mfa-credential",
+      public_key: "public-key"
+    )
 
     delete disable_mfa_path
 
@@ -115,5 +190,22 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_not @user.reload.otp_required?
     assert_nil @user.otp_secret
     assert_empty @user.otp_backup_codes
+    assert_empty @user.webauthn_credentials
   end
+
+  private
+    def register_webauthn_credential
+      client = WebAuthn::FakeClient.new("http://www.example.com")
+
+      post options_settings_webauthn_credentials_path, as: :json
+      options = JSON.parse(response.body)
+      credential = client.create(challenge: options.fetch("challenge"), rp_id: "www.example.com")
+      post settings_webauthn_credentials_path, params: {
+        webauthn_credential: { nickname: "MacBook Touch ID" },
+        credential: credential
+      }, as: :json
+      assert_response :success
+
+      client
+    end
 end
