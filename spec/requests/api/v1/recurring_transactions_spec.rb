@@ -100,6 +100,14 @@ RSpec.describe 'API V1 Recurring Transactions', type: :request do
 
         run_test!
       end
+
+      response '422', 'validation error - malformed account filter' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:account_id) { 'not-a-uuid' }
+
+        run_test!
+      end
     end
 
     post 'Create recurring transaction' do
@@ -109,7 +117,6 @@ RSpec.describe 'API V1 Recurring Transactions', type: :request do
       produces 'application/json'
       parameter name: :body, in: :body, required: true, schema: {
         type: :object,
-        required: %w[recurring_transaction],
         properties: {
           recurring_transaction: {
             type: :object,
@@ -207,6 +214,48 @@ RSpec.describe 'API V1 Recurring Transactions', type: :request do
               expected_day_of_month: 1,
               last_occurrence_date: '2026-04-01',
               next_expected_date: '2026-05-01'
+            }
+          }
+        end
+
+        run_test!
+      end
+
+      response '422', 'validation error - nil status' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:body) do
+          {
+            recurring_transaction: {
+              account_id: account.id,
+              name: 'Gym Membership',
+              amount: 49.99,
+              currency: 'USD',
+              expected_day_of_month: 1,
+              last_occurrence_date: '2026-04-01',
+              next_expected_date: '2026-05-01',
+              status: nil
+            }
+          }
+        end
+
+        run_test!
+      end
+
+      response '422', 'validation error - negative occurrence count' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:body) do
+          {
+            recurring_transaction: {
+              account_id: account.id,
+              name: 'Gym Membership',
+              amount: 49.99,
+              currency: 'USD',
+              expected_day_of_month: 1,
+              last_occurrence_date: '2026-04-01',
+              next_expected_date: '2026-05-01',
+              occurrence_count: -1
             }
           }
         end

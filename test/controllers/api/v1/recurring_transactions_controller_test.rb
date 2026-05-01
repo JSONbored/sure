@@ -60,6 +60,10 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     assert_response :success
     response_data = JSON.parse(response.body)
     assert_equal @recurring_transaction.id, response_data["id"]
+    assert_equal 1999, response_data["amount_cents"]
+    assert response_data.key?("expected_amount_min_cents")
+    assert response_data.key?("expected_amount_max_cents")
+    assert response_data.key?("expected_amount_avg_cents")
     assert_equal @account.id, response_data["account"]["id"]
     assert_equal @merchant.id, response_data["merchant"]["id"]
   end
@@ -94,17 +98,23 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
           params: { recurring_transaction: { status: "inactive" } },
           headers: api_headers(member_api_key)
     assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
 
     assert_no_difference("@family.recurring_transactions.count") do
       delete api_v1_recurring_transaction_url(recurring_transaction), headers: api_headers(member_api_key)
     end
     assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
   end
 
   test "should return not found for missing recurring transaction" do
     get api_v1_recurring_transaction_url(SecureRandom.uuid), headers: api_headers(@api_key)
 
     assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
   end
 
   test "should return not found for malformed recurring transaction id" do
@@ -112,17 +122,17 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
 
     assert_response :not_found
     response_data = JSON.parse(response.body)
-    assert_equal "not_found", response_data["error"]
+    assert_equal "record_not_found", response_data["error"]
   end
 
-  test "should return empty list for malformed account filter" do
+  test "should reject malformed account filter" do
     get api_v1_recurring_transactions_url,
         params: { account_id: "not-a-uuid" },
         headers: api_headers(@api_key)
 
-    assert_response :success
+    assert_response :unprocessable_entity
     response_data = JSON.parse(response.body)
-    assert_equal [], response_data["recurring_transactions"]
+    assert_equal "validation_failed", response_data["error"]
   end
 
   test "should require authentication when showing recurring transaction" do
@@ -141,6 +151,7 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     assert_response :created
     response_data = JSON.parse(response.body)
     assert_equal "Gym Membership", response_data["name"]
+    assert_equal 4999, response_data["amount_cents"]
     assert_equal true, response_data["manual"]
   end
 
@@ -197,8 +208,7 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
 
     assert_response :not_found
     response_data = JSON.parse(response.body)
-    assert_equal "not_found", response_data["error"]
-    assert_equal "Account not found", response_data["message"]
+    assert_equal "record_not_found", response_data["error"]
   end
 
   test "should reject create with malformed merchant id" do
@@ -214,8 +224,7 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
 
     assert_response :not_found
     response_data = JSON.parse(response.body)
-    assert_equal "not_found", response_data["error"]
-    assert_equal "Merchant not found", response_data["message"]
+    assert_equal "record_not_found", response_data["error"]
   end
 
   test "should reject create without name or merchant" do
@@ -247,6 +256,38 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     assert_equal "validation_failed", response_data["error"]
     assert_includes response_data["errors"], "Last occurrence date can't be blank"
     assert_includes response_data["errors"], "Next expected date can't be blank"
+  end
+
+  test "should reject create with nil status" do
+    params = valid_recurring_transaction_params.deep_dup
+    params[:recurring_transaction][:status] = nil
+
+    assert_no_difference("@family.recurring_transactions.count") do
+      post api_v1_recurring_transactions_url,
+           params: params,
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "Status can't be blank"
+  end
+
+  test "should reject create with negative occurrence count" do
+    params = valid_recurring_transaction_params.deep_dup
+    params[:recurring_transaction][:occurrence_count] = -1
+
+    assert_no_difference("@family.recurring_transactions.count") do
+      post api_v1_recurring_transactions_url,
+           params: params,
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "Occurrence count must be greater than or equal to 0"
   end
 
   test "should return conflict when creating duplicate recurring transaction" do
@@ -320,6 +361,28 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     assert_equal "validation_failed", response_data["error"]
   end
 
+  test "should reject update with nil status" do
+    patch api_v1_recurring_transaction_url(@recurring_transaction),
+          params: { recurring_transaction: { status: nil } },
+          headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "Status can't be blank"
+  end
+
+  test "should reject update with nil next expected date" do
+    patch api_v1_recurring_transaction_url(@recurring_transaction),
+          params: { recurring_transaction: { next_expected_date: nil } },
+          headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "Next expected date can't be blank"
+  end
+
   test "should ignore internal fields on update" do
     patch api_v1_recurring_transaction_url(@recurring_transaction),
           params: {
@@ -346,6 +409,8 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
           headers: api_headers(@api_key)
 
     assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
   end
 
   test "should reject invalid recurring transaction update" do
@@ -382,6 +447,8 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     delete api_v1_recurring_transaction_url(SecureRandom.uuid), headers: api_headers(@api_key)
 
     assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
   end
 
   test "should not create recurring transaction for another family account" do
@@ -410,6 +477,8 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
          headers: api_headers(@api_key)
 
     assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
   end
 
   private

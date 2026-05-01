@@ -7,11 +7,14 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
   before_action :ensure_read_scope, only: %i[index show]
   before_action :ensure_write_scope, only: %i[create update destroy]
-  before_action :set_recurring_transaction, only: %i[show update destroy]
+  before_action :set_readable_recurring_transaction, only: :show
+  before_action :set_writable_recurring_transaction, only: %i[update destroy]
 
   def index
-    recurring_transactions_query = current_resource_owner.family.recurring_transactions
-      .accessible_by(current_resource_owner)
+    return render_invalid_account_filter if params[:account_id].present? && !valid_uuid?(params[:account_id])
+
+    @per_page = safe_per_page_param
+    recurring_transactions_query = read_recurring_transactions_scope
       .includes(:account, :merchant)
       .order(status: :asc, next_expected_date: :asc)
 
@@ -20,9 +23,8 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
     @pagy, @recurring_transactions = pagy(
       recurring_transactions_query,
       page: safe_page_param,
-      limit: safe_per_page_param
+      limit: @per_page
     )
-    @per_page = safe_per_page_param
 
     render :index
   rescue => e
@@ -49,10 +51,11 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
   def create
     @recurring_transaction = current_resource_owner.family.recurring_transactions.new(
-      recurring_transaction_attributes(default_manual: true)
+      recurring_transaction_create_attributes
     )
+    validate_create_write_params(@recurring_transaction)
 
-    if @recurring_transaction.save
+    if @recurring_transaction.errors.empty? && @recurring_transaction.save
       render :show, status: :created
     else
       render json: {
@@ -61,11 +64,8 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
         errors: @recurring_transaction.errors.full_messages
       }, status: :unprocessable_entity
     end
-  rescue ActiveRecord::RecordNotFound => e
-    render json: {
-      error: "not_found",
-      message: e.message
-    }, status: :not_found
+  rescue ActiveRecord::RecordNotFound
+    raise
   rescue ActionController::ParameterMissing, ArgumentError => e
     render json: {
       error: "validation_failed",
@@ -87,7 +87,10 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
   end
 
   def update
-    if @recurring_transaction.update(recurring_transaction_attributes)
+    @recurring_transaction.assign_attributes(recurring_transaction_update_attributes)
+    validate_update_write_params(@recurring_transaction)
+
+    if @recurring_transaction.errors.empty? && @recurring_transaction.save
       render :show
     else
       render json: {
@@ -96,11 +99,8 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
         errors: @recurring_transaction.errors.full_messages
       }, status: :unprocessable_entity
     end
-  rescue ActiveRecord::RecordNotFound => e
-    render json: {
-      error: "not_found",
-      message: e.message
-    }, status: :not_found
+  rescue ActiveRecord::RecordNotFound
+    raise
   rescue ActionController::ParameterMissing, ArgumentError => e
     render json: {
       error: "validation_failed",
@@ -125,6 +125,8 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
     @recurring_transaction.destroy!
 
     render json: { message: "Recurring transaction deleted successfully" }, status: :ok
+  rescue ActiveRecord::RecordNotFound
+    raise
   rescue => e
     Rails.logger.error "RecurringTransactionsController#destroy error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
@@ -136,23 +138,18 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
   end
 
   private
-    def set_recurring_transaction
-      unless valid_uuid?(params[:id])
-        render json: {
-          error: "not_found",
-          message: "Recurring transaction not found"
-        }, status: :not_found
-        return
-      end
+    def set_readable_recurring_transaction
+      @recurring_transaction = find_recurring_transaction(read_recurring_transactions_scope)
+    end
 
-      @recurring_transaction = recurring_transaction_scope_for_action
-        .includes(:account, :merchant)
-        .find(params[:id])
-    rescue ActiveRecord::RecordNotFound
-      render json: {
-        error: "not_found",
-        message: "Recurring transaction not found"
-      }, status: :not_found
+    def set_writable_recurring_transaction
+      @recurring_transaction = find_recurring_transaction(write_recurring_transactions_scope)
+    end
+
+    def find_recurring_transaction(scope)
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
+
+      scope.includes(:account, :merchant).find(params[:id])
     end
 
     def ensure_read_scope
@@ -163,10 +160,12 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       authorize_scope!(:write)
     end
 
-    def recurring_transaction_scope_for_action
-      scope = current_resource_owner.family.recurring_transactions
-      return scope.accessible_by(current_resource_owner) unless action_name.in?(%w[update destroy])
+    def read_recurring_transactions_scope
+      current_resource_owner.family.recurring_transactions.accessible_by(current_resource_owner)
+    end
 
+    def write_recurring_transactions_scope
+      scope = current_resource_owner.family.recurring_transactions
       writable_account_ids = current_resource_owner.family.accounts.writable_by(current_resource_owner).select(:id)
       scope.where(account_id: writable_account_ids).or(scope.where(account_id: nil))
     end
@@ -181,17 +180,19 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       query
     end
 
-    def recurring_transaction_attributes(default_manual: false)
-      attrs = permitted_recurring_transaction_params.to_h.symbolize_keys
-      attrs[:manual] = true if default_manual && attrs[:manual].nil?
-      input = params.require(:recurring_transaction)
+    def recurring_transaction_create_attributes
+      attrs = recurring_transaction_create_params.to_h.symbolize_keys
+      attrs[:manual] = true if attrs[:manual].nil?
+      input = recurring_transaction_input
 
-      if action_name == "create"
-        attrs[:account] = writable_account(input[:account_id]) if input.key?(:account_id)
-        attrs[:merchant] = family_merchant(input[:merchant_id]) if input.key?(:merchant_id)
-      end
+      attrs[:account] = writable_account(input[:account_id]) if input.key?(:account_id)
+      attrs[:merchant] = family_merchant(input[:merchant_id]) if input.key?(:merchant_id)
 
       attrs
+    end
+
+    def recurring_transaction_update_attributes
+      recurring_transaction_update_params.to_h.symbolize_keys
     end
 
     def writable_account(account_id)
@@ -214,8 +215,28 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
       value.to_s.match?(UUID_REGEX)
     end
 
-    def permitted_recurring_transaction_params
-      action_name == "update" ? recurring_transaction_update_params : recurring_transaction_create_params
+    def validate_create_write_params(recurring_transaction)
+      input = recurring_transaction_input
+      recurring_transaction.errors.add(:last_occurrence_date, :blank) if input[:last_occurrence_date].blank?
+      recurring_transaction.errors.add(:next_expected_date, :blank) if input[:next_expected_date].blank?
+    end
+
+    def validate_update_write_params(recurring_transaction)
+      input = recurring_transaction_input
+      if input.key?(:next_expected_date) && input[:next_expected_date].blank?
+        recurring_transaction.errors.add(:next_expected_date, :blank)
+      end
+    end
+
+    def recurring_transaction_input
+      params.require(:recurring_transaction)
+    end
+
+    def render_invalid_account_filter
+      render json: {
+        error: "validation_failed",
+        message: "account_id must be a valid UUID"
+      }, status: :unprocessable_entity
     end
 
     def recurring_transaction_create_params
