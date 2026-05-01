@@ -38,7 +38,11 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert @user.reload.otp_required?
     assert_equal 8, @user.otp_backup_codes.length
+    assert @user.otp_backup_codes.all? { |code| code.start_with?("$2") }
     assert_select "div.grid-cols-2" # Check for backup codes grid
+    rendered_codes = css_select("div.grid-cols-2 div").map { |node| node.text.strip }
+    assert_equal 8, rendered_codes.length
+    assert_empty rendered_codes & @user.otp_backup_codes
   end
 
   test "does not enable MFA with invalid code" do
@@ -80,11 +84,10 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
 
   test "verify_code authenticates with valid backup code" do
     @user.setup_mfa!
-    @user.enable_mfa!
+    backup_code = @user.enable_mfa!.first
     sign_out
 
     post sessions_path, params: { email: @user.email, password: user_password_test }
-    backup_code = @user.otp_backup_codes.first
 
     post verify_mfa_path, params: { code: backup_code }
 

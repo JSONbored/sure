@@ -91,11 +91,15 @@ class UserTest < ActiveSupport::TestCase
   test "enable_mfa! enables MFA and generates backup codes" do
     user = users(:family_member)
     user.setup_mfa!
-    user.enable_mfa!
+    backup_codes = user.enable_mfa!
 
     assert user.otp_required?
+    assert user.otp_backup_codes_generated_at.present?
+    assert_equal 8, backup_codes.length
+    assert backup_codes.all? { |code| code.length == 8 }
     assert_equal 8, user.otp_backup_codes.length
-    assert user.otp_backup_codes.all? { |code| code.length == 8 }
+    assert user.otp_backup_codes.all? { |code| code.start_with?("$2") }
+    assert_empty backup_codes & user.otp_backup_codes
   end
 
   test "disable_mfa! removes all MFA data" do
@@ -107,6 +111,7 @@ class UserTest < ActiveSupport::TestCase
     assert_nil user.otp_secret
     assert_not user.otp_required?
     assert_empty user.otp_backup_codes
+    assert_nil user.otp_backup_codes_generated_at
   end
 
   test "verify_otp? validates TOTP codes" do
@@ -124,9 +129,9 @@ class UserTest < ActiveSupport::TestCase
   test "verify_otp? accepts backup codes" do
     user = users(:family_member)
     user.setup_mfa!
-    user.enable_mfa!
+    backup_codes = user.enable_mfa!
 
-    backup_code = user.otp_backup_codes.first
+    backup_code = backup_codes.first
     assert user.verify_otp?(backup_code)
 
     # Backup code should be consumed
@@ -135,6 +140,17 @@ class UserTest < ActiveSupport::TestCase
 
     # Used backup code should not work again
     assert_not user.verify_otp?(backup_code)
+  end
+
+  test "verify_otp? accepts and consumes legacy plaintext backup codes once" do
+    user = users(:family_member)
+    user.setup_mfa!
+    user.update!(otp_required: true, otp_backup_codes: [ "legacy123" ])
+
+    assert user.verify_otp?("legacy123")
+
+    assert_empty user.reload.otp_backup_codes
+    assert_not user.verify_otp?("legacy123")
   end
 
   test "provisioning_uri generates correct URI" do

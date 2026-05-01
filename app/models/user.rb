@@ -9,9 +9,6 @@ class User < ApplicationRecord
   if encryption_ready?
     # MFA secrets
     encrypts :otp_secret, deterministic: true
-    # Note: otp_backup_codes is a PostgreSQL array column which doesn't support
-    # AR encryption. To encrypt it, a migration would be needed to change the
-    # column type from array to text/jsonb.
 
     # PII - emails (deterministic for lookups, downcase for case-insensitive)
     encrypts :email, deterministic: true, downcase: true
@@ -38,6 +35,8 @@ class User < ApplicationRecord
   has_many :account_shares, dependent: :destroy
   has_many :shared_accounts, through: :account_shares, source: :account
   accepts_nested_attributes_for :family, update_only: true
+
+  MFA_BACKUP_CODE_COUNT = 8
 
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validate :ensure_valid_profile_image
@@ -215,22 +214,29 @@ class User < ApplicationRecord
     update!(
       otp_secret: ROTP::Base32.random(32),
       otp_required: false,
-      otp_backup_codes: []
+      otp_backup_codes: [],
+      otp_backup_codes_generated_at: nil
     )
   end
 
   def enable_mfa!
+    backup_codes = generate_backup_codes
+
     update!(
       otp_required: true,
-      otp_backup_codes: generate_backup_codes
+      otp_backup_codes: backup_codes.map { |code| digest_backup_code(code) },
+      otp_backup_codes_generated_at: Time.current
     )
+
+    backup_codes
   end
 
   def disable_mfa!
     update!(
       otp_secret: nil,
       otp_required: false,
-      otp_backup_codes: []
+      otp_backup_codes: [],
+      otp_backup_codes_generated_at: nil
     )
   end
 
@@ -447,20 +453,50 @@ class User < ApplicationRecord
     end
 
     def verify_backup_code?(code)
+      normalized_code = normalize_backup_code(code)
+      return false if normalized_code.blank?
       return false if otp_backup_codes.blank?
 
-      # Find and remove the used backup code
-      if (index = otp_backup_codes.index(code))
-        remaining_codes = otp_backup_codes.dup
-        remaining_codes.delete_at(index)
-        update!(otp_backup_codes: remaining_codes)
-        true
-      else
-        false
+      matching_index = otp_backup_codes.index do |stored_code|
+        backup_code_matches?(stored_code, normalized_code)
       end
+      return false unless matching_index
+
+      remaining_codes = otp_backup_codes.dup
+      remaining_codes.delete_at(matching_index)
+      update!(otp_backup_codes: remaining_codes)
+      true
     end
 
     def generate_backup_codes
-      8.times.map { SecureRandom.hex(4) }
+      MFA_BACKUP_CODE_COUNT.times.map { SecureRandom.hex(4) }
+    end
+
+    def digest_backup_code(code)
+      BCrypt::Password.create(normalize_backup_code(code), cost: backup_code_digest_cost).to_s
+    end
+
+    def backup_code_matches?(stored_code, normalized_code)
+      if backup_code_digest?(stored_code)
+        BCrypt::Password.new(stored_code).is_password?(normalized_code)
+      else
+        # One-time compatibility for plaintext codes generated before backup
+        # code hashing. A matching legacy code is consumed immediately.
+        ActiveSupport::SecurityUtils.secure_compare(stored_code.to_s, normalized_code)
+      end
+    rescue BCrypt::Errors::InvalidHash
+      false
+    end
+
+    def backup_code_digest?(stored_code)
+      stored_code.to_s.start_with?("$2a$", "$2b$", "$2y$")
+    end
+
+    def normalize_backup_code(code)
+      code.to_s.strip.downcase
+    end
+
+    def backup_code_digest_cost
+      ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
     end
 end
