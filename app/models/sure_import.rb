@@ -113,7 +113,7 @@ class SureImport < Import
   end
 
   def cleaned_from_validation_stats?(invalid_rows_count:)
-    cleaned? && invalid_rows_count.zero?
+    configured? && invalid_rows_count.zero?
   end
 
   def publishable_from_validation_stats?(invalid_rows_count:)

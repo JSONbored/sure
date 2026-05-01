@@ -57,11 +57,17 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert json_response["data"].key?("status_detail")
     assert_equal @import.uploaded?, json_response["data"]["status_detail"]["uploaded"]
     assert_equal @import.configured?, json_response["data"]["status_detail"]["configured"]
-    assert_equal @import.rows_count, json_response["data"]["status_detail"]["rows_count"]
-    assert_equal valid_rows_count, json_response["data"]["status_detail"]["valid_rows_count"]
-    assert_equal invalid_rows_count, json_response["data"]["status_detail"]["invalid_rows_count"]
+    assert_equal @import.cleaned_from_validation_stats?(invalid_rows_count: invalid_rows_count),
+                 json_response["data"]["status_detail"]["cleaned"]
+    assert_equal @import.publishable_from_validation_stats?(invalid_rows_count: invalid_rows_count),
+                 json_response["data"]["status_detail"]["publishable"]
+    assert_equal @import.revertable?, json_response["data"]["status_detail"]["revertable"]
+    assert_equal @import.rows_count, json_response["data"]["stats"]["rows_count"]
     assert_equal valid_rows_count, json_response["data"]["stats"]["valid_rows_count"]
     assert_equal invalid_rows_count, json_response["data"]["stats"]["invalid_rows_count"]
+    assert_equal @import.mappings.count, json_response["data"]["stats"]["mappings_count"]
+    assert_equal @import.mappings.where(mappable_id: nil).count,
+                 json_response["data"]["stats"]["unassigned_mappings_count"]
   end
 
   test "should create import with raw content" do

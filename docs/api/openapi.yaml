@@ -859,6 +859,12 @@ components:
           nullable: true
     ImportStats:
       type: object
+      required:
+      - rows_count
+      - valid_rows_count
+      - invalid_rows_count
+      - mappings_count
+      - unassigned_mappings_count
       properties:
         rows_count:
           type: integer
@@ -866,18 +872,21 @@ components:
         valid_rows_count:
           type: integer
           minimum: 0
-          nullable: true
         invalid_rows_count:
           type: integer
           minimum: 0
-          nullable: true
+        mappings_count:
+          type: integer
+          minimum: 0
+        unassigned_mappings_count:
+          type: integer
+          minimum: 0
     ImportStatusSummary:
       type: object
       required:
       - uploaded
       - configured
       - terminal
-      - rows_count
       properties:
         uploaded:
           type: boolean
@@ -885,9 +894,6 @@ components:
           type: boolean
         terminal:
           type: boolean
-        rows_count:
-          type: integer
-          minimum: 0
     ImportStatusDetail:
       allOf:
       - "$ref": "#/components/schemas/ImportStatusSummary"
@@ -896,10 +902,6 @@ components:
         - cleaned
         - publishable
         - revertable
-        - valid_rows_count
-        - invalid_rows_count
-        - mappings_count
-        - unassigned_mappings_count
         properties:
           cleaned:
             type: boolean
@@ -907,18 +909,6 @@ components:
             type: boolean
           revertable:
             type: boolean
-          valid_rows_count:
-            type: integer
-            minimum: 0
-          invalid_rows_count:
-            type: integer
-            minimum: 0
-          mappings_count:
-            type: integer
-            minimum: 0
-          unassigned_mappings_count:
-            type: integer
-            minimum: 0
     ImportSummary:
       type: object
       required:

@@ -514,20 +514,22 @@ RSpec.configure do |config|
           },
           ImportStats: {
             type: :object,
+            required: %w[rows_count valid_rows_count invalid_rows_count mappings_count unassigned_mappings_count],
             properties: {
               rows_count: { type: :integer, minimum: 0 },
-              valid_rows_count: { type: :integer, minimum: 0, nullable: true },
-              invalid_rows_count: { type: :integer, minimum: 0, nullable: true }
+              valid_rows_count: { type: :integer, minimum: 0 },
+              invalid_rows_count: { type: :integer, minimum: 0 },
+              mappings_count: { type: :integer, minimum: 0 },
+              unassigned_mappings_count: { type: :integer, minimum: 0 }
             }
           },
           ImportStatusSummary: {
             type: :object,
-            required: %w[uploaded configured terminal rows_count],
+            required: %w[uploaded configured terminal],
             properties: {
               uploaded: { type: :boolean },
               configured: { type: :boolean },
-              terminal: { type: :boolean },
-              rows_count: { type: :integer, minimum: 0 }
+              terminal: { type: :boolean }
             }
           },
           ImportStatusDetail: {
@@ -535,15 +537,11 @@ RSpec.configure do |config|
               { '$ref' => '#/components/schemas/ImportStatusSummary' },
               {
                 type: :object,
-                required: %w[cleaned publishable revertable valid_rows_count invalid_rows_count mappings_count unassigned_mappings_count],
+                required: %w[cleaned publishable revertable],
                 properties: {
                   cleaned: { type: :boolean },
                   publishable: { type: :boolean },
-                  revertable: { type: :boolean },
-                  valid_rows_count: { type: :integer, minimum: 0 },
-                  invalid_rows_count: { type: :integer, minimum: 0 },
-                  mappings_count: { type: :integer, minimum: 0 },
-                  unassigned_mappings_count: { type: :integer, minimum: 0 }
+                  revertable: { type: :boolean }
                 }
               }
             ]

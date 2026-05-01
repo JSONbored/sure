@@ -3,6 +3,7 @@ valid_rows_count = rows.count(&:valid?)
 invalid_rows_count = rows.length - valid_rows_count
 cleaned = @import.cleaned_from_validation_stats?(invalid_rows_count: invalid_rows_count)
 publishable = @import.publishable_from_validation_stats?(invalid_rows_count: invalid_rows_count)
+mapping_counts = @import.mapping_status_counts
 
 json.data do
   json.id @import.id
@@ -39,6 +40,8 @@ json.data do
     json.rows_count @import.rows_count
     json.valid_rows_count valid_rows_count
     json.invalid_rows_count invalid_rows_count
+    json.mappings_count mapping_counts[:mappings_count]
+    json.unassigned_mappings_count mapping_counts[:unassigned_mappings_count]
   end
 
   # Only show a subset of rows for preview if needed, or link to a separate rows endpoint
