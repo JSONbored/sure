@@ -61,6 +61,16 @@ components:
           nullable: true
           description: Validation error messages (alternative to details used by trades,
             valuations, etc.)
+    MfaRequiredResponse:
+      type: object
+      required:
+      - error
+      - mfa_required
+      properties:
+        error:
+          type: string
+        mfa_required:
+          type: boolean
     ToolCall:
       type: object
       required:
@@ -230,15 +240,24 @@ components:
           type: string
         account_type:
           type: string
+          nullable: true
+        status:
+          type: string
     AccountDetail:
       type: object
       required:
       - id
       - name
       - balance
+      - balance_cents
+      - cash_balance
+      - cash_balance_cents
       - currency
       - classification
       - account_type
+      - status
+      - created_at
+      - updated_at
       properties:
         id:
           type: string
@@ -247,12 +266,43 @@ components:
           type: string
         balance:
           type: string
+        balance_cents:
+          type: integer
+          description: Signed balance in minor currency units
+        cash_balance:
+          type: string
+        cash_balance_cents:
+          type: integer
+          description: Signed cash balance in minor currency units
         currency:
           type: string
         classification:
           type: string
         account_type:
           type: string
+          nullable: true
+        subtype:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - active
+          - draft
+          - disabled
+          - pending_deletion
+        institution_name:
+          type: string
+          nullable: true
+        institution_domain:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     AccountCollection:
       type: object
       required:
@@ -939,10 +989,66 @@ paths:
       responses:
         '200':
           description: accounts paginated
+      - name: include_disabled
+        in: query
+        required: false
+        description: Include disabled accounts in the response. Defaults to false.
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: accounts paginated
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/AccountCollection"
+  "/api/v1/accounts/{id}":
+    parameters:
+    - name: id
+      in: path
+      required: true
+      description: Account ID
+      schema:
+        type: string
+        format: uuid
+    get:
+      summary: Retrieve an account
+      tags:
+      - Accounts
+      security:
+      - apiKeyAuth: []
+      parameters:
+      - name: include_disabled
+        in: query
+        required: false
+        description: Allow retrieving a disabled account. Defaults to false.
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: account retrieved
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AccountDetail"
+        '401':
+          description: unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: insufficient scope
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '404':
+          description: account not found
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
   "/api/v1/auth/signup":
     post:
       summary: Sign up a new user
@@ -1317,7 +1423,9 @@ paths:
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/ErrorResponse"
+                oneOf:
+                - "$ref": "#/components/schemas/ErrorResponse"
+                - "$ref": "#/components/schemas/MfaRequiredResponse"
       requestBody:
         content:
           application/json:
@@ -1499,6 +1607,10 @@ paths:
                 "$ref": "#/components/schemas/BalanceSheet"
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
   "/api/v1/categories":
     get:
       summary: List categories
