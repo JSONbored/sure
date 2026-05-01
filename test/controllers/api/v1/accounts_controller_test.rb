@@ -13,6 +13,7 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
       user: @user,
       name: "Test Read Key",
       scopes: [ "read" ],
+      source: "web",
       display_key: "test_read_#{SecureRandom.hex(8)}"
     )
 
@@ -21,6 +22,7 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
       user: @other_family_user,
       name: "Other Family Read Key",
       scopes: [ "read" ],
+      source: "web",
       display_key: "other_family_read_#{SecureRandom.hex(8)}"
     )
   end
@@ -38,8 +40,11 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
       user: @user,
       name: "No Read Key",
       scopes: [],
+      source: "web",
       display_key: "no_read_#{SecureRandom.hex(8)}"
     )
+    # Valid persisted API keys can only be read/read_write; this intentionally
+    # bypasses validations to exercise the runtime insufficient-scope guard.
     api_key_without_read.save!(validate: false)
 
     get "/api/v1/accounts", params: {}, headers: api_headers(api_key_without_read)
@@ -114,8 +119,17 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
     response_body = JSON.parse(response.body)
     assert_equal account.id, response_body["id"]
     assert_equal account.status, response_body["status"]
-    assert response_body.key?("cash_balance")
-    assert response_body.key?("subtype")
+    assert_equal account.balance_money.format, response_body["balance"]
+    assert_equal money_cents(account.balance_money), response_body["balance_cents"]
+    assert_equal account.cash_balance_money.format, response_body["cash_balance"]
+    assert_equal money_cents(account.cash_balance_money), response_body["cash_balance_cents"]
+    assert_nullable_equal account.subtype, response_body["subtype"]
+    assert response_body.key?("institution_name")
+    assert response_body.key?("institution_domain")
+    assert_nullable_equal account.institution_name, response_body["institution_name"]
+    assert_nullable_equal account.institution_domain, response_body["institution_domain"]
+    assert_equal account.created_at.iso8601, response_body["created_at"]
+    assert_equal account.updated_at.iso8601, response_body["updated_at"]
   end
 
   test "should return 404 for unknown account on show" do
@@ -145,6 +159,28 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "unauthorized", response_body["error"]
   end
 
+  test "should require read scope on show" do
+    account = accounts(:depository)
+    api_key_without_read = ApiKey.new(
+      user: @user,
+      name: "No Read Show Key",
+      scopes: [],
+      source: "web",
+      display_key: "no_read_show_#{SecureRandom.hex(8)}"
+    )
+    # Valid persisted API keys can only be read/read_write; this intentionally
+    # bypasses validations to exercise the runtime insufficient-scope guard.
+    api_key_without_read.save!(validate: false)
+
+    get "/api/v1/accounts/#{account.id}", headers: api_headers(api_key_without_read)
+
+    assert_response :forbidden
+    response_body = JSON.parse(response.body)
+    assert_equal "insufficient_scope", response_body["error"]
+  ensure
+    api_key_without_read&.destroy
+  end
+
   test "should hide disabled account by default on show" do
     inactive_account = accounts(:depository)
     inactive_account.disable!
@@ -166,6 +202,29 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
     response_body = JSON.parse(response.body)
     assert_equal inactive_account.id, response_body["id"]
     assert_equal "disabled", response_body["status"]
+  end
+
+  test "should expose subtype across account types" do
+    expected_subtypes = {
+      accounts(:depository) => "checking",
+      accounts(:credit_card) => "credit_card",
+      accounts(:investment) => "brokerage",
+      accounts(:loan) => "mortgage",
+      accounts(:property) => "single_family_home",
+      accounts(:vehicle) => "sedan",
+      accounts(:crypto) => "exchange",
+      accounts(:other_asset) => "collectible",
+      accounts(:other_liability) => "personal_debt"
+    }
+
+    expected_subtypes.each { |account, subtype| account.accountable.update!(subtype: subtype) }
+
+    expected_subtypes.each do |account, subtype|
+      get "/api/v1/accounts/#{account.id}", headers: api_headers(@api_key)
+
+      assert_response :success
+      assert_equal subtype, JSON.parse(response.body)["subtype"]
+    end
   end
 
   test "should not return other family's accounts" do
@@ -204,7 +263,7 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
     account = response_body["accounts"].first
 
     # Check required fields are present
-    required_fields = %w[id name balance currency classification account_type]
+    required_fields = %w[id name balance balance_cents cash_balance cash_balance_cents currency classification account_type]
     required_fields.each do |field|
       assert account.key?(field), "Account should have #{field} field"
     end
@@ -213,6 +272,8 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
     assert account["id"].is_a?(String), "ID should be string (UUID)"
     assert account["name"].is_a?(String), "Name should be string"
     assert account["balance"].is_a?(String), "Balance should be string (money)"
+    assert account["balance_cents"].is_a?(Integer), "Balance cents should be integer"
+    assert account["cash_balance_cents"].is_a?(Integer), "Cash balance cents should be integer"
     assert account["currency"].is_a?(String), "Currency should be string"
     assert %w[asset liability].include?(account["classification"]), "Classification should be asset or liability"
   end
@@ -245,6 +306,14 @@ class Api::V1::AccountsControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
+    end
+
+    def money_cents(money)
+      (money.amount * money.currency.minor_unit_conversion).round(0).to_i
+    end
+
+    def assert_nullable_equal(expected, actual)
+      expected.nil? ? assert_nil(actual) : assert_equal(expected, actual)
     end
 end

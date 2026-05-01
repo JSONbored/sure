@@ -7,15 +7,13 @@ class Api::V1::AccountsController < Api::V1::BaseController
   before_action :ensure_read_scope
 
   def index
-    accounts_query = accounts_scope.includes(:accountable, account_providers: :provider).alphabetically
+    @per_page = safe_per_page_param
 
     @pagy, @accounts = pagy(
-      accounts_query,
+      accounts_scope.alphabetically,
       page: safe_page_param,
-      limit: safe_per_page_param
+      limit: @per_page
     )
-
-    @per_page = safe_per_page_param
 
     render :index
   rescue => e
@@ -55,39 +53,40 @@ class Api::V1::AccountsController < Api::V1::BaseController
     }, status: :internal_server_error
   end
 
-    private
+  private
 
-      def ensure_read_scope
-        authorize_scope!(:read)
+    def ensure_read_scope
+      authorize_scope!(:read)
+    end
+
+    def accounts_scope
+      scope = current_resource_owner.family.accounts
+                                    .accessible_by(current_resource_owner)
+                                    .includes(:accountable, account_providers: :provider)
+      include_disabled_accounts? ? scope : scope.visible
+    end
+
+    def include_disabled_accounts?
+      ActiveModel::Type::Boolean.new.cast(params[:include_disabled])
+    end
+
+    def valid_uuid?(value)
+      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+    end
+
+    def safe_page_param
+      page = params[:page].to_i
+      page > 0 ? page : 1
+    end
+
+    def safe_per_page_param
+      per_page = params[:per_page].to_i
+
+      case per_page
+      when 1..100
+        per_page
+      else
+        25
       end
-
-      def accounts_scope
-        scope = current_resource_owner.family.accounts.accessible_by(current_resource_owner)
-        include_disabled_accounts? ? scope : scope.visible
-      end
-
-      def include_disabled_accounts?
-        ActiveModel::Type::Boolean.new.cast(params[:include_disabled])
-      end
-
-      def valid_uuid?(value)
-        value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
-      end
-
-      def safe_page_param
-        page = params[:page].to_i
-        page > 0 ? page : 1
-      end
-
-      def safe_per_page_param
-        per_page = params[:per_page].to_i
-
-        # Default to 25, max 100
-        case per_page
-        when 1..100
-          per_page
-        else
-          25
-        end
-      end
+    end
 end

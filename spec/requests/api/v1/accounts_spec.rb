@@ -31,6 +31,17 @@ RSpec.describe 'API V1 Accounts', type: :request do
     )
   end
 
+  let(:api_key_without_read_scope) do
+    key = ApiKey.generate_secure_key
+    ApiKey.new(
+      user: user,
+      name: 'No Read Docs Key',
+      key: key,
+      scopes: [],
+      source: 'web'
+    ).tap { |api_key| api_key.save!(validate: false) }
+  end
+
   let(:'X-Api-Key') { api_key.plain_key }
 
   let!(:checking_account) do
@@ -93,7 +104,7 @@ RSpec.describe 'API V1 Accounts', type: :request do
   end
 
   path '/api/v1/accounts/{id}' do
-    parameter name: :id, in: :path, type: :string, required: true, description: 'Account ID'
+    parameter name: :id, in: :path, type: :string, format: :uuid, required: true, description: 'Account ID'
 
     get 'Retrieve an account' do
       tags 'Accounts'
@@ -106,6 +117,24 @@ RSpec.describe 'API V1 Accounts', type: :request do
 
       response '200', 'account retrieved' do
         schema '$ref' => '#/components/schemas/AccountDetail'
+
+        run_test!
+      end
+
+      response '401', 'unauthorized' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:id) { checking_account.id }
+        let(:'X-Api-Key') { nil }
+
+        run_test!
+      end
+
+      response '403', 'insufficient scope' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:id) { checking_account.id }
+        let(:'X-Api-Key') { api_key_without_read_scope.plain_key }
 
         run_test!
       end

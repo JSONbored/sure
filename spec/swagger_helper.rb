@@ -181,12 +181,14 @@ RSpec.configure do |config|
           },
           AccountDetail: {
             type: :object,
-            required: %w[id name balance cash_balance currency classification account_type status created_at updated_at],
+            required: %w[id name balance balance_cents cash_balance cash_balance_cents currency classification account_type status created_at updated_at],
             properties: {
               id: { type: :string, format: :uuid },
               name: { type: :string },
               balance: { type: :string },
+              balance_cents: { type: :integer, description: 'Signed balance in minor currency units' },
               cash_balance: { type: :string },
+              cash_balance_cents: { type: :integer, description: 'Signed cash balance in minor currency units' },
               currency: { type: :string },
               classification: { type: :string },
               account_type: { type: :string, nullable: true },
