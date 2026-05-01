@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-json.accounts @accounts do |account|
-  json.partial! "account", account: account
+json.valuations @entries do |entry|
+  json.partial! "valuation", valuation: entry.entryable, entry: entry
 end
 
 json.pagination do
