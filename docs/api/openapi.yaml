@@ -2415,6 +2415,7 @@ paths:
       description: Rule ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a rule
       tags:
