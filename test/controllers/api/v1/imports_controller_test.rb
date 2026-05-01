@@ -210,6 +210,71 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, import.rows_count
   end
 
+  test "should reject Sure import with no file or raw content" do
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport"
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_equal "missing_content", json_response["error"]
+  end
+
+  test "should reject Sure import uploaded file exceeding max size" do
+    test_limit = 1.kilobyte
+    large_file = Rack::Test::UploadedFile.new(
+      StringIO.new("x" * (test_limit + 1)),
+      "application/x-ndjson",
+      original_filename: "large.ndjson"
+    )
+
+    original_value = SureImport::MAX_NDJSON_SIZE
+    SureImport.send(:remove_const, :MAX_NDJSON_SIZE)
+    SureImport.const_set(:MAX_NDJSON_SIZE, test_limit)
+
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             file: large_file
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_equal "file_too_large", json_response["error"]
+  ensure
+    SureImport.send(:remove_const, :MAX_NDJSON_SIZE)
+    SureImport.const_set(:MAX_NDJSON_SIZE, original_value)
+  end
+
+  test "should reject Sure import uploaded file with invalid type" do
+    ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
+    invalid_file = Rack::Test::UploadedFile.new(
+      StringIO.new(ndjson_content),
+      "application/pdf",
+      original_filename: "sure-backup.pdf"
+    )
+
+    assert_no_difference("Import.count") do
+      post api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             file: invalid_file
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_equal "invalid_file_type", json_response["error"]
+  end
+
   test "should clean up Sure import if row sync fails" do
     ndjson_content = { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json
     SureImport.any_instance.stubs(:sync_ndjson_rows_count!).raises(StandardError, "sync failed")

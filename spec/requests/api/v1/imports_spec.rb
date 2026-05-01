@@ -110,11 +110,10 @@ RSpec.describe 'API V1 Imports', type: :request do
 
       parameter name: :body, in: :body, required: false, schema: {
         type: :object,
-        required: %w[raw_file_content],
         properties: {
           raw_file_content: {
             type: :string,
-            description: 'Raw CSV or Sure NDJSON content as a string. Use multipart/form-data for file uploads.'
+            description: 'Raw CSV or Sure NDJSON content as a string. Required for SureImport unless a multipart file is uploaded.'
           },
           type: {
             type: :string,
@@ -132,83 +131,83 @@ RSpec.describe 'API V1 Imports', type: :request do
           },
           date_col_label: {
             type: :string,
-            description: 'Header name for the date column'
+            description: 'CSV imports only. Header name for the date column'
           },
           amount_col_label: {
             type: :string,
-            description: 'Header name for the amount column'
+            description: 'CSV imports only. Header name for the amount column'
           },
           name_col_label: {
             type: :string,
-            description: 'Header name for the transaction name column'
+            description: 'CSV imports only. Header name for the transaction name column'
           },
           category_col_label: {
             type: :string,
-            description: 'Header name for the category column'
+            description: 'CSV imports only. Header name for the category column'
           },
           tags_col_label: {
             type: :string,
-            description: 'Header name for the tags column'
+            description: 'CSV imports only. Header name for the tags column'
           },
           notes_col_label: {
             type: :string,
-            description: 'Header name for the notes column'
+            description: 'CSV imports only. Header name for the notes column'
           },
           account_col_label: {
             type: :string,
-            description: 'Header name for the account column when importing rows across multiple accounts'
+            description: 'CSV imports only. Header name for the account column when importing rows across multiple accounts'
           },
           qty_col_label: {
             type: :string,
-            description: 'Header name for the quantity column on trade imports'
+            description: 'CSV trade imports only. Header name for the quantity column'
           },
           ticker_col_label: {
             type: :string,
-            description: 'Header name for the ticker column on trade imports'
+            description: 'CSV trade imports only. Header name for the ticker column'
           },
           price_col_label: {
             type: :string,
-            description: 'Header name for the price column on trade imports'
+            description: 'CSV trade imports only. Header name for the price column'
           },
           entity_type_col_label: {
             type: :string,
-            description: 'Header name for the entity type column'
+            description: 'CSV imports only. Header name for the entity type column'
           },
           currency_col_label: {
             type: :string,
-            description: 'Header name for the currency column'
+            description: 'CSV imports only. Header name for the currency column'
           },
           exchange_operating_mic_col_label: {
             type: :string,
-            description: 'Header name for the exchange operating MIC column on trade imports'
+            description: 'CSV trade imports only. Header name for the exchange operating MIC column'
           },
           date_format: {
             type: :string,
-            description: 'Date format pattern (e.g., "%m/%d/%Y")'
+            description: 'CSV imports only. Date format pattern (e.g., "%m/%d/%Y")'
           },
           number_format: {
             type: :string,
             enum: [ '1,234.56', '1.234,56', '1 234,56', '1,234' ],
-            description: 'Number format for parsing amounts'
+            description: 'CSV imports only. Number format for parsing amounts'
           },
           signage_convention: {
             type: :string,
             enum: %w[inflows_positive inflows_negative],
-            description: 'How to interpret positive/negative amounts'
+            description: 'CSV imports only. How to interpret positive/negative amounts'
           },
           col_sep: {
             type: :string,
             enum: [ ',', ';' ],
-            description: 'Column separator'
+            description: 'CSV imports only. Column separator'
           },
           amount_type_strategy: {
             type: :string,
             enum: %w[signed_amount custom_column],
-            description: 'Amount parsing strategy'
+            description: 'CSV imports only. Amount parsing strategy'
           },
           amount_type_inflow_value: {
             type: :string,
-            description: 'Column value that marks an amount as an inflow when using custom_column strategy'
+            description: 'CSV imports only. Column value that marks an amount as an inflow when using custom_column strategy'
           }
         }
       }

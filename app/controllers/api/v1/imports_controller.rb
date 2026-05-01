@@ -205,32 +205,34 @@ class Api::V1::ImportsController < Api::V1::BaseController
     end
 
     def persist_sure_import!(family, content, filename, content_type)
-      @import = family.imports.create!(type: "SureImport")
-      @import.ndjson_file.attach(
+      import = nil
+      import = family.imports.create!(type: "SureImport")
+      import.ndjson_file.attach(
         io: StringIO.new(content),
         filename: filename,
         content_type: content_type
       )
-      @import.sync_ndjson_rows_count!
-      @import
+      import.sync_ndjson_rows_count!
+      import
     rescue StandardError => e
-      clean_up_failed_sure_import
+      clean_up_failed_sure_import(import)
       raise
     end
 
     def restore_pending_sure_import_after_publish_failure
+      # Import#publish_later flips status to importing before enqueueing the job.
       @import.update_column(:status, "pending") if @import&.persisted? && @import.importing?
     end
 
-    def clean_up_failed_sure_import
-      return unless @import
+    def clean_up_failed_sure_import(import)
+      return unless import
 
       begin
-        @import.ndjson_file.purge if @import.ndjson_file.attached?
+        import.ndjson_file.purge if import.ndjson_file.attached?
       rescue StandardError => e
-        Rails.logger.warn "Failed to purge Sure import attachment #{@import.id}: #{e.message}"
+        Rails.logger.warn "Failed to purge Sure import attachment #{import.id}: #{e.message}"
       ensure
-        @import.destroy if @import.persisted?
+        import.destroy if import.persisted?
       end
     end
 
@@ -267,7 +269,6 @@ class Api::V1::ImportsController < Api::V1::BaseController
       end
 
       content = file.read
-      file.rewind
       sure_import_validated_attributes(
         content: content,
         filename: file.original_filename.presence || "sure-import.ndjson",
