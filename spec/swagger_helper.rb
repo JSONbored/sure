@@ -743,6 +743,87 @@ RSpec.configure do |config|
               data: { '$ref' => '#/components/schemas/ImportDetail' }
             }
           },
+          ProviderConnectionInstitution: {
+            type: :object,
+            required: %w[name],
+            properties: {
+              name: { type: :string, nullable: true },
+              domain: { type: :string, nullable: true },
+              url: { type: :string, nullable: true }
+            }
+          },
+          ProviderConnectionAccounts: {
+            type: :object,
+            required: %w[total_count linked_count unlinked_count],
+            properties: {
+              total_count: { type: :integer, minimum: 0 },
+              linked_count: { type: :integer, minimum: 0 },
+              unlinked_count: { type: :integer, minimum: 0 }
+            }
+          },
+          ProviderConnectionSyncLatest: {
+            type: :object,
+            required: %w[id status created_at],
+            properties: {
+              id: { type: :string, format: :uuid },
+              status: { type: :string },
+              created_at: { type: :string, format: :'date-time' },
+              syncing_at: { type: :string, format: :'date-time', nullable: true },
+              completed_at: { type: :string, format: :'date-time', nullable: true },
+              failed_at: { type: :string, format: :'date-time', nullable: true },
+              error: {
+                type: :object,
+                nullable: true,
+                properties: {
+                  present: { type: :boolean },
+                  message: { type: :string }
+                }
+              }
+            }
+          },
+          ProviderConnectionSync: {
+            type: :object,
+            required: %w[syncing],
+            properties: {
+              syncing: { type: :boolean },
+              status_summary: { type: :string, nullable: true },
+              last_synced_at: { type: :string, format: :'date-time', nullable: true },
+              latest: {
+                allOf: [ { '$ref' => '#/components/schemas/ProviderConnectionSyncLatest' } ],
+                nullable: true
+              }
+            }
+          },
+          ProviderConnection: {
+            type: :object,
+            required: %w[id provider type name status requires_update credentials_configured scheduled_for_deletion pending_account_setup institution accounts sync created_at updated_at],
+            properties: {
+              id: { type: :string, format: :uuid },
+              provider: { type: :string },
+              type: { type: :string },
+              name: { type: :string },
+              status: { type: :string, nullable: true },
+              requires_update: { type: :boolean },
+              credentials_configured: { type: :boolean },
+              scheduled_for_deletion: { type: :boolean },
+              pending_account_setup: { type: :boolean },
+              institution: { '$ref' => '#/components/schemas/ProviderConnectionInstitution' },
+              accounts: { '$ref' => '#/components/schemas/ProviderConnectionAccounts' },
+              sync: { '$ref' => '#/components/schemas/ProviderConnectionSync' },
+              created_at: { type: :string, format: :'date-time' },
+              updated_at: { type: :string, format: :'date-time' }
+            }
+          },
+          ProviderConnectionCollection: {
+            type: :object,
+            required: %w[data],
+            properties: {
+              data: {
+                type: :array,
+                items: { '$ref' => '#/components/schemas/ProviderConnection' }
+              }
+            }
+          },
           Trade: {
             type: :object,
             required: %w[id date amount currency name qty price account created_at updated_at],

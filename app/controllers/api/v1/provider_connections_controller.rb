@@ -1,0 +1,24 @@
+# frozen_string_literal: true
+
+class Api::V1::ProviderConnectionsController < Api::V1::BaseController
+  before_action :ensure_read_scope
+
+  def index
+    @provider_connections = ProviderConnectionHealth.for_family(current_resource_owner.family)
+    render :index
+  rescue => e
+    Rails.logger.error "ProviderConnectionsController#index error: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+
+    render json: {
+      error: "internal_server_error",
+      message: "An unexpected error occurred"
+    }, status: :internal_server_error
+  end
+
+  private
+
+    def ensure_read_scope
+      authorize_scope!(:read)
+    end
+end
