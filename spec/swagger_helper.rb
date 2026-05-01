@@ -64,6 +64,14 @@ RSpec.configure do |config|
               }
             }
           },
+          MfaRequiredResponse: {
+            type: :object,
+            required: %w[error mfa_required],
+            properties: {
+              error: { type: :string },
+              mfa_required: { type: :boolean }
+            }
+          },
           ToolCall: {
             type: :object,
             required: %w[id function_name function_arguments created_at],

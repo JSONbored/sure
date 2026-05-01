@@ -37,7 +37,7 @@ RSpec.describe 'API V1 Accounts', type: :request do
       user: user,
       name: 'No Read Docs Key',
       key: key,
-      scopes: [],
+      scopes: %w[write],
       source: 'web'
     ).tap { |api_key| api_key.save!(validate: false) }
   end

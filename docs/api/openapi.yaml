@@ -61,6 +61,16 @@ components:
           nullable: true
           description: Validation error messages (alternative to details used by trades,
             valuations, etc.)
+    MfaRequiredResponse:
+      type: object
+      required:
+      - error
+      - mfa_required
+      properties:
+        error:
+          type: string
+        mfa_required:
+          type: boolean
     ToolCall:
       type: object
       required:
@@ -1398,7 +1408,9 @@ paths:
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/ErrorResponse"
+                oneOf:
+                - "$ref": "#/components/schemas/ErrorResponse"
+                - "$ref": "#/components/schemas/MfaRequiredResponse"
       requestBody:
         content:
           application/json:
