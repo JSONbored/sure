@@ -42,6 +42,30 @@ class MercuryItemTest < ActiveSupport::TestCase
     assert_nil @mercury_item.mercury_provider
   end
 
+  test "family credential check ignores blank and scheduled for deletion items" do
+    family = families(:empty)
+    blank_item = MercuryItem.create!(
+      family: family,
+      name: "Blank Mercury",
+      token: "temporary_token",
+      base_url: "https://api-sandbox.mercury.com/api/v1"
+    )
+    blank_item.update_column(:token, "")
+
+    deleted_item = MercuryItem.create!(
+      family: family,
+      name: "Deleted Mercury",
+      token: "deleted_token",
+      base_url: "https://api-sandbox.mercury.com/api/v1",
+      scheduled_for_deletion: true
+    )
+
+    refute family.has_mercury_credentials?
+
+    deleted_item.update!(scheduled_for_deletion: false)
+    assert family.has_mercury_credentials?
+  end
+
   test "syncer returns MercuryItem::Syncer instance" do
     syncer = @mercury_item.send(:syncer)
     assert_instance_of MercuryItem::Syncer, syncer
