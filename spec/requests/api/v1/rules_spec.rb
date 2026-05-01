@@ -91,7 +91,7 @@ RSpec.describe 'API V1 Rules', type: :request do
       response '403', 'forbidden - requires read scope' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
-        let(:'X-Api-Key') { api_key_without_read_scope.display_key }
+        let(:'X-Api-Key') { api_key_without_read_scope.plain_key }
 
         run_test!
       end
@@ -100,6 +100,14 @@ RSpec.describe 'API V1 Rules', type: :request do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
         let(:active) { 'not_boolean' }
+
+        run_test!
+      end
+
+      response '422', 'unsupported resource type' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        let(:resource_type) { 'account' }
 
         run_test!
       end
@@ -133,7 +141,7 @@ RSpec.describe 'API V1 Rules', type: :request do
       response '403', 'forbidden - requires read scope' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
-        let(:'X-Api-Key') { api_key_without_read_scope.display_key }
+        let(:'X-Api-Key') { api_key_without_read_scope.plain_key }
 
         run_test!
       end

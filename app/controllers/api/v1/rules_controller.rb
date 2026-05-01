@@ -9,11 +9,15 @@ class Api::V1::RulesController < Api::V1::BaseController
     "false" => false,
     "0" => false
   }.freeze
+  RESOURCE_TYPES = %w[transaction].freeze
 
-  before_action -> { authorize_scope!(:read) }
+  before_action :ensure_read_scope
   before_action :set_rule, only: :show
 
   def index
+    return render_invalid_resource_type_filter if invalid_resource_type_filter?
+
+    @per_page = safe_per_page_param
     rules_query = current_resource_owner.family.rules
       .includes(:actions, conditions: :sub_conditions)
       .order(:created_at, :id)
@@ -29,10 +33,8 @@ class Api::V1::RulesController < Api::V1::BaseController
     @pagy, @rules = pagy(
       rules_query,
       page: safe_page_param,
-      limit: safe_per_page_param
+      limit: @per_page
     )
-
-    @per_page = safe_per_page_param
 
     render :index
   end
@@ -47,8 +49,10 @@ class Api::V1::RulesController < Api::V1::BaseController
       @rule = current_resource_owner.family.rules
         .includes(:actions, conditions: :sub_conditions)
         .find(params[:id])
-    rescue ActiveRecord::RecordNotFound
-      render json: { error: "not_found", message: "Rule not found" }, status: :not_found
+    end
+
+    def ensure_read_scope
+      authorize_scope!(:read)
     end
 
     def safe_page_param
@@ -58,7 +62,12 @@ class Api::V1::RulesController < Api::V1::BaseController
 
     def safe_per_page_param
       per_page = params[:per_page].to_i
-      (1..100).include?(per_page) ? per_page : 25
+      case per_page
+      when 1..100
+        per_page
+      else
+        25
+      end
     end
 
     def parse_boolean_filter(value)
@@ -70,5 +79,16 @@ class Api::V1::RulesController < Api::V1::BaseController
         message: "active must be one of: true, false, 1, 0"
       }, status: :unprocessable_entity
       nil
+    end
+
+    def invalid_resource_type_filter?
+      params[:resource_type].present? && !params[:resource_type].in?(RESOURCE_TYPES)
+    end
+
+    def render_invalid_resource_type_filter
+      render json: {
+        error: "validation_failed",
+        message: "resource_type must be one of: #{RESOURCE_TYPES.join(", ")}"
+      }, status: :unprocessable_entity
     end
 end

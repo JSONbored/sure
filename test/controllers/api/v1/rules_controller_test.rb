@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "test_helper"
 
 class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
@@ -35,6 +37,21 @@ class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
     assert_equal @family.rules.count, json_response["meta"]["total_count"]
   end
 
+  test "should not list another family's rules" do
+    other_family = Family.create!(name: "Other Family", currency: "USD", locale: "en")
+    other_rule = other_family.rules.build(name: "Other", resource_type: "transaction", active: true)
+    other_rule.conditions.build(condition_type: "transaction_name", operator: "like", value: "other")
+    other_rule.actions.build(action_type: "set_transaction_name", value: "Other")
+    other_rule.save!
+
+    get api_v1_rules_url, headers: api_headers(@api_key)
+    assert_response :success
+
+    rule_ids = JSON.parse(response.body)["data"].map { |rule| rule["id"] }
+    assert_includes rule_ids, @rule.id
+    assert_not_includes rule_ids, other_rule.id
+  end
+
   test "should require authentication when listing rules" do
     get api_v1_rules_url
 
@@ -70,6 +87,14 @@ class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
 
   test "should reject invalid active filter" do
     get api_v1_rules_url, params: { active: "not_boolean" }, headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_equal "validation_failed", json_response["error"]
+  end
+
+  test "should reject unsupported resource type filter" do
+    get api_v1_rules_url, params: { resource_type: "account" }, headers: api_headers(@api_key)
 
     assert_response :unprocessable_entity
     json_response = JSON.parse(response.body)
@@ -124,6 +149,8 @@ class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_rule_url(other_rule), headers: api_headers(@api_key)
     assert_response :not_found
+    json_response = JSON.parse(response.body)
+    assert_equal "record_not_found", json_response["error"]
   end
 
   private
