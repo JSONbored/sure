@@ -12,6 +12,7 @@ class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
       user: @user,
       name: "Test Read Key",
       scopes: [ "read" ],
+      source: "web",
       display_key: "test_read_#{SecureRandom.hex(8)}"
     )
 
@@ -156,6 +157,8 @@ class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_key_without_read_scope
+      # Valid persisted API keys can only be read/read_write; this intentionally
+      # bypasses validations to exercise the runtime insufficient-scope guard.
       ApiKey.new(
         user: @user,
         name: "No Read Key",
@@ -166,6 +169,6 @@ class Api::V1::RulesControllerTest < ActionDispatch::IntegrationTest
     end
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end
