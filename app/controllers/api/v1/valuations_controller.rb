@@ -3,6 +3,8 @@
 class Api::V1::ValuationsController < Api::V1::BaseController
   include Pagy::Backend
 
+  InvalidFilterError = Class.new(StandardError)
+
   before_action :ensure_read_scope, only: [ :index, :show ]
   before_action :ensure_write_scope, only: [ :create, :update ]
   before_action :set_valuation, only: [ :show, :update ]
@@ -24,7 +26,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
     )
 
     render :index
-  rescue ArgumentError => e
+  rescue InvalidFilterError => e
     render json: {
       error: "validation_failed",
       message: e.message,
@@ -245,7 +247,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     def apply_filters(query)
       if params[:account_id].present?
-        raise ArgumentError, "account_id must be a valid UUID" unless valid_uuid?(params[:account_id])
+        raise InvalidFilterError, "account_id must be a valid UUID" unless valid_uuid?(params[:account_id])
 
         query = query.where(account_id: params[:account_id])
       end
@@ -257,7 +259,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
     def parse_date_param(key)
       Date.iso8601(params[key].to_s)
     rescue ArgumentError
-      raise ArgumentError, "#{key} must be an ISO 8601 date"
+      raise InvalidFilterError, "#{key} must be an ISO 8601 date"
     end
 
     def valid_uuid?(value)
