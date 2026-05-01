@@ -138,6 +138,15 @@ class Account < ApplicationRecord
       account
     end
 
+    def normalize_institution_domain(value)
+      return nil if value.blank?
+
+      normalized_value = value.to_s.strip
+      normalized_value = "https://#{normalized_value}" unless normalized_value.start_with?("http://", "https://")
+      URI.parse(normalized_value).host&.sub(/\Awww\./, "")
+    rescue URI::InvalidURIError
+      value.to_s.strip.sub(/\Awww\./, "").presence
+    end
 
     def create_from_simplefin_account(simplefin_account, account_type, subtype = nil)
       # Respect user choice when provided; otherwise infer a sensible default
@@ -299,10 +308,12 @@ class Account < ApplicationRecord
   end
 
   def logo_url
-    if institution_domain.present? && Setting.brand_fetch_client_id.present?
+    normalized_domain = self.class.normalize_institution_domain(institution_domain)
+
+    if normalized_domain.present? && Setting.brand_fetch_client_id.present?
       logo_size = Setting.brand_fetch_logo_size
 
-      "https://cdn.brandfetch.io/#{institution_domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
+      "https://cdn.brandfetch.io/#{normalized_domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
     elsif provider&.logo_url.present?
       provider.logo_url
     elsif logo.attached?

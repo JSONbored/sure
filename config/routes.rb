@@ -223,6 +223,8 @@ Rails.application.routes.draw do
   resources :categories, except: :show do
     resources :deletions, only: %i[new create], module: :category
 
+    get :merge, on: :collection
+    post :perform_merge, on: :collection
     post :bootstrap, on: :collection
     delete :destroy_all, on: :collection
   end
@@ -245,6 +247,8 @@ Rails.application.routes.draw do
     collection do
       get :merge
       post :perform_merge
+      get :bulk_websites
+      post :bulk_update_websites
       post :enhance
     end
   end
@@ -369,6 +373,8 @@ Rails.application.routes.draw do
 
     collection do
       post :sync_all
+      get :bulk_domains
+      post :bulk_update_domains
     end
 
     resource :sharing, only: [ :show, :update ], controller: "account_sharings"

@@ -2,7 +2,8 @@ require "test_helper"
 
 class CategoriesControllerTest < ActionDispatch::IntegrationTest
   setup do
-    sign_in users(:family_admin)
+    sign_in @user = users(:family_admin)
+    @family = @user.family
     @transaction = transactions :one
     ensure_tailwind_build
   end
@@ -94,5 +95,44 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to categories_url
+  end
+
+  test "merge selected categories into a new category" do
+    source = @family.categories.create!(
+      name: "Coffee Shops",
+      color: "#000000",
+      lucide_icon: "coffee"
+    )
+    transactions(:one).update!(category: source)
+
+    assert_difference "Category.count", 0 do
+      post perform_merge_categories_path, params: {
+        new_target_name: "Dining",
+        new_target_color: "#111111",
+        new_target_icon: "utensils",
+        source_ids: [ source.id ]
+      }
+    end
+
+    target = Category.find_by!(family: @family, name: "Dining")
+    assert_redirected_to categories_path
+    assert_equal target, transactions(:one).reload.category
+    assert_not Category.exists?(source.id)
+  end
+
+  test "merge ignores categories outside current family" do
+    other = families(:empty).categories.create!(
+      name: "Other Family Category",
+      color: "#000000",
+      lucide_icon: "shapes"
+    )
+
+    post perform_merge_categories_path, params: {
+      target_id: categories(:income).id,
+      source_ids: [ other.id ]
+    }
+
+    assert_redirected_to merge_categories_path
+    assert Category.exists?(other.id)
   end
 end

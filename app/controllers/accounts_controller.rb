@@ -37,6 +37,26 @@ class AccountsController < ApplicationController
     end
   end
 
+  def bulk_domains
+    @accounts = bulk_domain_accounts
+    render layout: "settings"
+  end
+
+  def bulk_update_domains
+    domain = Account.normalize_institution_domain(params[:institution_domain])
+    accounts = bulk_domain_accounts.where(id: params[:account_ids])
+
+    unless accounts.any? && domain.present?
+      return redirect_to bulk_domains_accounts_path, alert: t(".invalid_selection")
+    end
+
+    Account.transaction do
+      accounts.each { |account| account.update!(institution_domain: domain) }
+    end
+
+    redirect_to accounts_path, notice: t(".success", count: accounts.count)
+  end
+
   def sync_all
     family.sync_later
     redirect_to accounts_path, notice: t("accounts.sync_all.syncing")
@@ -335,5 +355,9 @@ class AccountsController < ApplicationController
         latest_sync = item.syncs.ordered.first
         @indexa_capital_sync_stats_map[item.id] = latest_sync&.sync_stats || {}
       end
+    end
+
+    def bulk_domain_accounts
+      Current.family.accounts.writable_by(Current.user).order(:name)
     end
 end

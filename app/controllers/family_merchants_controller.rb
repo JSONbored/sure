@@ -102,18 +102,40 @@ class FamilyMerchantsController < ApplicationController
     @merchants = all_family_merchants
   end
 
+  def bulk_websites
+    @merchants = all_family_merchants
+  end
+
+  def bulk_update_websites
+    merchants = all_family_merchants.where(id: params[:merchant_ids])
+    website_url = Merchant.extract_domain(params[:website_url])
+
+    unless merchants.any? && website_url.present?
+      return redirect_to bulk_websites_family_merchants_path, alert: t(".invalid_selection")
+    end
+
+    Merchant.transaction do
+      merchants.each do |merchant|
+        merchant.update!(website_url: website_url)
+        merchant.generate_logo_url_from_website! if merchant.is_a?(ProviderMerchant)
+      end
+    end
+
+    redirect_to family_merchants_path, notice: t(".success", count: merchants.count)
+  end
+
   def perform_merge
     # Scope lookups to merchants valid for this family (FamilyMerchants + assigned ProviderMerchants)
     valid_merchants = all_family_merchants
 
-    target = valid_merchants.find_by(id: params[:target_id])
-    unless target
-      return redirect_to merge_family_merchants_path, alert: t(".target_not_found")
-    end
-
     sources = valid_merchants.where(id: params[:source_ids])
     unless sources.any?
       return redirect_to merge_family_merchants_path, alert: t(".invalid_merchants")
+    end
+
+    target = merge_target_merchant(valid_merchants)
+    unless target
+      return redirect_to merge_family_merchants_path, alert: t(".target_not_found")
     end
 
     merger = Merchant::Merger.new(
@@ -129,6 +151,8 @@ class FamilyMerchantsController < ApplicationController
     end
   rescue Merchant::Merger::UnauthorizedMerchantError => e
     redirect_to merge_family_merchants_path, alert: e.message
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to merge_family_merchants_path, alert: e.record.errors.full_messages.to_sentence
   end
 
   private
@@ -152,5 +176,17 @@ class FamilyMerchantsController < ApplicationController
 
       Merchant.where(id: combined_ids)
               .order(Arel.sql("LOWER(COALESCE(name, ''))"))
+    end
+
+    def merge_target_merchant(valid_merchants)
+      if params[:new_target_name].present?
+        Current.family.merchants.create!(
+          name: params[:new_target_name],
+          color: params[:new_target_color].presence || FamilyMerchant::COLORS.sample,
+          website_url: params[:new_target_website_url].presence
+        )
+      else
+        valid_merchants.find_by(id: params[:target_id])
+      end
     end
 end

@@ -1,10 +1,10 @@
 <%= render DS::Dialog.new do |dialog| %>
   <% dialog.with_header(title: t(".title"), subtitle: t(".description")) %>
   <% dialog.with_body do %>
-    <%= styled_form_with url: perform_merge_family_merchants_path, method: :post, class: "space-y-4" do |f| %>
+    <%= styled_form_with url: perform_merge_categories_path, method: :post, class: "space-y-4" do |f| %>
       <%= f.collection_select :target_id,
-            @merchants,
-            :id, :name,
+            @categories,
+            :id, :name_with_parent,
             { prompt: t(".select_target"), label: t(".target_label") },
             {} %>
 
@@ -12,20 +12,17 @@
         <p class="text-sm font-medium text-primary"><%= t(".new_target_label") %></p>
         <p class="text-xs text-secondary"><%= t(".new_target_hint") %></p>
         <%= f.text_field :new_target_name, name: :new_target_name, label: t(".new_target_name") %>
-        <%= f.text_field :new_target_website_url, name: :new_target_website_url, label: t(".new_target_website") %>
-        <%= f.color_field :new_target_color, name: :new_target_color, value: FamilyMerchant::COLORS.first, label: t(".new_target_color") %>
+        <%= f.color_field :new_target_color, name: :new_target_color, value: Category::COLORS.first, label: t(".new_target_color") %>
+        <%= f.text_field :new_target_icon, name: :new_target_icon, label: t(".new_target_icon") %>
       </div>
 
       <div class="space-y-2">
         <p class="text-sm font-medium text-primary"><%= t(".sources_label") %></p>
         <div class="max-h-64 overflow-y-auto space-y-1 border border-secondary rounded-lg p-2">
-          <% @merchants.each do |merchant| %>
+          <% @categories.each do |category| %>
             <label class="flex items-center gap-2 p-2 hover:bg-surface-hover rounded cursor-pointer">
-              <%= check_box_tag "source_ids[]", merchant.id, false, class: "rounded border-gray-300" %>
-              <span class="text-sm text-primary"><%= merchant.name %></span>
-              <% if merchant.is_a?(ProviderMerchant) %>
-                <span class="text-xs text-subdued">(<%= merchant.source&.titleize %>)</span>
-              <% end %>
+              <%= check_box_tag "source_ids[]", category.id, false, class: "rounded border-gray-300" %>
+              <span class="text-sm text-primary"><%= category.name_with_parent %></span>
             </label>
           <% end %>
         </div>

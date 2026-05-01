@@ -1,0 +1,77 @@
+class Category::Merger
+  class UnauthorizedCategoryError < StandardError; end
+
+  attr_reader :family, :target_category, :source_categories, :merged_count
+
+  def initialize(family:, target_category:, source_categories:)
+    @family = family
+    @target_category = target_category
+    @merged_count = 0
+
+    validate_category_belongs_to_family!(target_category, "Target category")
+
+    sources = Array(source_categories)
+    sources.each { |category| validate_category_belongs_to_family!(category, "Source category '#{category.name}'") }
+
+    @source_categories = sources.reject { |category| category.id == target_category.id }
+    validate_hierarchy!
+  end
+
+  def merge!
+    return false if source_categories.empty?
+
+    Category.transaction do
+      source_categories.each do |source|
+        merge_transactions(source)
+        merge_budget_categories(source)
+        reparent_subcategories(source)
+        source.destroy!
+        @merged_count += 1
+      end
+    end
+
+    true
+  end
+
+  private
+    def validate_category_belongs_to_family!(category, label)
+      return if category&.family_id == family.id
+
+      raise UnauthorizedCategoryError, "#{label} does not belong to this family"
+    end
+
+    def validate_hierarchy!
+      source_categories.each do |source|
+        next unless target_category.parent_id == source.id
+
+        raise UnauthorizedCategoryError, "A parent category cannot be merged into its own subcategory"
+      end
+    end
+
+    def merge_transactions(source)
+      family.transactions.where(category_id: source.id).update_all(category_id: target_category.id)
+    end
+
+    def merge_budget_categories(source)
+      source.budget_categories.find_each do |source_budget_category|
+        target_budget_category = BudgetCategory.find_by(
+          budget_id: source_budget_category.budget_id,
+          category_id: target_category.id
+        )
+
+        if target_budget_category
+          target_budget_category.update!(
+            budgeted_spending: target_budget_category.budgeted_spending + source_budget_category.budgeted_spending
+          )
+          source_budget_category.destroy!
+        else
+          source_budget_category.update!(category_id: target_category.id)
+        end
+      end
+    end
+
+    def reparent_subcategories(source)
+      new_parent_id = target_category.parent_id.present? ? target_category.parent_id : target_category.id
+      family.categories.where(parent_id: source.id).where.not(id: target_category.id).update_all(parent_id: new_parent_id)
+    end
+end
