@@ -76,6 +76,16 @@ RSpec.describe 'API V1 Users', type: :request do
 
         run_test!
       end
+
+      response '500', 'reset enqueue failed' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        before do
+          allow(FamilyResetJob).to receive(:perform_later).and_raise(StandardError, 'queue down')
+        end
+
+        run_test!
+      end
     end
   end
 

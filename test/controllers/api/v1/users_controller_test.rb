@@ -12,6 +12,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
       user: @user,
       name: "Test Read-Write Key",
       scopes: [ "read_write" ],
+      source: "web",
       display_key: "test_rw_#{SecureRandom.hex(8)}"
     )
 
@@ -56,6 +57,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
       user: users(:family_member),
       name: "Member Read-Write Key",
       scopes: [ "read_write" ],
+      source: "web",
       display_key: "test_member_#{SecureRandom.hex(8)}"
     )
 
@@ -69,7 +71,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "reset enqueues FamilyResetJob and returns 200" do
-    assert_enqueued_with(job: FamilyResetJob) do
+    assert_enqueued_with(job: FamilyResetJob, args: [ @user.family ]) do
       delete "/api/v1/users/reset", headers: api_headers(@api_key)
     end
 
@@ -104,6 +106,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
       user: users(:family_member),
       name: "Member Read Key",
       scopes: [ "read_write" ],
+      source: "web",
       display_key: "test_member_read_#{SecureRandom.hex(8)}"
     )
 
@@ -143,6 +146,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
       user: solo_user,
       name: "Solo Key",
       scopes: [ "read_write" ],
+      source: "web",
       display_key: "test_solo_#{SecureRandom.hex(8)}"
     )
 
@@ -180,6 +184,6 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end
