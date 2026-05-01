@@ -83,6 +83,8 @@ class Api::V1::ValuationsController < Api::V1::BaseController
     end
 
     account = current_resource_owner.family.accounts.find(valuation_account_id)
+    existing_entry = account.entries.valuations.find_by(date: valuation_params[:date])
+    upsert_existing = upsert_requested? && existing_entry.present?
 
     create_success = false
     error_payload = nil
@@ -124,7 +126,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
       return
     end
 
-    render :show, status: :created
+    render :show, status: upsert_existing ? :ok : :created
 
   rescue ActiveRecord::RecordNotFound
     render json: {
@@ -288,5 +290,9 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     def valuation_params
       params.require(:valuation).permit(:amount, :date, :notes)
+    end
+
+    def upsert_requested?
+      ActiveModel::Type::Boolean.new.cast(params[:upsert] || params.dig(:valuation, :upsert))
     end
 end
