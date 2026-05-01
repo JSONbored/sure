@@ -67,8 +67,8 @@ RSpec.describe 'API V1 Valuations', type: :request do
                 description: 'Page number (default: 1)'
       parameter name: :per_page, in: :query, type: :integer, required: false,
                 description: 'Items per page (default: 25, max: 100)'
-      parameter name: :account_id, in: :query, type: :string, format: :uuid, required: false,
-                description: 'Filter by account ID'
+      parameter name: :account_id, in: :query, required: false, description: 'Filter by account ID',
+                schema: { type: :string, format: :uuid }
       parameter name: :start_date, in: :query, required: false,
                 description: 'Filter valuations from this date',
                 schema: { type: :string, format: :date }
