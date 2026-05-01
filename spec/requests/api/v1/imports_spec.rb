@@ -230,12 +230,29 @@ RSpec.describe 'API V1 Imports', type: :request do
       end
 
       response '422', 'validation error - file too large' do
-        schema '$ref' => '#/components/schemas/ErrorResponse'
+        schema oneOf: [
+          { '$ref' => '#/components/schemas/ErrorResponse' },
+          { '$ref' => '#/components/schemas/ErrorResponseWithImportId' }
+        ]
 
         let(:body) do
           {
             raw_file_content: 'x' * (11 * 1024 * 1024), # 11MB, exceeds MAX_CSV_SIZE
             type: 'TransactionImport'
+          }
+        end
+
+        run_test!
+      end
+
+      response '500', 'import uploaded but publish enqueue failed' do
+        schema '$ref' => '#/components/schemas/ErrorResponseWithImportId'
+
+        let(:body) do
+          {
+            raw_file_content: { type: 'Account', data: { id: 'account_1', name: 'Checking' } }.to_json,
+            type: 'SureImport',
+            publish: 'true'
           }
         end
 

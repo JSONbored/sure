@@ -64,6 +64,19 @@ RSpec.configure do |config|
               }
             }
           },
+          ErrorResponseWithImportId: {
+            type: :object,
+            required: %w[error import_id],
+            properties: {
+              error: { type: :string },
+              message: { type: :string, nullable: true },
+              import_id: {
+                type: :string,
+                format: :uuid,
+                description: 'Import ID preserved for retry or inspection after upload succeeds but publish fails'
+              }
+            }
+          },
           MfaRequiredResponse: {
             type: :object,
             required: %w[error mfa_required],

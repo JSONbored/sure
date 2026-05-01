@@ -61,6 +61,22 @@ components:
           nullable: true
           description: Validation error messages (alternative to details used by trades,
             valuations, etc.)
+    ErrorResponseWithImportId:
+      type: object
+      required:
+      - error
+      - import_id
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+          nullable: true
+        import_id:
+          type: string
+          format: uuid
+          description: Import ID preserved for retry or inspection after upload succeeds
+            but publish fails
     MfaRequiredResponse:
       type: object
       required:
@@ -2304,7 +2320,15 @@ paths:
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/ErrorResponse"
+                oneOf:
+                - "$ref": "#/components/schemas/ErrorResponse"
+                - "$ref": "#/components/schemas/ErrorResponseWithImportId"
+        '500':
+          description: import uploaded but publish enqueue failed
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponseWithImportId"
       requestBody:
         content:
           application/json:
