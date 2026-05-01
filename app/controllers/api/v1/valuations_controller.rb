@@ -15,13 +15,13 @@ class Api::V1::ValuationsController < Api::V1::BaseController
       .includes(:account, :entryable)
 
     valuations_query = apply_filters(valuations_query).reverse_chronological
+    @per_page = safe_per_page_param
 
     @pagy, @entries = pagy(
       valuations_query,
       page: safe_page_param,
-      limit: safe_per_page_param
+      limit: @per_page
     )
-    @per_page = safe_per_page_param
 
     render :index
   rescue ArgumentError => e
@@ -36,7 +36,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Internal server error"
+      message: "An unexpected error occurred"
     }, status: :internal_server_error
   end
 
@@ -48,7 +48,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Internal server error"
+      message: "An unexpected error occurred"
     }, status: :internal_server_error
   end
 
@@ -135,7 +135,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Internal server error"
+      message: "An unexpected error occurred"
     }, status: :internal_server_error
   end
 
@@ -216,7 +216,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
 
     render json: {
       error: "internal_server_error",
-      message: "Internal server error"
+      message: "An unexpected error occurred"
     }, status: :internal_server_error
   end
 
@@ -244,7 +244,11 @@ class Api::V1::ValuationsController < Api::V1::BaseController
     end
 
     def apply_filters(query)
-      query = query.where(account_id: params[:account_id]) if params[:account_id].present?
+      if params[:account_id].present?
+        raise ArgumentError, "account_id must be a valid UUID" unless valid_uuid?(params[:account_id])
+
+        query = query.where(account_id: params[:account_id])
+      end
       query = query.where("entries.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
       query = query.where("entries.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
       query
@@ -254,6 +258,10 @@ class Api::V1::ValuationsController < Api::V1::BaseController
       Date.iso8601(params[key].to_s)
     rescue ArgumentError
       raise ArgumentError, "#{key} must be an ISO 8601 date"
+    end
+
+    def valid_uuid?(value)
+      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
     end
 
     def safe_page_param

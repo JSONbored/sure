@@ -11,10 +11,6 @@ class NoopApiRateLimiter
     # No operation
   end
 
-  def clear_request_count!
-    # No operation
-  end
-
   def current_count
     0
   end
