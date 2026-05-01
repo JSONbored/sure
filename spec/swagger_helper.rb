@@ -743,6 +743,75 @@ RSpec.configure do |config|
               data: { '$ref' => '#/components/schemas/ImportDetail' }
             }
           },
+          SyncableSummary: {
+            type: :object,
+            required: %w[type id],
+            properties: {
+              type: { type: :string },
+              id: { type: :string, format: :uuid },
+              name: { type: :string, nullable: true }
+            }
+          },
+          SyncErrorSummary: {
+            type: :object,
+            required: %w[present message],
+            properties: {
+              present: { type: :boolean },
+              message: { type: :string }
+            }
+          },
+          SyncResource: {
+            type: :object,
+            required: %w[id status in_progress terminal syncable children_count created_at updated_at],
+            properties: {
+              id: { type: :string, format: :uuid },
+              status: { type: :string, enum: %w[pending syncing completed failed stale] },
+              in_progress: { type: :boolean },
+              terminal: { type: :boolean },
+              syncable: { '$ref' => '#/components/schemas/SyncableSummary' },
+              parent_id: { type: :string, format: :uuid, nullable: true },
+              children_count: { type: :integer, minimum: 0 },
+              window_start_date: { type: :string, format: :date, nullable: true },
+              window_end_date: { type: :string, format: :date, nullable: true },
+              pending_at: { type: :string, format: :'date-time', nullable: true },
+              syncing_at: { type: :string, format: :'date-time', nullable: true },
+              completed_at: { type: :string, format: :'date-time', nullable: true },
+              failed_at: { type: :string, format: :'date-time', nullable: true },
+              error: {
+                oneOf: [
+                  { '$ref' => '#/components/schemas/SyncErrorSummary' },
+                  { type: :null }
+                ],
+                nullable: true
+              },
+              created_at: { type: :string, format: :'date-time' },
+              updated_at: { type: :string, format: :'date-time' }
+            }
+          },
+          SyncResponse: {
+            type: :object,
+            required: %w[data],
+            properties: {
+              data: {
+                oneOf: [
+                  { '$ref' => '#/components/schemas/SyncResource' },
+                  { type: :null }
+                ],
+                nullable: true
+              }
+            }
+          },
+          SyncCollection: {
+            type: :object,
+            required: %w[data meta],
+            properties: {
+              data: {
+                type: :array,
+                items: { '$ref' => '#/components/schemas/SyncResource' }
+              },
+              meta: { '$ref' => '#/components/schemas/Pagination' }
+            }
+          },
           Trade: {
             type: :object,
             required: %w[id date amount currency name qty price account created_at updated_at],

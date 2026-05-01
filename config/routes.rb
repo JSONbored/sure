@@ -444,6 +444,9 @@ Rails.application.routes.draw do
       resource :balance_sheet, only: [ :show ], controller: :balance_sheet
       resource :family_settings, only: [ :show ], controller: :family_settings
       post :sync, to: "sync#create"
+      resources :syncs, only: [ :index, :show ], as: :sync_records do
+        get :latest, on: :collection
+      end
 
       resources :chats, only: [ :index, :show, :create, :update, :destroy ] do
         resources :messages, only: [ :create ] do
