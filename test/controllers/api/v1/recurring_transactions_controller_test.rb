@@ -14,6 +14,7 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
       user: @user,
       name: "Test Read-Write Key",
       scopes: [ "read_write" ],
+      source: "web",
       display_key: "test_rw_#{SecureRandom.hex(8)}"
     )
     @read_only_api_key = ApiKey.create!(
@@ -75,6 +76,7 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
       user: member,
       name: "Member Read-Write Key",
       scopes: [ "read_write" ],
+      source: "web",
       display_key: "test_member_rw_#{SecureRandom.hex(8)}"
     )
     read_only_account = accounts(:credit_card)
@@ -303,6 +305,8 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
       }
     }
 
+    # The unique index intentionally ignores recurrence dates; matching family,
+    # account, merchant, amount, and currency is enough to conflict.
     assert_no_difference("@family.recurring_transactions.count") do
       post api_v1_recurring_transactions_url,
            params: params,
@@ -500,6 +504,6 @@ class Api::V1::RecurringTransactionsControllerTest < ActionDispatch::Integration
     end
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end

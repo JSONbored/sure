@@ -84,8 +84,8 @@ RSpec.describe 'API V1 Recurring Transactions', type: :request do
       parameter name: :status, in: :query, required: false,
                 description: 'Filter by recurring status',
                 schema: { type: :string, enum: %w[active inactive] }
-      parameter name: :account_id, in: :query, type: :string, required: false,
-                description: 'Filter by account ID'
+      parameter name: :account_id, in: :query, required: false, description: 'Filter by account ID',
+                schema: { type: :string, format: :uuid }
 
       response '200', 'recurring transactions listed' do
         schema '$ref' => '#/components/schemas/RecurringTransactionCollection'

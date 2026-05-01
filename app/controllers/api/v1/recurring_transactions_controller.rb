@@ -271,6 +271,11 @@ class Api::V1::RecurringTransactionsController < Api::V1::BaseController
 
     def safe_per_page_param
       per_page = params[:per_page].to_i
-      (1..100).include?(per_page) ? per_page : 25
+      case per_page
+      when 1..100
+        per_page
+      else
+        25
+      end
     end
 end
