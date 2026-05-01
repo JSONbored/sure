@@ -33,6 +33,8 @@ RSpec.describe 'API V1 Accounts', type: :request do
 
   let(:api_key_without_read_scope) do
     key = ApiKey.generate_secure_key
+    # Valid persisted API keys can only be read/read_write; this intentionally
+    # bypasses validations to document the runtime insufficient-scope response.
     ApiKey.new(
       user: user,
       name: 'No Read Docs Key',
