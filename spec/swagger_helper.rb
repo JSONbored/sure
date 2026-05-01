@@ -520,26 +520,37 @@ RSpec.configure do |config|
               invalid_rows_count: { type: :integer, minimum: 0, nullable: true }
             }
           },
-          ImportStatusDetail: {
+          ImportStatusSummary: {
             type: :object,
             required: %w[uploaded configured terminal rows_count],
             properties: {
               uploaded: { type: :boolean },
               configured: { type: :boolean },
               terminal: { type: :boolean },
-              rows_count: { type: :integer, minimum: 0 },
-              cleaned: { type: :boolean, nullable: true },
-              publishable: { type: :boolean, nullable: true },
-              revertable: { type: :boolean, nullable: true },
-              valid_rows_count: { type: :integer, minimum: 0, nullable: true },
-              invalid_rows_count: { type: :integer, minimum: 0, nullable: true },
-              mappings_count: { type: :integer, minimum: 0, nullable: true },
-              unassigned_mappings_count: { type: :integer, minimum: 0, nullable: true }
+              rows_count: { type: :integer, minimum: 0 }
             }
+          },
+          ImportStatusDetail: {
+            allOf: [
+              { '$ref' => '#/components/schemas/ImportStatusSummary' },
+              {
+                type: :object,
+                required: %w[cleaned publishable revertable valid_rows_count invalid_rows_count mappings_count unassigned_mappings_count],
+                properties: {
+                  cleaned: { type: :boolean },
+                  publishable: { type: :boolean },
+                  revertable: { type: :boolean },
+                  valid_rows_count: { type: :integer, minimum: 0 },
+                  invalid_rows_count: { type: :integer, minimum: 0 },
+                  mappings_count: { type: :integer, minimum: 0 },
+                  unassigned_mappings_count: { type: :integer, minimum: 0 }
+                }
+              }
+            ]
           },
           ImportSummary: {
             type: :object,
-            required: %w[id type status created_at updated_at],
+            required: %w[id type status created_at updated_at status_detail],
             properties: {
               id: { type: :string, format: :uuid },
               type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport] },
@@ -549,12 +560,12 @@ RSpec.configure do |config|
               account_id: { type: :string, format: :uuid, nullable: true },
               rows_count: { type: :integer, minimum: 0 },
               error: { type: :string, nullable: true },
-              status_detail: { '$ref' => '#/components/schemas/ImportStatusDetail' }
+              status_detail: { '$ref' => '#/components/schemas/ImportStatusSummary' }
             }
           },
           ImportDetail: {
             type: :object,
-            required: %w[id type status created_at updated_at],
+            required: %w[id type status created_at updated_at status_detail configuration stats],
             properties: {
               id: { type: :string, format: :uuid },
               type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport] },
