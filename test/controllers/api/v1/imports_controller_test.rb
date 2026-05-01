@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "test_helper"
 
 class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
@@ -13,7 +15,8 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
       user: @user,
       name: "Test Read-Write Key",
       scopes: [ "read_write" ],
-      display_key: "test_rw_#{SecureRandom.hex(8)}"
+      display_key: "test_rw_#{SecureRandom.hex(8)}",
+      source: "web"
     )
 
     @read_only_api_key = ApiKey.create!(
@@ -504,6 +507,6 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end
