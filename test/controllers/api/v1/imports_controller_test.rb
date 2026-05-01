@@ -405,6 +405,130 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_ndjson", json_response["error"]
   end
 
+  test "should preflight CSV import without persisting records" do
+    csv_content = "date,amount,name\n2023-01-01,-10.00,Test Transaction"
+
+    assert_no_difference([ "Import.count", "Import::Row.count" ]) do
+      post preflight_api_v1_imports_url,
+           params: {
+             raw_file_content: csv_content,
+             date_col_label: "date",
+             amount_col_label: "amount",
+             name_col_label: "name",
+             account_id: @account.id
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    data = json_response["data"]
+
+    assert_equal "TransactionImport", data["type"]
+    assert_equal true, data["valid"]
+    assert_equal 1, data["stats"]["rows_count"]
+    assert_equal 1, data["stats"]["valid_rows_count"]
+    assert_equal 0, data["stats"]["invalid_rows_count"]
+    assert_equal %w[date amount name], data["headers"]
+    assert_empty data["missing_required_headers"]
+    assert_empty data["errors"]
+  end
+
+  test "should report missing required CSV headers during preflight" do
+    csv_content = "name\nMissing Amount"
+
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             raw_file_content: csv_content,
+             date_col_label: "date",
+             amount_col_label: "amount",
+             name_col_label: "name",
+             account_id: @account.id
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal false, data["valid"]
+    assert_equal [ "date", "amount" ], data["missing_required_headers"]
+    assert_equal "missing_required_headers", data["errors"].first["code"]
+  end
+
+  test "should preflight Sure import without persisting records" do
+    ndjson_content = [
+      { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json,
+      { type: "Transaction", data: { id: "entry_1", account_id: "account_1" } }.to_json
+    ].join("\n")
+
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: ndjson_content
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal "SureImport", data["type"]
+    assert_equal true, data["valid"]
+    assert_equal 2, data["stats"]["rows_count"]
+    assert_equal 1, data["stats"]["entity_counts"]["accounts"]
+    assert_equal 1, data["stats"]["entity_counts"]["transactions"]
+    assert_empty data["errors"]
+  end
+
+  test "should report invalid Sure import NDJSON during preflight" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: "not ndjson"
+           },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal false, data["valid"]
+    assert_equal 1, data["stats"]["invalid_rows_count"]
+    assert_equal "invalid_json", data["errors"].first["code"]
+  end
+
+  test "should reject preflight with no file or raw content" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: { type: "SureImport" },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "missing_content", JSON.parse(response.body)["error"]
+  end
+
+  test "should reject preflight with read-only API key" do
+    csv_content = "date,amount,name\n2023-01-01,-10.00,Test Transaction"
+
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             raw_file_content: csv_content,
+             date_col_label: "date",
+             amount_col_label: "amount"
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :forbidden
+    assert_equal "insufficient_scope", JSON.parse(response.body)["error"]
+  end
+
   test "should create import and auto-publish when configured and requested" do
     csv_content = "date,amount,name\n2023-01-01,-10.00,Test Transaction"
 

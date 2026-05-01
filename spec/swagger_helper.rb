@@ -660,6 +660,82 @@ RSpec.configure do |config|
               unassigned_mappings_count: { type: :integer, minimum: 0 }
             }
           },
+          ImportPreflightContent: {
+            type: :object,
+            required: %w[filename content_type byte_size],
+            properties: {
+              filename: { type: :string },
+              content_type: { type: :string },
+              byte_size: { type: :integer, minimum: 0 }
+            }
+          },
+          ImportPreflightError: {
+            type: :object,
+            required: %w[code message],
+            properties: {
+              code: { type: :string },
+              message: { type: :string }
+            }
+          },
+          ImportPreflightStats: {
+            type: :object,
+            required: %w[rows_count valid_rows_count invalid_rows_count],
+            properties: {
+              rows_count: { type: :integer, minimum: 0 },
+              valid_rows_count: { type: :integer, minimum: 0 },
+              invalid_rows_count: { type: :integer, minimum: 0 },
+              entity_counts: {
+                type: :object,
+                additionalProperties: { type: :integer },
+                nullable: true
+              },
+              record_type_counts: {
+                type: :object,
+                additionalProperties: { type: :integer },
+                nullable: true
+              }
+            }
+          },
+          ImportPreflight: {
+            type: :object,
+            required: %w[type valid content stats errors warnings],
+            properties: {
+              type: { type: :string, enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport SureImport] },
+              valid: { type: :boolean },
+              content: { '$ref' => '#/components/schemas/ImportPreflightContent' },
+              stats: { '$ref' => '#/components/schemas/ImportPreflightStats' },
+              headers: {
+                type: :array,
+                items: { type: :string },
+                nullable: true
+              },
+              required_headers: {
+                type: :array,
+                items: { type: :string },
+                nullable: true
+              },
+              missing_required_headers: {
+                type: :array,
+                items: { type: :string },
+                nullable: true
+              },
+              errors: {
+                type: :array,
+                items: { '$ref' => '#/components/schemas/ImportPreflightError' }
+              },
+              warnings: {
+                type: :array,
+                items: { type: :string }
+              }
+            }
+          },
+          ImportPreflightResponse: {
+            type: :object,
+            required: %w[data],
+            properties: {
+              data: { '$ref' => '#/components/schemas/ImportPreflight' }
+            }
+          },
           ImportStatusSummary: {
             type: :object,
             required: %w[uploaded configured terminal],

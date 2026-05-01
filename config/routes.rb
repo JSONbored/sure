@@ -439,7 +439,9 @@ Rails.application.routes.draw do
       resources :family_exports, only: [ :index, :show, :create ] do
         get :download, on: :member
       end
-      resources :imports, only: [ :index, :show, :create ]
+      resources :imports, only: [ :index, :show, :create ] do
+        post :preflight, on: :collection
+      end
       resource :usage, only: [ :show ], controller: :usage
       resource :balance_sheet, only: [ :show ], controller: :balance_sheet
       resource :family_settings, only: [ :show ], controller: :family_settings
