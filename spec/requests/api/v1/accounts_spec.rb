@@ -104,7 +104,8 @@ RSpec.describe 'API V1 Accounts', type: :request do
   end
 
   path '/api/v1/accounts/{id}' do
-    parameter name: :id, in: :path, type: :string, format: :uuid, required: true, description: 'Account ID'
+    parameter name: :id, in: :path, required: true, description: 'Account ID',
+              schema: { type: :string, format: :uuid }
 
     get 'Retrieve an account' do
       tags 'Accounts'

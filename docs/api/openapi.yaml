@@ -981,11 +981,11 @@ paths:
     parameters:
     - name: id
       in: path
-      format: uuid
       required: true
       description: Account ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve an account
       tags:
