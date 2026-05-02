@@ -42,7 +42,7 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     @security_price = Security::Price.create!(
       security: @security,
       date: Date.parse("2024-01-15"),
-      price: 250.1234,
+      price: BigDecimal("0.0001"),
       currency: "USD",
       provisional: true
     )
@@ -90,7 +90,7 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal @security_price.id, response_data["id"]
     assert_equal "2024-01-15", response_data["date"]
-    assert_equal "250.1234", response_data["price_amount"]
+    assert_equal "0.0001", response_data["price_amount"]
     assert_equal @security.id, response_data.dig("security", "id")
   end
 
@@ -126,6 +126,16 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     response_data = JSON.parse(response.body)
     assert_equal [ @security_price.id ], response_data["security_prices"].map { |price| price["id"] }
+  end
+
+  test "ignores blank provisional filter" do
+    get api_v1_security_prices_url,
+        params: { provisional: "" },
+        headers: api_headers(@api_key)
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_includes response_data["security_prices"].map { |price| price["id"] }, @security_price.id
   end
 
   test "rejects malformed security_id filter" do

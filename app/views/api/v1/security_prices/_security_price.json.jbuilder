@@ -3,7 +3,7 @@
 json.id security_price.id
 json.date security_price.date
 json.price Money.new(security_price.price, security_price.currency).format
-json.price_amount security_price.price.to_s
+json.price_amount security_price.price.to_d.to_s("F")
 json.currency security_price.currency
 json.provisional security_price.provisional
 

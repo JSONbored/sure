@@ -74,7 +74,7 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
       query = query.where(currency: params[:currency].to_s.upcase) if params[:currency].present?
       query = query.where("security_prices.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
       query = query.where("security_prices.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
-      query = query.where(provisional: ActiveModel::Type::Boolean.new.cast(params[:provisional])) if params.key?(:provisional)
+      query = query.where(provisional: ActiveModel::Type::Boolean.new.cast(params[:provisional])) if params[:provisional].present?
       query
     end
 
