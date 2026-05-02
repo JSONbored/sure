@@ -152,6 +152,15 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "validation_failed", response_data["error"]
   end
 
+  test "rejects malformed offline filter" do
+    get api_v1_securities_url, params: { offline: "maybe" }, headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "offline must be true or false"
+  end
+
   test "requires authentication" do
     get api_v1_securities_url
 

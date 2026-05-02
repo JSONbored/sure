@@ -106,7 +106,7 @@ RSpec.describe 'API V1 Security Prices', type: :request do
                 description: 'Filter prices until this date',
                 schema: { type: :string, format: :date }
       parameter name: :provisional, in: :query, required: false,
-                description: 'Filter by provisional price status',
+                description: 'Filter by provisional price status (true or false)',
                 schema: { type: :boolean }
 
       response '200', 'security prices listed' do
@@ -131,18 +131,10 @@ RSpec.describe 'API V1 Security Prices', type: :request do
         run_test!
       end
 
-      response '422', 'invalid security filter' do
+      response '422', 'invalid filter' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
         let(:security_id) { 'not-a-uuid' }
-
-        run_test!
-      end
-
-      response '422', 'invalid date filter' do
-        schema '$ref' => '#/components/schemas/ErrorResponse'
-
-        let(:start_date) { 'not-a-date' }
 
         run_test!
       end

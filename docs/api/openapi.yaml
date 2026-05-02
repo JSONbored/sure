@@ -3865,7 +3865,7 @@ paths:
       - name: offline
         in: query
         required: false
-        description: Filter by offline status
+        description: Filter by offline status (true or false)
         schema:
           type: boolean
       responses:
@@ -3888,7 +3888,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '422':
-          description: invalid kind filter
+          description: invalid filter
           content:
             application/json:
               schema:
@@ -3982,7 +3982,7 @@ paths:
       - name: provisional
         in: query
         required: false
-        description: Filter by provisional price status
+        description: Filter by provisional price status (true or false)
         schema:
           type: boolean
       responses:
@@ -4005,7 +4005,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '422':
-          description: invalid date filter
+          description: invalid filter
           content:
             application/json:
               schema:

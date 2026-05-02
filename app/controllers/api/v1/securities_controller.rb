@@ -4,6 +4,12 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
   include Pagy::Backend
 
   InvalidFilterError = Class.new(StandardError)
+  BOOLEAN_FILTERS = {
+    "true" => true,
+    "1" => true,
+    "false" => false,
+    "0" => false
+  }.freeze
 
   before_action :ensure_read_scope
   before_action :set_security, only: :show
@@ -66,8 +72,20 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
 
         query = query.where(kind: params[:kind])
       end
-      query = query.where(offline: ActiveModel::Type::Boolean.new.cast(params[:offline])) if params.key?(:offline)
+      if params.key?(:offline)
+        offline = parse_boolean_filter_param(:offline)
+        query = query.where(offline: offline) unless offline.nil?
+      end
       query
+    end
+
+    def parse_boolean_filter_param(key)
+      normalized_value = params[key].to_s.strip.downcase
+
+      return nil if normalized_value.blank?
+      return BOOLEAN_FILTERS.fetch(normalized_value) if BOOLEAN_FILTERS.key?(normalized_value)
+
+      raise InvalidFilterError, "#{key} must be true or false"
     end
 
     def valid_uuid?(value)

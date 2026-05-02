@@ -4,6 +4,12 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
   include Pagy::Backend
 
   InvalidFilterError = Class.new(StandardError)
+  BOOLEAN_FILTERS = {
+    "true" => true,
+    "1" => true,
+    "false" => false,
+    "0" => false
+  }.freeze
 
   before_action :ensure_read_scope
   before_action :set_security_price, only: :show
@@ -74,8 +80,20 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
       query = query.where(currency: params[:currency].to_s.upcase) if params[:currency].present?
       query = query.where("security_prices.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
       query = query.where("security_prices.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
-      query = query.where(provisional: ActiveModel::Type::Boolean.new.cast(params[:provisional])) if params[:provisional].present?
+      if params.key?(:provisional)
+        provisional = parse_boolean_filter_param(:provisional)
+        query = query.where(provisional: provisional) unless provisional.nil?
+      end
       query
+    end
+
+    def parse_boolean_filter_param(key)
+      normalized_value = params[key].to_s.strip.downcase
+
+      return nil if normalized_value.blank?
+      return BOOLEAN_FILTERS.fetch(normalized_value) if BOOLEAN_FILTERS.key?(normalized_value)
+
+      raise InvalidFilterError, "#{key} must be true or false"
     end
 
     def parse_date_param(key)
