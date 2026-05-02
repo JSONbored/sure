@@ -40,6 +40,14 @@ class Api::V1::FamilyExportsController < Api::V1::BaseController
   end
 
   def create
+    if unsupported_create_params?
+      render json: {
+        error: "invalid_params",
+        message: "Family export creation does not accept request parameters"
+      }, status: :unprocessable_entity
+      return
+    end
+
     @family_export = current_resource_owner.family.family_exports.create!
     FamilyDataExportJob.perform_later(@family_export)
 
@@ -93,6 +101,10 @@ class Api::V1::FamilyExportsController < Api::V1::BaseController
         error: "forbidden",
         message: "Family exports require a family admin"
       }, status: :forbidden
+    end
+
+    def unsupported_create_params?
+      params.except(:controller, :action, :format).present?
     end
 
     def safe_page_param

@@ -47,7 +47,15 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
     post "Queues a family export" do
       tags "Family Exports"
       security [ apiKeyAuth: [] ]
+      consumes "application/json"
       produces "application/json"
+      parameter name: :body, in: :body, required: false, schema: {
+        type: :object,
+        additionalProperties: false,
+        description: "Family export creation does not accept request parameters."
+      }
+
+      let(:body) { {} }
 
       response "202", "family export queued" do
         schema "$ref" => "#/components/schemas/FamilyExportResponse"
@@ -62,6 +70,13 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
 
       response "403", "forbidden" do
         let(:user) { users(:family_member) }
+        schema "$ref" => "#/components/schemas/ErrorResponse"
+        run_test!
+      end
+
+      response "422", "invalid params" do
+        let(:body) { { family_export: { status: "completed" } } }
+
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end

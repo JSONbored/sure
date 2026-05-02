@@ -2372,6 +2372,7 @@ paths:
       - Family Exports
       security:
       - apiKeyAuth: []
+      parameters: []
       responses:
         '202':
           description: family export queued
@@ -2391,6 +2392,19 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
+        '422':
+          description: invalid params
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              description: Family export creation does not accept request parameters.
   "/api/v1/family_exports/{id}":
     parameters:
     - name: id

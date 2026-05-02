@@ -100,6 +100,17 @@ class Api::V1::FamilyExportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "insufficient_scope", JSON.parse(response.body)["error"]
   end
 
+  test "create rejects unsupported params" do
+    assert_no_difference("@family.family_exports.count") do
+      post api_v1_family_exports_url,
+           params: { family_export: { status: "completed" } },
+           headers: api_headers(@api_key)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "invalid_params", JSON.parse(response.body)["error"]
+  end
+
   test "non-admin cannot access family exports" do
     get api_v1_family_exports_url, headers: api_headers(@member_api_key)
     assert_response :forbidden
