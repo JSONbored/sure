@@ -1,7 +1,7 @@
 require "set"
 
 class Family::DataImporter
-  SUPPORTED_TYPES = %w[Account Category Tag Merchant RecurringTransaction Transaction Trade Valuation Budget BudgetCategory Rule].freeze
+  SUPPORTED_TYPES = %w[Account Category Tag Merchant RecurringTransaction Transaction Trade Holding Valuation Budget BudgetCategory Rule].freeze
   ACCOUNTABLE_TYPES = Accountable::TYPES.freeze
 
   def initialize(family, ndjson_content)
@@ -34,6 +34,7 @@ class Family::DataImporter
       import_recurring_transactions(records["RecurringTransaction"] || [])
       import_transactions(records["Transaction"] || [])
       import_trades(records["Trade"] || [])
+      import_holdings(records["Holding"] || [])
       import_valuations(records["Valuation"] || [])
       import_budgets(records["Budget"] || [])
       import_budget_categories(records["BudgetCategory"] || [])
@@ -321,7 +322,13 @@ class Family::DataImporter
         ticker = data["ticker"]
         next unless ticker.present?
 
-        security = find_or_create_security(ticker, data["currency"])
+        security = find_or_create_security(
+          ticker,
+          data["currency"],
+          old_security_id: data["security_id"],
+          name: data["security_name"],
+          exchange_operating_mic: data["exchange_operating_mic"]
+        )
 
         trade = Trade.new(
           security: security,
@@ -341,6 +348,45 @@ class Family::DataImporter
 
         entry.save!
         @created_entries << entry
+      end
+    end
+
+    def import_holdings(records)
+      records.each do |record|
+        data = record["data"]
+
+        new_account_id = @id_mappings[:accounts][data["account_id"]]
+        next unless new_account_id
+
+        account = @family.accounts.find(new_account_id)
+        ticker = data["ticker"]
+        next unless ticker.present?
+
+        security = find_or_create_security(
+          ticker,
+          data["currency"],
+          old_security_id: data["security_id"],
+          name: data["security_name"],
+          exchange_operating_mic: data["exchange_operating_mic"],
+          exchange_mic: data["exchange_mic"],
+          exchange_acronym: data["exchange_acronym"],
+          country_code: data["country_code"],
+          kind: data["kind"],
+          website_url: data["website_url"]
+        )
+
+        account.holdings.create!(
+          security: security,
+          date: Date.parse(data["date"].to_s),
+          qty: data["qty"].to_d,
+          price: data["price"].to_d,
+          amount: data["amount"].to_d,
+          currency: data["currency"] || account.currency,
+          cost_basis: data["cost_basis"]&.to_d,
+          cost_basis_source: importable_cost_basis_source(data["cost_basis_source"]),
+          cost_basis_locked: truthy?(data["cost_basis_locked"]),
+          security_locked: truthy?(data["security_locked"])
+        )
       end
     end
 
@@ -375,7 +421,7 @@ class Family::DataImporter
 
       # Account-level opening balances must precede every imported account
       # activity, including standalone valuation snapshots.
-      %w[Transaction Trade Valuation].each do |type|
+      %w[Transaction Trade Holding Valuation].each do |type|
         records[type].to_a.each do |record|
           data = record["data"] || {}
           account_id = data["account_id"]
@@ -591,18 +637,39 @@ class Family::DataImporter
       value
     end
 
-    def find_or_create_security(ticker, currency)
-      # Check cache first
-      cache_key = "#{ticker}:#{currency}"
-      return @id_mappings[:securities][cache_key] if @id_mappings[:securities][cache_key]
+    def importable_cost_basis_source(value)
+      source = value.to_s
+      Holding::COST_BASIS_SOURCES.include?(source) ? source : nil
+    end
 
-      security = Security.find_by(ticker: ticker.upcase)
-      security ||= Security.create!(
+    def truthy?(value)
+      ActiveModel::Type::Boolean.new.cast(value)
+    end
+
+    def find_or_create_security(ticker, currency, old_security_id: nil, **attributes)
+      # Check cache first
+      exchange_operating_mic = attributes[:exchange_operating_mic].presence&.upcase
+      cache_key = "#{ticker.to_s.upcase}:#{exchange_operating_mic}:#{currency}"
+      return @id_mappings[:securities][cache_key] if @id_mappings[:securities][cache_key]
+      return Security.find(@id_mappings[:securities][old_security_id]) if old_security_id.present? && @id_mappings[:securities][old_security_id]
+
+      security = Security.find_or_initialize_by(
         ticker: ticker.upcase,
-        name: ticker.upcase
+        exchange_operating_mic: exchange_operating_mic
       )
 
+      unless security.persisted?
+        security.name = attributes[:name].presence || ticker.upcase
+        security.exchange_mic = attributes[:exchange_mic]
+        security.exchange_acronym = attributes[:exchange_acronym]
+        security.country_code = attributes[:country_code]
+        security.kind = Security::KINDS.include?(attributes[:kind].to_s) ? attributes[:kind].to_s : "standard"
+        security.website_url = attributes[:website_url]
+        security.save!
+      end
+
       @id_mappings[:securities][cache_key] = security
+      @id_mappings[:securities][old_security_id] = security.id if old_security_id.present?
       security
     end
 end

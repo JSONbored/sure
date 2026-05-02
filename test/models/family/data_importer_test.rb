@@ -523,6 +523,63 @@ class Family::DataImporterTest < ActiveSupport::TestCase
     assert_equal 150.0, trade.price.to_f
   end
 
+  test "imports holding snapshots with security identity" do
+    ndjson = build_ndjson([
+      {
+        type: "Account",
+        data: {
+          id: "inv-acct-1",
+          name: "Investment Account",
+          balance: "10000",
+          currency: "USD",
+          accountable_type: "Investment"
+        }
+      },
+      {
+        type: "Holding",
+        data: {
+          id: "holding-1",
+          account_id: "inv-acct-1",
+          security_id: "security-1",
+          ticker: "VTI",
+          security_name: "Vanguard Total Stock Market ETF",
+          exchange_operating_mic: "ARCX",
+          country_code: "US",
+          date: "2024-01-15",
+          qty: "100",
+          price: "250.25",
+          amount: "25025.00",
+          currency: "USD",
+          cost_basis: "200.00",
+          cost_basis_source: "manual",
+          cost_basis_locked: true,
+          security_locked: true
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    account = @family.accounts.find_by!(name: "Investment Account")
+    holding = account.holdings.first
+
+    assert_not_nil holding
+    assert_equal Date.parse("2024-01-15"), holding.date
+    assert_equal "VTI", holding.security.ticker
+    assert_equal "Vanguard Total Stock Market ETF", holding.security.name
+    assert_equal "ARCX", holding.security.exchange_operating_mic
+    assert_equal 100.0, holding.qty.to_f
+    assert_equal 250.25, holding.price.to_f
+    assert_equal 25_025.0, holding.amount.to_f
+    assert_equal 200.0, holding.cost_basis.to_f
+    assert_equal "manual", holding.cost_basis_source
+    assert holding.cost_basis_locked
+    assert holding.security_locked
+
+    opening_anchor = account.valuations.opening_anchor.first
+    assert_equal Date.parse("2024-01-14"), opening_anchor.entry.date
+  end
+
   test "imports valuations" do
     ndjson = build_ndjson([
       {
