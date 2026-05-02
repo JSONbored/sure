@@ -1,7 +1,7 @@
 <%= render DS::Dialog.new do |dialog| %>
   <% dialog.with_header(title: t(".title"), subtitle: t(".description")) %>
   <% dialog.with_body do %>
-    <%= styled_form_with url: bulk_update_domains_accounts_path, method: :post, class: "space-y-4" do |f| %>
+    <%= styled_form_with url: bulk_update_domains_accounts_path, method: :post, class: "space-y-4 max-h-[70vh] overflow-y-auto pr-1" do |f| %>
       <%= f.text_field :institution_domain,
             name: :institution_domain,
             required: true,

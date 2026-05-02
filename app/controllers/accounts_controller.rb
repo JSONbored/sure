@@ -43,8 +43,9 @@ class AccountsController < ApplicationController
   end
 
   def bulk_update_domains
-    domain = Account.normalize_institution_domain(params[:institution_domain])
-    accounts = bulk_domain_accounts.where(id: params[:account_ids])
+    permitted_params = bulk_domain_params
+    domain = Account.normalize_institution_domain(permitted_params[:institution_domain])
+    accounts = bulk_domain_accounts.where(id: permitted_params[:account_ids])
 
     unless accounts.any? && domain.present?
       return redirect_to bulk_domains_accounts_path, alert: t(".invalid_selection")
@@ -232,6 +233,10 @@ class AccountsController < ApplicationController
 
     def set_account
       @account = Current.user.accessible_accounts.find(params[:id])
+    end
+
+    def bulk_domain_params
+      params.permit(:institution_domain, account_ids: [])
     end
 
     def set_manageable_account

@@ -103,7 +103,15 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
       color: "#000000",
       lucide_icon: "coffee"
     )
-    transactions(:one).update!(category: source)
+    transaction = Transaction.create!(category: source)
+    Entry.create!(
+      account: accounts(:depository),
+      entryable: transaction,
+      name: "Coffee transaction",
+      date: Date.current,
+      amount: 10,
+      currency: "USD"
+    )
 
     assert_difference "Category.count", 0 do
       post perform_merge_categories_path, params: {
@@ -116,8 +124,56 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
 
     target = Category.find_by!(family: @family, name: "Dining")
     assert_redirected_to categories_path
-    assert_equal target, transactions(:one).reload.category
+    assert_equal target, transaction.reload.category
     assert_not Category.exists?(source.id)
+  end
+
+  test "merge rejects conflicting existing and new targets" do
+    source = @family.categories.create!(
+      name: "Conflicting Source",
+      color: "#000000",
+      lucide_icon: "shapes"
+    )
+
+    post perform_merge_categories_path, params: {
+      target_id: categories(:income).id,
+      new_target_name: "Conflicting Target",
+      source_ids: [ source.id ]
+    }
+
+    assert_redirected_to merge_categories_path
+    assert Category.exists?(source.id)
+    assert_nil @family.categories.find_by(name: "Conflicting Target")
+  end
+
+  test "merge rejects parent category into any descendant" do
+    parent = @family.categories.create!(
+      name: "Parent Category",
+      color: "#000000",
+      lucide_icon: "folder"
+    )
+    child = @family.categories.create!(
+      name: "Child Category",
+      color: "#111111",
+      lucide_icon: "folder",
+      parent: parent
+    )
+    grandchild = @family.categories.create!(
+      name: "Grandchild Category",
+      color: "#222222",
+      lucide_icon: "folder"
+    )
+    # Category validation normally prevents this depth; the merger still guards
+    # against stale or imported data with deeper hierarchies.
+    grandchild.update_column(:parent_id, child.id)
+
+    post perform_merge_categories_path, params: {
+      target_id: grandchild.id,
+      source_ids: [ parent.id ]
+    }
+
+    assert_redirected_to merge_categories_path
+    assert Category.exists?(parent.id)
   end
 
   test "merge ignores categories outside current family" do

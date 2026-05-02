@@ -46,7 +46,20 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should merge selected merchants into a new family merchant" do
-    source = merchants(:amazon)
+    source = FamilyMerchant.create!(
+      family: @user.family,
+      name: "Merge Source Merchant",
+      color: "#000000"
+    )
+    transaction = Transaction.create!(merchant: source)
+    Entry.create!(
+      account: accounts(:depository),
+      entryable: transaction,
+      name: "Merge source transaction",
+      date: Date.current,
+      amount: 10,
+      currency: "USD"
+    )
 
     assert_difference("FamilyMerchant.count", 0) do
       post perform_merge_family_merchants_path, params: {
@@ -58,8 +71,26 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
 
     target = FamilyMerchant.find_by!(family: @user.family, name: "Streaming")
     assert_redirected_to family_merchants_path
-    assert_equal target, transactions(:one).reload.merchant
+    assert_equal target, transaction.reload.merchant
     assert_not FamilyMerchant.exists?(source.id)
+  end
+
+  test "merge rejects conflicting existing and new targets" do
+    source = FamilyMerchant.create!(
+      family: @user.family,
+      name: "Conflicting Source Merchant",
+      color: "#000000"
+    )
+
+    post perform_merge_family_merchants_path, params: {
+      target_id: @merchant.id,
+      new_target_name: "Conflicting Target",
+      source_ids: [ source.id ]
+    }
+
+    assert_redirected_to merge_family_merchants_path
+    assert FamilyMerchant.exists?(source.id)
+    assert_nil FamilyMerchant.find_by(family: @user.family, name: "Conflicting Target")
   end
 
   test "bulk website update scopes merchants to current family and refreshes logos" do
@@ -88,5 +119,15 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "example.com", provider_merchant.reload.website_url
     assert_includes provider_merchant.logo_url, "cdn.brandfetch.io/example.com"
     assert_nil other_family_merchant.reload.website_url
+  end
+
+  test "bulk website update rejects malformed website domains" do
+    post bulk_update_websites_family_merchants_path, params: {
+      website_url: "https://bad host",
+      merchant_ids: [ @merchant.id ]
+    }
+
+    assert_redirected_to bulk_websites_family_merchants_path
+    assert_nil @merchant.reload.website_url
   end
 end

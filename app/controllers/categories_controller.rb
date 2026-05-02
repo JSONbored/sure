@@ -72,12 +72,18 @@ class CategoriesController < ApplicationController
   end
 
   def perform_merge
-    sources = Current.family.categories.where(id: params[:source_ids])
+    permitted_params = category_merge_params
+
+    if conflicting_merge_target?(permitted_params)
+      return redirect_to merge_categories_path, alert: t(".conflicting_target")
+    end
+
+    sources = Current.family.categories.where(id: permitted_params[:source_ids])
     unless sources.any?
       return redirect_to merge_categories_path, alert: t(".invalid_categories")
     end
 
-    target = merge_target_category
+    target = merge_target_category(permitted_params)
     unless target
       return redirect_to merge_categories_path, alert: t(".target_not_found")
     end
@@ -122,15 +128,23 @@ class CategoriesController < ApplicationController
       params.require(:category).permit(:name, :color, :parent_id, :lucide_icon)
     end
 
-    def merge_target_category
-      if params[:new_target_name].present?
+    def category_merge_params
+      params.permit(:target_id, :new_target_name, :new_target_color, :new_target_icon, source_ids: [])
+    end
+
+    def conflicting_merge_target?(permitted_params)
+      permitted_params[:target_id].present? && permitted_params[:new_target_name].present?
+    end
+
+    def merge_target_category(permitted_params)
+      if permitted_params[:new_target_name].present?
         Current.family.categories.create!(
-          name: params[:new_target_name],
-          color: params[:new_target_color].presence || Category::COLORS.sample,
-          lucide_icon: params[:new_target_icon].presence || Category.suggested_icon(params[:new_target_name])
+          name: permitted_params[:new_target_name],
+          color: permitted_params[:new_target_color].presence || Category::COLORS.sample,
+          lucide_icon: permitted_params[:new_target_icon].presence || Category.suggested_icon(permitted_params[:new_target_name])
         )
       else
-        Current.family.categories.find_by(id: params[:target_id])
+        Current.family.categories.find_by(id: permitted_params[:target_id])
       end
     end
 end

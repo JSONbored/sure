@@ -15,9 +15,12 @@ class Merchant < ApplicationRecord
 
       normalized_url = url.to_s.strip
       normalized_url = "https://#{normalized_url}" unless normalized_url.start_with?("http://", "https://")
-      URI.parse(normalized_url).host&.sub(/\Awww\./, "")
+      domain = URI.parse(normalized_url).host&.sub(/\Awww\./, "")
+      return nil unless domain.present? && domain.match?(/\A[a-z0-9.-]+\.[a-z0-9-]+\z/i)
+
+      domain.downcase
     rescue URI::InvalidURIError
-      url.to_s.strip.sub(/\Awww\./, "").presence
+      nil
     end
 
     def brandfetch_logo_url_for(url)

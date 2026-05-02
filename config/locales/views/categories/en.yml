@@ -46,6 +46,7 @@ en:
       no_categories_selected: No categories selected to merge
       target_not_found: Target category not found
       invalid_categories: Invalid categories selected
+      conflicting_target: Choose an existing target or create a new target, not both.
     update:
       success: Category updated successfully
   category:

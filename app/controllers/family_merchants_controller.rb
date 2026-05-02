@@ -107,8 +107,9 @@ class FamilyMerchantsController < ApplicationController
   end
 
   def bulk_update_websites
-    merchants = all_family_merchants.where(id: params[:merchant_ids])
-    website_url = Merchant.extract_domain(params[:website_url])
+    permitted_params = bulk_website_params
+    merchants = all_family_merchants.where(id: permitted_params[:merchant_ids])
+    website_url = Merchant.extract_domain(permitted_params[:website_url])
 
     unless merchants.any? && website_url.present?
       return redirect_to bulk_websites_family_merchants_path, alert: t(".invalid_selection")
@@ -125,15 +126,21 @@ class FamilyMerchantsController < ApplicationController
   end
 
   def perform_merge
+    permitted_params = merchant_merge_params
+
+    if conflicting_merge_target?(permitted_params)
+      return redirect_to merge_family_merchants_path, alert: t(".conflicting_target")
+    end
+
     # Scope lookups to merchants valid for this family (FamilyMerchants + assigned ProviderMerchants)
     valid_merchants = all_family_merchants
 
-    sources = valid_merchants.where(id: params[:source_ids])
+    sources = valid_merchants.where(id: permitted_params[:source_ids])
     unless sources.any?
       return redirect_to merge_family_merchants_path, alert: t(".invalid_merchants")
     end
 
-    target = merge_target_merchant(valid_merchants)
+    target = merge_target_merchant(valid_merchants, permitted_params)
     unless target
       return redirect_to merge_family_merchants_path, alert: t(".target_not_found")
     end
@@ -169,6 +176,18 @@ class FamilyMerchantsController < ApplicationController
       params.require(key).permit(:name, :color, :website_url)
     end
 
+    def bulk_website_params
+      params.permit(:website_url, merchant_ids: [])
+    end
+
+    def merchant_merge_params
+      params.permit(:target_id, :new_target_name, :new_target_color, :new_target_website_url, source_ids: [])
+    end
+
+    def conflicting_merge_target?(permitted_params)
+      permitted_params[:target_id].present? && permitted_params[:new_target_name].present?
+    end
+
     def all_family_merchants
       family_merchant_ids = Current.family.merchants.pluck(:id)
       provider_merchant_ids = Current.family.assigned_merchants.where(type: "ProviderMerchant").pluck(:id)
@@ -178,15 +197,15 @@ class FamilyMerchantsController < ApplicationController
               .order(Arel.sql("LOWER(COALESCE(name, ''))"))
     end
 
-    def merge_target_merchant(valid_merchants)
-      if params[:new_target_name].present?
+    def merge_target_merchant(valid_merchants, permitted_params)
+      if permitted_params[:new_target_name].present?
         Current.family.merchants.create!(
-          name: params[:new_target_name],
-          color: params[:new_target_color].presence || FamilyMerchant::COLORS.sample,
-          website_url: params[:new_target_website_url].presence
+          name: permitted_params[:new_target_name],
+          color: permitted_params[:new_target_color].presence || FamilyMerchant::COLORS.sample,
+          website_url: permitted_params[:new_target_website_url].presence
         )
       else
-        valid_merchants.find_by(id: params[:target_id])
+        valid_merchants.find_by(id: permitted_params[:target_id])
       end
     end
 end

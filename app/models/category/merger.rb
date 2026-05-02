@@ -41,11 +41,27 @@ class Category::Merger
     end
 
     def validate_hierarchy!
+      target_ancestor_ids = ancestor_ids_for(target_category)
+
       source_categories.each do |source|
-        next unless target_category.parent_id == source.id
+        next unless target_ancestor_ids.include?(source.id)
 
         raise UnauthorizedCategoryError, "A parent category cannot be merged into its own subcategory"
       end
+    end
+
+    def ancestor_ids_for(category)
+      ids = []
+      seen_ids = Set.new
+      current = category
+
+      while current&.parent_id.present? && seen_ids.exclude?(current.parent_id)
+        ids << current.parent_id
+        seen_ids << current.parent_id
+        current = family.categories.find_by(id: current.parent_id)
+      end
+
+      ids
     end
 
     def merge_transactions(source)

@@ -16,6 +16,12 @@ class AccountTest < ActiveSupport::TestCase
     end
   end
 
+  test "normalizes institution domain before saving" do
+    @account.update!(institution_domain: "https://www.Example.com/checking")
+
+    assert_equal "example.com", @account.reload.read_attribute(:institution_domain)
+  end
+
   test "create_and_sync calls sync_later by default" do
     Account.any_instance.expects(:sync_later).once
 

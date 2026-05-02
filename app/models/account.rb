@@ -2,6 +2,7 @@ class Account < ApplicationRecord
   include AASM, Syncable, Monetizable, Chartable, Linkable, Enrichable, Anchorable, Reconcileable, TaxTreatable
 
   before_validation :assign_default_owner, if: -> { owner_id.blank? }
+  before_validation :normalize_institution_domain_value, if: -> { will_save_change_to_institution_domain? }
 
   validates :name, :balance, :currency, presence: true
   validate :owner_belongs_to_family, if: -> { owner_id.present? && family_id.present? }
@@ -143,9 +144,9 @@ class Account < ApplicationRecord
 
       normalized_value = value.to_s.strip
       normalized_value = "https://#{normalized_value}" unless normalized_value.start_with?("http://", "https://")
-      URI.parse(normalized_value).host&.sub(/\Awww\./, "")
+      URI.parse(normalized_value).host&.sub(/\Awww\./, "")&.downcase
     rescue URI::InvalidURIError
-      value.to_s.strip.sub(/\Awww\./, "").presence
+      value.to_s.strip.sub(/\Awww\./, "").presence&.downcase
     end
 
     def create_from_simplefin_account(simplefin_account, account_type, subtype = nil)
@@ -480,5 +481,9 @@ class Account < ApplicationRecord
     def owner_belongs_to_family
       return if User.where(id: owner_id, family_id: family_id).exists?
       errors.add(:owner, :invalid, message: "must belong to the same family as the account")
+    end
+
+    def normalize_institution_domain_value
+      self[:institution_domain] = self.class.normalize_institution_domain(read_attribute(:institution_domain))
     end
 end
