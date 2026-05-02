@@ -46,7 +46,7 @@ class Settings::WebauthnCredentialsController < ApplicationController
     )
 
     render json: { redirect_url: settings_security_path }
-  rescue WebAuthn::Error, RuntimeError, ActiveRecord::RecordInvalid, ActionController::BadRequest, ActionController::ParameterMissing
+  rescue WebAuthn::Error, RuntimeError, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique, ActionController::BadRequest, ActionController::ParameterMissing
     render json: { error: t("webauthn_credentials.failure") }, status: :unprocessable_entity
   end
 

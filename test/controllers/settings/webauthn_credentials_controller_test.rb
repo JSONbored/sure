@@ -75,6 +75,30 @@ class Settings::WebauthnCredentialsControllerTest < ActionDispatch::IntegrationT
     assert_equal I18n.t("webauthn_credentials.failure"), JSON.parse(response.body).fetch("error")
   end
 
+  test "rejects database-level duplicate credential races" do
+    registration_options
+    @user.webauthn_credentials.create!(
+      nickname: "Existing security key",
+      credential_id: "duplicate-credential-id",
+      public_key: "public-key"
+    )
+
+    verified_credential = Struct.new(:id, :public_key, :sign_count).new("duplicate-credential-id", "new-public-key", 0)
+    relying_party = mock("webauthn_relying_party")
+    relying_party.expects(:verify_registration).returns(verified_credential)
+    Settings::WebauthnCredentialsController.any_instance.stubs(:webauthn_relying_party).returns(relying_party)
+
+    assert_no_difference -> { @user.webauthn_credentials.count } do
+      post settings_webauthn_credentials_path, params: {
+        webauthn_credential: { nickname: "Duplicate security key" },
+        credential: { id: "duplicate-credential-id", response: {} }
+      }, as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal I18n.t("webauthn_credentials.failure"), JSON.parse(response.body).fetch("error")
+  end
+
   test "uses localized default credential nickname" do
     options = registration_options
     credential = @client.create(challenge: options.fetch("challenge"), rp_id: "www.example.com")
