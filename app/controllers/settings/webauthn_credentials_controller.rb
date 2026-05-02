@@ -66,10 +66,18 @@ class Settings::WebauthnCredentialsController < ApplicationController
     end
 
     def webauthn_credential_name
-      params.dig(:webauthn_credential, :nickname).presence || t("webauthn_credentials.default_name")
+      webauthn_credential_params[:nickname].presence || t("webauthn_credentials.default_name")
     end
 
     def webauthn_credential_transports
-      Array(params.dig(:credential, :response, :transports)).compact_blank
+      Array(credential_response_params.dig(:response, :transports)).compact_blank
+    end
+
+    def webauthn_credential_params
+      params.fetch(:webauthn_credential, ActionController::Parameters.new).permit(:nickname)
+    end
+
+    def credential_response_params
+      params.fetch(:credential, ActionController::Parameters.new).permit(response: [ transports: [] ])
     end
 end
