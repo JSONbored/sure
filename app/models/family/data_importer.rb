@@ -1,7 +1,7 @@
 require "set"
 
 class Family::DataImporter
-  SUPPORTED_TYPES = %w[Account Category Tag Merchant Transaction Trade Valuation Budget BudgetCategory Rule].freeze
+  SUPPORTED_TYPES = %w[Account Category Tag Merchant RecurringTransaction Transaction Trade Valuation Budget BudgetCategory Rule].freeze
   ACCOUNTABLE_TYPES = Accountable::TYPES.freeze
 
   def initialize(family, ndjson_content)
@@ -12,6 +12,7 @@ class Family::DataImporter
       categories: {},
       tags: {},
       merchants: {},
+      recurring_transactions: {},
       budgets: {},
       securities: {}
     }
@@ -30,6 +31,7 @@ class Family::DataImporter
       import_categories(records["Category"] || [])
       import_tags(records["Tag"] || [])
       import_merchants(records["Merchant"] || [])
+      import_recurring_transactions(records["RecurringTransaction"] || [])
       import_transactions(records["Transaction"] || [])
       import_trades(records["Trade"] || [])
       import_valuations(records["Valuation"] || [])
@@ -185,6 +187,55 @@ class Family::DataImporter
         merchant.save!
         @id_mappings[:merchants][old_id] = merchant.id
       end
+    end
+
+    def import_recurring_transactions(records)
+      records.each do |record|
+        data = record["data"]
+        old_id = data["id"]
+
+        new_account_id = remap_optional_id(:accounts, data["account_id"])
+        next if data["account_id"].present? && new_account_id.blank?
+
+        new_merchant_id = remap_optional_id(:merchants, data["merchant_id"])
+        next if data["merchant_id"].present? && new_merchant_id.blank?
+
+        recurring_transaction = @family.recurring_transactions.build(
+          account_id: new_account_id,
+          merchant_id: new_merchant_id,
+          amount: data["amount"].to_d,
+          currency: data["currency"] || @family.currency,
+          expected_day_of_month: data["expected_day_of_month"].to_i,
+          last_occurrence_date: Date.parse(data["last_occurrence_date"].to_s),
+          next_expected_date: Date.parse(data["next_expected_date"].to_s),
+          status: recurring_transaction_status_for(data["status"]),
+          occurrence_count: data["occurrence_count"].to_i,
+          name: data["name"],
+          manual: boolean_export_value(data, "manual", default: false),
+          expected_amount_min: data["expected_amount_min"]&.to_d,
+          expected_amount_max: data["expected_amount_max"]&.to_d,
+          expected_amount_avg: data["expected_amount_avg"]&.to_d
+        )
+
+        recurring_transaction.save!
+        @id_mappings[:recurring_transactions][old_id] = recurring_transaction.id
+      end
+    end
+
+    def remap_optional_id(mapping_key, old_id)
+      return if old_id.blank?
+
+      @id_mappings[mapping_key][old_id]
+    end
+
+    def recurring_transaction_status_for(status)
+      status.to_s.in?(RecurringTransaction.statuses.keys) ? status.to_s : "active"
+    end
+
+    def boolean_export_value(data, key, default:)
+      return default unless data.key?(key)
+
+      ActiveModel::Type::Boolean.new.cast(data[key])
     end
 
     def import_transactions(records)
