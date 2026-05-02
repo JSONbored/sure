@@ -38,6 +38,7 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
       end
 
       response "403", "forbidden" do
+        let(:user) { users(:family_member) }
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end
@@ -60,6 +61,7 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
       end
 
       response "403", "forbidden" do
+        let(:user) { users(:family_member) }
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end
@@ -86,6 +88,7 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
       end
 
       response "403", "forbidden" do
+        let(:user) { users(:family_member) }
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end
@@ -106,7 +109,7 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
       security [ apiKeyAuth: [] ]
       produces "application/zip", "application/json"
 
-      response "200", "family export downloaded" do
+      response "302", "family export download redirected" do
         before do
           family_export.export_file.attach(
             io: StringIO.new("test zip content"),
@@ -125,6 +128,7 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
       end
 
       response "403", "forbidden" do
+        let(:user) { users(:family_member) }
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end

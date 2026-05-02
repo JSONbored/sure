@@ -2445,8 +2445,8 @@ paths:
       security:
       - apiKeyAuth: []
       responses:
-        '200':
-          description: family export downloaded
+        '302':
+          description: family export download redirected
         '401':
           description: unauthorized
           content:
