@@ -501,6 +501,24 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "invalid_json", data["errors"].first["code"]
   end
 
+  test "should report non-object Sure import NDJSON records during preflight" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             raw_file_content: "[]"
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal false, data["valid"]
+    assert_equal 1, data["stats"]["invalid_rows_count"]
+    assert_equal "invalid_ndjson_record", data["errors"].first["code"]
+  end
+
   test "should reject preflight with no file or raw content" do
     assert_no_difference("Import.count") do
       post preflight_api_v1_imports_url,
@@ -512,7 +530,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "missing_content", JSON.parse(response.body)["error"]
   end
 
-  test "should reject preflight with read-only API key" do
+  test "should preflight with read-only API key" do
     csv_content = "date,amount,name\n2023-01-01,-10.00,Test Transaction"
 
     assert_no_difference("Import.count") do
@@ -520,13 +538,76 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
            params: {
              raw_file_content: csv_content,
              date_col_label: "date",
-             amount_col_label: "amount"
+             amount_col_label: "amount",
+             name_col_label: "name",
+             account_id: @account.id
            },
            headers: api_headers(@read_only_api_key)
     end
 
-    assert_response :forbidden
-    assert_equal "insufficient_scope", JSON.parse(response.body)["error"]
+    assert_response :success
+    assert_equal true, JSON.parse(response.body)["data"]["valid"]
+  end
+
+  test "should require authentication for preflight" do
+    post preflight_api_v1_imports_url, params: {
+      raw_file_content: "date,amount,name\n2023-01-01,-10.00,Test Transaction"
+    }
+
+    assert_response :unauthorized
+  end
+
+  test "should return not found for preflight account outside family" do
+    other_family = Family.create!(name: "Other Family", currency: "USD", locale: "en")
+    other_depository = Depository.create!(subtype: "checking")
+    other_account = Account.create!(
+      family: other_family,
+      name: "Other Account",
+      currency: "USD",
+      classification: "asset",
+      accountable: other_depository,
+      balance: 0
+    )
+
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             raw_file_content: "date,amount,name\n2023-01-01,-10.00,Test Transaction",
+             date_col_label: "date",
+             amount_col_label: "amount",
+             name_col_label: "name",
+             account_id: other_account.id
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :not_found
+    assert_equal "record_not_found", JSON.parse(response.body)["error"]
+  end
+
+  test "should apply Mint defaults before preflight header validation" do
+    mint_content = [
+      "Date,Amount,Account Name,Description,Category,Labels,Currency,Notes,Transaction Type",
+      "01/01/2024,-8.55,Checking,Starbucks,Food & Drink,Coffee,USD,Morning coffee,debit"
+    ].join("\n")
+
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "MintImport",
+             raw_file_content: mint_content
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal "MintImport", data["type"]
+    assert_equal true, data["valid"]
+    assert_empty data["missing_required_headers"]
+    assert_includes data["required_headers"], "Date"
+    assert_includes data["required_headers"], "Amount"
   end
 
   test "should create import and auto-publish when configured and requested" do

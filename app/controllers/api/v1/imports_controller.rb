@@ -4,8 +4,8 @@ class Api::V1::ImportsController < Api::V1::BaseController
   include Pagy::Backend
 
   # Ensure proper scope authorization
-  before_action :ensure_read_scope, only: [ :index, :show ]
-  before_action :ensure_write_scope, only: [ :create, :preflight ]
+  before_action :ensure_read_scope, only: [ :index, :show, :preflight ]
+  before_action :ensure_write_scope, only: [ :create ]
   before_action :set_import, only: [ :show ]
 
   def index
@@ -209,6 +209,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
 
       import = family.imports.build(import_config_params.merge(type: type, raw_file_str: content))
       import.account = family.accounts.find(params[:account_id]) if params[:account_id].present?
+      apply_preflight_import_defaults(import)
 
       unless import.requires_csv_workflow?
         render json: {
@@ -222,7 +223,8 @@ class Api::V1::ImportsController < Api::V1::BaseController
       csv_content = preflight_csv_content(import, content)
       csv = Import.parse_csv_str(csv_content, col_sep: import.col_sep)
       row_count = csv.length
-      missing_required_headers = preflight_missing_required_headers(import, csv.headers)
+      csv_headers = Array(csv.headers).compact
+      missing_required_headers = preflight_missing_required_headers(import, csv_headers)
       errors = import.errors.full_messages.map do |message|
         { code: "validation_failed", message: message }
       end
@@ -248,7 +250,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
             valid_rows_count: errors.empty? ? row_count : 0,
             invalid_rows_count: errors.empty? ? 0 : row_count
           },
-          headers: csv.headers.compact,
+          headers: csv_headers,
           required_headers: preflight_required_header_labels(import),
           missing_required_headers: missing_required_headers,
           errors: errors,
@@ -370,6 +372,14 @@ class Api::V1::ImportsController < Api::V1::BaseController
         nonblank_rows_count += 1
         record = JSON.parse(line)
 
+        unless record.is_a?(Hash)
+          errors << {
+            code: "invalid_ndjson_record",
+            message: "Line #{line_number} must be a JSON object."
+          }
+          next
+        end
+
         if record["type"].blank? || !record.key?("data")
           errors << {
             code: "invalid_ndjson_record",
@@ -426,6 +436,24 @@ class Api::V1::ImportsController < Api::V1::BaseController
       content.lines.drop(import.rows_to_skip.to_i).join
     end
 
+    def apply_preflight_import_defaults(import)
+      return unless import.is_a?(MintImport)
+
+      import.assign_attributes(
+        signage_convention: "inflows_positive",
+        date_col_label: "Date",
+        date_format: "%m/%d/%Y",
+        name_col_label: "Description",
+        amount_col_label: "Amount",
+        currency_col_label: "Currency",
+        account_col_label: "Account Name",
+        category_col_label: "Category",
+        tags_col_label: "Labels",
+        notes_col_label: "Notes",
+        entity_type_col_label: "Transaction Type"
+      )
+    end
+
     def preflight_required_header_labels(import)
       import.required_column_keys.filter_map do |key|
         import.respond_to?("#{key}_col_label") ? import.public_send("#{key}_col_label").presence || key.to_s : key.to_s
@@ -433,7 +461,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
     end
 
     def preflight_missing_required_headers(import, headers)
-      normalized_headers = headers.compact.to_h { |header| [ preflight_normalized_header(header), header ] }
+      normalized_headers = Array(headers).compact.to_h { |header| [ preflight_normalized_header(header), header ] }
 
       preflight_required_header_labels(import).reject do |header|
         normalized_headers.key?(preflight_normalized_header(header))

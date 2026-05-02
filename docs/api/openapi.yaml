@@ -3261,14 +3261,14 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
-        '403':
-          description: insufficient scope
+        '422':
+          description: missing or invalid content
           content:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
-        '422':
-          description: missing or invalid content
+        '404':
+          description: account not found
           content:
             application/json:
               schema:
@@ -3282,6 +3282,10 @@ paths:
                 raw_file_content:
                   type: string
                   description: Raw CSV or Sure NDJSON content as a string
+                file:
+                  type: string
+                  format: binary
+                  description: CSV or Sure NDJSON upload when using multipart/form-data
                 type:
                   type: string
                   enum:
@@ -3381,6 +3385,10 @@ paths:
                 raw_file_content:
                   type: string
                   description: Raw CSV or Sure NDJSON content as a string
+                file:
+                  type: string
+                  format: binary
+                  description: CSV or Sure NDJSON upload when using multipart/form-data
                 type:
                   type: string
                   enum:

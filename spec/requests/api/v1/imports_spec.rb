@@ -303,6 +303,11 @@ RSpec.describe 'API V1 Imports', type: :request do
             type: :string,
             description: 'Raw CSV or Sure NDJSON content as a string'
           },
+          file: {
+            type: :string,
+            format: :binary,
+            description: 'CSV or Sure NDJSON upload when using multipart/form-data'
+          },
           type: {
             type: :string,
             enum: %w[TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport SureImport],
@@ -379,27 +384,21 @@ RSpec.describe 'API V1 Imports', type: :request do
         run_test!
       end
 
-      response '403', 'insufficient scope' do
+      response '422', 'missing or invalid content' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
-
-        let(:api_key) do
-          key = ApiKey.generate_secure_key
-          ApiKey.create!(
-            user: user,
-            name: 'Read Only API Docs Key',
-            key: key,
-            scopes: %w[read],
-            source: 'web'
-          )
-        end
-        let(:body) { { raw_file_content: "date,amount\n01/15/2024,50.00" } }
+        let(:body) { { type: 'SureImport' } }
 
         run_test!
       end
 
-      response '422', 'missing or invalid content' do
+      response '404', 'account not found' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
-        let(:body) { { type: 'SureImport' } }
+        let(:body) do
+          {
+            raw_file_content: "date,amount,name\n01/15/2024,50.00,New Transaction",
+            account_id: SecureRandom.uuid
+          }
+        end
 
         run_test!
       end
