@@ -648,28 +648,71 @@ class Family::DataImporter
 
     def find_or_create_security(ticker, currency, old_security_id: nil, **attributes)
       # Check cache first
+      normalized_ticker = ticker.to_s.upcase
       exchange_operating_mic = attributes[:exchange_operating_mic].presence&.upcase
-      cache_key = "#{ticker.to_s.upcase}:#{exchange_operating_mic}:#{currency}"
-      return @id_mappings[:securities][cache_key] if @id_mappings[:securities][cache_key]
-      return Security.find(@id_mappings[:securities][old_security_id]) if old_security_id.present? && @id_mappings[:securities][old_security_id]
+      cache_key = "#{normalized_ticker}:#{exchange_operating_mic}:#{currency}"
 
-      security = Security.find_or_initialize_by(
-        ticker: ticker.upcase,
-        exchange_operating_mic: exchange_operating_mic
-      )
-
-      unless security.persisted?
-        security.name = attributes[:name].presence || ticker.upcase
-        security.exchange_mic = attributes[:exchange_mic]
-        security.exchange_acronym = attributes[:exchange_acronym]
-        security.country_code = attributes[:country_code]
-        security.kind = Security::KINDS.include?(attributes[:kind].to_s) ? attributes[:kind].to_s : "standard"
-        security.website_url = attributes[:website_url]
-        security.save!
+      if @id_mappings[:securities][cache_key]
+        security = @id_mappings[:securities][cache_key]
+        apply_security_metadata(security, normalized_ticker, attributes)
+        return security
       end
+
+      if old_security_id.present? && @id_mappings[:securities][old_security_id]
+        security = Security.find(@id_mappings[:securities][old_security_id])
+        apply_security_metadata(security, normalized_ticker, attributes)
+        @id_mappings[:securities][cache_key] = security
+        return security
+      end
+
+      security = find_security_by_identity(normalized_ticker, exchange_operating_mic)
+      apply_security_metadata(security, normalized_ticker, attributes)
 
       @id_mappings[:securities][cache_key] = security
       @id_mappings[:securities][old_security_id] = security.id if old_security_id.present?
       security
+    end
+
+    def find_security_by_identity(ticker, exchange_operating_mic)
+      if exchange_operating_mic.present?
+        return Security.find_or_initialize_by(ticker: ticker, exchange_operating_mic: exchange_operating_mic)
+      end
+
+      Security.find_by(ticker: ticker, exchange_operating_mic: nil) ||
+        Security.where(ticker: ticker).order(:created_at).first ||
+        Security.new(ticker: ticker)
+    end
+
+    def apply_security_metadata(security, ticker, attributes)
+      assign_if_blank_or_placeholder(security, :name, attributes[:name].presence, placeholder: ticker)
+      assign_if_blank(security, :exchange_operating_mic, attributes[:exchange_operating_mic].presence&.upcase)
+      assign_if_blank(security, :exchange_mic, attributes[:exchange_mic].presence)
+      assign_if_blank(security, :exchange_acronym, attributes[:exchange_acronym].presence)
+      assign_if_blank(security, :country_code, attributes[:country_code].presence)
+      assign_if_blank(security, :website_url, attributes[:website_url].presence)
+      security.kind = security_kind_for(attributes[:kind]) if security.new_record? || security.kind.blank?
+
+      security.save! if security.new_record? || security.changed?
+    end
+
+    def assign_if_blank(record, attribute, value)
+      return if value.blank?
+      return if record.public_send(attribute).present?
+
+      record.public_send("#{attribute}=", value)
+    end
+
+    def assign_if_blank_or_placeholder(record, attribute, value, placeholder:)
+      return if value.blank?
+
+      current_value = record.public_send(attribute)
+      return if current_value.present? && current_value != placeholder
+
+      record.public_send("#{attribute}=", value)
+    end
+
+    def security_kind_for(value)
+      kind = value.to_s
+      Security::KINDS.include?(kind) ? kind : "standard"
     end
 end

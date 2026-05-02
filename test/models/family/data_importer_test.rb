@@ -580,6 +580,106 @@ class Family::DataImporterTest < ActiveSupport::TestCase
     assert_equal Date.parse("2024-01-14"), opening_anchor.entry.date
   end
 
+  test "imports holding snapshots with ticker fallback when exchange mic is missing" do
+    existing_security = Security.create!(
+      ticker: "VTI",
+      name: "Existing VTI",
+      exchange_operating_mic: "ARCX"
+    )
+
+    ndjson = build_ndjson([
+      {
+        type: "Account",
+        data: {
+          id: "inv-acct-1",
+          name: "Investment Account",
+          balance: "10000",
+          currency: "USD",
+          accountable_type: "Investment"
+        }
+      },
+      {
+        type: "Holding",
+        data: {
+          id: "holding-1",
+          account_id: "inv-acct-1",
+          ticker: "VTI",
+          security_name: "Imported VTI",
+          date: "2024-01-15",
+          qty: "100",
+          price: "250.25",
+          amount: "25025.00",
+          currency: "USD",
+          cost_basis_locked: false,
+          security_locked: false
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    holding = @family.accounts.find_by!(name: "Investment Account").holdings.first
+    assert_equal existing_security, holding.security
+    assert_equal 1, Security.where(ticker: "VTI").count
+  end
+
+  test "updates cached security with safe holding metadata" do
+    ndjson = build_ndjson([
+      {
+        type: "Account",
+        data: {
+          id: "inv-acct-1",
+          name: "Investment Account",
+          balance: "10000",
+          currency: "USD",
+          accountable_type: "Investment"
+        }
+      },
+      {
+        type: "Trade",
+        data: {
+          id: "trade-1",
+          account_id: "inv-acct-1",
+          security_id: "security-1",
+          ticker: "VTI",
+          date: "2024-01-10",
+          qty: "10",
+          price: "250.00",
+          amount: "-2500.00",
+          currency: "USD"
+        }
+      },
+      {
+        type: "Holding",
+        data: {
+          id: "holding-1",
+          account_id: "inv-acct-1",
+          security_id: "security-1",
+          ticker: "VTI",
+          security_name: "Vanguard Total Stock Market ETF",
+          exchange_operating_mic: "ARCX",
+          country_code: "US",
+          website_url: "https://investor.vanguard.com",
+          date: "2024-01-15",
+          qty: "100",
+          price: "250.25",
+          amount: "25025.00",
+          currency: "USD",
+          cost_basis_locked: false,
+          security_locked: false
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    security = @family.holdings.first.security
+    assert_equal "Vanguard Total Stock Market ETF", security.name
+    assert_equal "ARCX", security.exchange_operating_mic
+    assert_equal "US", security.country_code
+    assert_equal "https://investor.vanguard.com", security.website_url
+  end
+
   test "imports valuations" do
     ndjson = build_ndjson([
       {
