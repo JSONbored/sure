@@ -42,6 +42,7 @@ RSpec.describe 'API V1 Users', type: :request do
       description 'Resets all financial data (accounts, categories, merchants, tags, etc.) ' \
                   'for the current user\'s family while keeping the user account intact. ' \
                   'The reset runs asynchronously in the background. ' \
+                  'The returned job_id is informational only; reset status is family-scoped, not job-scoped. ' \
                   'Requires admin role.'
       security [ { apiKeyAuth: [] } ]
       produces 'application/json'
@@ -93,7 +94,8 @@ RSpec.describe 'API V1 Users', type: :request do
     get 'Retrieve reset status' do
       tags 'Users'
       description 'Returns counts of family-owned data targeted by account reset. ' \
-                  'Use this after DELETE /api/v1/users/reset to decide whether reset materialization has completed.'
+                  'Use this after DELETE /api/v1/users/reset to decide whether reset materialization has completed. ' \
+                  'Completion is a counts-based family snapshot and may change if new data is created after reset.'
       security [ { apiKeyAuth: [] } ]
       produces 'application/json'
 

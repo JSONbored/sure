@@ -9,7 +9,7 @@ class Api::V1::UsersController < Api::V1::BaseController
     family = current_resource_owner.family
     begin
       job = FamilyResetJob.perform_later(family)
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to enqueue FamilyResetJob for family #{family.id}: #{e.message}"
 
       render json: {
@@ -29,12 +29,14 @@ class Api::V1::UsersController < Api::V1::BaseController
   end
 
   def reset_status
-    counts = reset_target_counts(current_resource_owner.family)
+    family = current_resource_owner.family
+    counts = reset_target_counts(family)
+    reset_complete = counts.values.sum.zero?
 
     render json: {
-      status: counts.values.sum.zero? ? "complete" : "data_remaining",
-      family_id: current_resource_owner.family.id,
-      reset_complete: counts.values.sum.zero?,
+      status: reset_complete ? "complete" : "data_remaining",
+      family_id: family.id,
+      reset_complete: reset_complete,
       counts: counts
     }
   end

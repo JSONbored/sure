@@ -1276,9 +1276,12 @@ components:
           - queued
         job_id:
           type: string
+          description: Informational Active Job identifier returned by the queue adapter;
+            reset status is family-scoped, not job-scoped.
         family_id:
           type: string
           format: uuid
+          description: UUID of the family being reset.
         status_url:
           type: string
     ResetStatusResponse:
@@ -1294,11 +1297,15 @@ components:
           enum:
           - complete
           - data_remaining
+          description: Counts-based family reset status at response time.
         family_id:
           type: string
           format: uuid
+          description: UUID of the family whose reset target counts were checked.
         reset_complete:
           type: boolean
+          description: True when all reset target counts are zero at response time.
+            This is a family data snapshot, not a durable per-job completion record.
         counts:
           type: object
           required:
@@ -3824,7 +3831,8 @@ paths:
       - Users
       description: Resets all financial data (accounts, categories, merchants, tags,
         etc.) for the current user's family while keeping the user account intact.
-        The reset runs asynchronously in the background. Requires admin role.
+        The reset runs asynchronously in the background. The returned job_id is informational
+        only; reset status is family-scoped, not job-scoped. Requires admin role.
       security:
       - apiKeyAuth: []
       responses:
@@ -3859,7 +3867,8 @@ paths:
       - Users
       description: Returns counts of family-owned data targeted by account reset.
         Use this after DELETE /api/v1/users/reset to decide whether reset materialization
-        has completed.
+        has completed. Completion is a counts-based family snapshot and may change
+        if new data is created after reset.
       security:
       - apiKeyAuth: []
       responses:
