@@ -76,6 +76,8 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "button", text: I18n.t("mfa.verify.webauthn_button")
+    assert_select "[data-webauthn-authentication-error-fallback-value=?]", I18n.t("mfa.verify_webauthn.invalid_credential")
+    assert_select "p[data-webauthn-authentication-target='error'][aria-live='assertive'][aria-atomic='true'][aria-hidden='true']"
   end
 
   test "verify_code authenticates with valid TOTP" do

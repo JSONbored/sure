@@ -9,7 +9,8 @@ export default class extends Controller {
   static values = {
     optionsUrl: String,
     verifyUrl: String,
-    unsupportedMessage: String
+    unsupportedMessage: String,
+    errorFallback: String
   };
 
   async authenticate(event) {
@@ -72,17 +73,17 @@ export default class extends Controller {
       const result = await response.clone().json();
       if (result.error) return result.error;
     } catch (_error) {
-      const fallback = await response.text();
-      if (fallback) return fallback;
+      return this.errorFallbackValue;
     }
 
-    return "Could not verify that passkey or security key. Please try again.";
+    return this.errorFallbackValue;
   }
 
   showError(message) {
     if (this.hasErrorTarget) {
       this.errorTarget.textContent = message;
       this.errorTarget.hidden = false;
+      this.errorTarget.setAttribute("aria-hidden", "false");
     }
   }
 
@@ -90,6 +91,7 @@ export default class extends Controller {
     if (this.hasErrorTarget) {
       this.errorTarget.textContent = "";
       this.errorTarget.hidden = true;
+      this.errorTarget.setAttribute("aria-hidden", "true");
     }
   }
 }

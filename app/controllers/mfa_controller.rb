@@ -90,7 +90,7 @@ class MfaController < ApplicationController
     complete_mfa_sign_in(@user)
 
     render json: { redirect_url: root_path }
-  rescue WebAuthn::Error, RuntimeError, JSON::ParserError, ActionController::ParameterMissing
+  rescue WebAuthn::Error, RuntimeError, ActionController::BadRequest, ActionController::ParameterMissing
     render json: { error: t(".invalid_credential") }, status: :unprocessable_entity
   end
 

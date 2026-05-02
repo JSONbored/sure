@@ -15,13 +15,11 @@ module WebauthnRelyingParty
       payload = params.require(:credential)
       payload = JSON.parse(payload) if payload.is_a?(String)
 
-      case payload
-      when ActionController::Parameters
-        payload.to_unsafe_h
-      when Hash
-        payload
-      else
-        raise ActionController::ParameterMissing, :credential
-      end
+      payload = payload.to_unsafe_h if payload.respond_to?(:to_unsafe_h)
+      raise ActionController::BadRequest, "credential must be an object" unless payload.is_a?(Hash)
+
+      payload
+    rescue JSON::ParserError, TypeError, ArgumentError
+      raise ActionController::BadRequest, "invalid credential payload"
     end
 end
