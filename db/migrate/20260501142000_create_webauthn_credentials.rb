@@ -16,5 +16,6 @@ class CreateWebauthnCredentials < ActiveRecord::Migration[7.2]
     end
 
     add_index :webauthn_credentials, :credential_id, unique: true
+    add_check_constraint :webauthn_credentials, "sign_count >= 0", name: "chk_webauthn_credentials_sign_count_non_negative"
   end
 end

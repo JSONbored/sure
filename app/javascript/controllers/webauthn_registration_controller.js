@@ -73,8 +73,15 @@ export default class extends Controller {
   }
 
   async errorMessage(response) {
-    const result = await response.json();
-    return result.error;
+    try {
+      const result = await response.clone().json();
+      if (result.error) return result.error;
+    } catch (_error) {
+      const fallback = await response.text();
+      if (fallback) return fallback;
+    }
+
+    return "Could not save that passkey or security key. Please try again.";
   }
 
   showError(message) {

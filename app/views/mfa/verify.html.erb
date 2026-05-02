@@ -16,7 +16,7 @@
       type: "button",
       data: { action: "webauthn-authentication#authenticate" }
     ) %>
-    <p class="text-sm text-destructive" hidden data-webauthn-authentication-target="error"></p>
+    <p class="text-sm text-destructive" role="alert" aria-live="polite" hidden data-webauthn-authentication-target="error"></p>
     <div class="flex items-center gap-3">
       <div class="border-t border-primary flex-1"></div>
       <span class="text-xs text-secondary"><%= t(".or") %></span>

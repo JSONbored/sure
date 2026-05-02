@@ -16,7 +16,8 @@ class Settings::WebauthnCredentialsControllerTest < ActionDispatch::IntegrationT
 
     post options_settings_webauthn_credentials_path, as: :json
 
-    assert_redirected_to settings_security_path
+    assert_response :forbidden
+    assert_equal I18n.t("webauthn_credentials.mfa_required"), JSON.parse(response.body).fetch("error")
   end
 
   test "creates a credential from a verified registration challenge" do
@@ -58,6 +59,33 @@ class Settings::WebauthnCredentialsControllerTest < ActionDispatch::IntegrationT
     end
 
     assert_response :unprocessable_entity
+  end
+
+  test "rejects malformed credential payloads" do
+    registration_options
+
+    assert_no_difference -> { @user.webauthn_credentials.count } do
+      post settings_webauthn_credentials_path, params: {
+        webauthn_credential: { nickname: "Malformed" },
+        credential: []
+      }, as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal I18n.t("webauthn_credentials.failure"), JSON.parse(response.body).fetch("error")
+  end
+
+  test "uses localized default credential nickname" do
+    options = registration_options
+    credential = @client.create(challenge: options.fetch("challenge"), rp_id: "www.example.com")
+
+    post settings_webauthn_credentials_path, params: {
+      webauthn_credential: { nickname: "" },
+      credential: credential
+    }, as: :json
+
+    assert_response :success
+    assert_equal I18n.t("webauthn_credentials.default_name"), @user.webauthn_credentials.reload.last.nickname
   end
 
   test "destroys a credential owned by the current user" do

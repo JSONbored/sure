@@ -175,6 +175,23 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_not Session.exists?(user_id: @user.id)
   end
 
+  test "verify_webauthn rejects malformed credential payloads" do
+    @user.setup_mfa!
+    @user.enable_mfa!
+    register_webauthn_credential
+    sign_out
+
+    post sessions_path, params: { email: @user.email, password: user_password_test }
+    post webauthn_options_mfa_path, as: :json
+    assert_response :success
+
+    post verify_webauthn_mfa_path, params: { credential: [] }, as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal I18n.t("mfa.verify_webauthn.invalid_credential"), JSON.parse(response.body).fetch("error")
+    assert_not Session.exists?(user_id: @user.id)
+  end
+
   test "disable removes MFA" do
     @user.setup_mfa!
     @user.enable_mfa!

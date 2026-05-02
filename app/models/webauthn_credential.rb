@@ -10,6 +10,6 @@ class WebauthnCredential < ApplicationRecord
 
   private
     def set_default_nickname
-      self.nickname = nickname.to_s.strip.presence || "Security key"
+      self.nickname = nickname.to_s.strip.presence || I18n.t("webauthn_credentials.default_name")
     end
 end

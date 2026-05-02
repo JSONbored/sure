@@ -14,6 +14,14 @@ module WebauthnRelyingParty
     def webauthn_credential_payload
       payload = params.require(:credential)
       payload = JSON.parse(payload) if payload.is_a?(String)
-      payload.respond_to?(:to_unsafe_h) ? payload.to_unsafe_h : payload.to_h
+
+      case payload
+      when ActionController::Parameters
+        payload.to_unsafe_h
+      when Hash
+        payload
+      else
+        raise ActionController::ParameterMissing, :credential
+      end
     end
 end

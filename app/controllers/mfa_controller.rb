@@ -74,17 +74,19 @@ class MfaController < ApplicationController
       return render json: { error: t(".invalid_credential") }, status: :unprocessable_entity
     end
 
-    credential.verify(
-      challenge,
-      public_key: stored_credential.public_key,
-      sign_count: stored_credential.sign_count,
-      user_presence: true
-    )
+    stored_credential.with_lock do
+      credential.verify(
+        challenge,
+        public_key: stored_credential.public_key,
+        sign_count: stored_credential.sign_count,
+        user_presence: true
+      )
 
-    stored_credential.update!(
-      sign_count: credential.sign_count,
-      last_used_at: Time.current
-    )
+      stored_credential.update!(
+        sign_count: credential.sign_count,
+        last_used_at: Time.current
+      )
+    end
     complete_mfa_sign_in(@user)
 
     render json: { redirect_url: root_path }

@@ -28,7 +28,7 @@ class Settings::WebauthnCredentialsController < ApplicationController
     challenge = session.delete(:webauthn_registration_challenge)
 
     unless challenge.present?
-      return render json: { error: t("settings.webauthn_credentials.failure") }, status: :unprocessable_entity
+      return render json: { error: t("webauthn_credentials.failure") }, status: :unprocessable_entity
     end
 
     credential = webauthn_relying_party.verify_registration(
@@ -47,21 +47,26 @@ class Settings::WebauthnCredentialsController < ApplicationController
 
     render json: { redirect_url: settings_security_path }
   rescue WebAuthn::Error, RuntimeError, ActiveRecord::RecordInvalid, JSON::ParserError, ActionController::ParameterMissing
-    render json: { error: t("settings.webauthn_credentials.failure") }, status: :unprocessable_entity
+    render json: { error: t("webauthn_credentials.failure") }, status: :unprocessable_entity
   end
 
   def destroy
     Current.user.webauthn_credentials.find(params[:id]).destroy!
-    redirect_to settings_security_path, notice: t("settings.webauthn_credentials.success")
+    redirect_to settings_security_path, notice: t("webauthn_credentials.success")
   end
 
   private
     def ensure_mfa_enabled
-      redirect_to settings_security_path, alert: t("settings.webauthn_credentials.mfa_required") unless Current.user.otp_required?
+      return if Current.user.otp_required?
+
+      respond_to do |format|
+        format.html { redirect_to settings_security_path, alert: t("webauthn_credentials.mfa_required") }
+        format.json { render json: { error: t("webauthn_credentials.mfa_required") }, status: :forbidden }
+      end
     end
 
     def webauthn_credential_name
-      params.dig(:webauthn_credential, :nickname).presence || t("settings.webauthn_credentials.default_name")
+      params.dig(:webauthn_credential, :nickname).presence || t("webauthn_credentials.default_name")
     end
 
     def webauthn_credential_transports
