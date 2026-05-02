@@ -153,11 +153,14 @@ class UserTest < ActiveSupport::TestCase
     backup_codes = user.enable_mfa!
 
     backup_code = backup_codes.first
+    matching_digest = user.otp_backup_codes.find { |digest| BCrypt::Password.new(digest).is_password?(backup_code) }
+    assert_not_nil matching_digest
+
     assert user.verify_otp?(backup_code)
 
     # Backup code should be consumed
-    assert_not user.otp_backup_codes.include?(backup_code)
     assert_equal 7, user.otp_backup_codes.length
+    assert_not_includes user.otp_backup_codes, matching_digest
 
     # Used backup code should not work again
     assert_not user.verify_otp?(backup_code)
