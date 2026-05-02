@@ -8,7 +8,7 @@ class Settings::WebauthnCredentialsController < ApplicationController
   def options
     Current.user.ensure_webauthn_id!
 
-    options = webauthn_relying_party.options_for_registration(
+    registration_options = webauthn_relying_party.options_for_registration(
       user: {
         id: Current.user.webauthn_id,
         name: Current.user.email,
@@ -19,9 +19,9 @@ class Settings::WebauthnCredentialsController < ApplicationController
       attestation: "none"
     )
 
-    session[:webauthn_registration_challenge] = options.challenge
+    session[:webauthn_registration_challenge] = registration_options.challenge
 
-    render json: options
+    render json: registration_options
   end
 
   def create
@@ -46,7 +46,7 @@ class Settings::WebauthnCredentialsController < ApplicationController
     )
 
     render json: { redirect_url: settings_security_path }
-  rescue WebAuthn::Error, RuntimeError, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique, ActionController::BadRequest, ActionController::ParameterMissing
+  rescue WebAuthn::Error, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique, ActionController::BadRequest, ActionController::ParameterMissing
     render json: { error: t("webauthn_credentials.failure") }, status: :unprocessable_entity
   end
 
@@ -66,7 +66,7 @@ class Settings::WebauthnCredentialsController < ApplicationController
     end
 
     def webauthn_credential_name
-      webauthn_credential_params[:nickname].presence || t("webauthn_credentials.default_name")
+      webauthn_credential_params[:nickname]
     end
 
     def webauthn_credential_transports
