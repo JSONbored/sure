@@ -42,7 +42,7 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     @security_price = Security::Price.create!(
       security: @security,
       date: Date.parse("2024-01-15"),
-      price: BigDecimal("0.0001"),
+      price: BigDecimal("250.5000"),
       currency: "USD",
       provisional: true
     )
@@ -90,7 +90,7 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal @security_price.id, response_data["id"]
     assert_equal "2024-01-15", response_data["date"]
-    assert_equal "0.0001", response_data["price_amount"]
+    assert_equal "250.5000", response_data["price_amount"]
     assert_equal @security.id, response_data.dig("security", "id")
   end
 
