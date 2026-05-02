@@ -81,7 +81,10 @@ class Api::V1::TransfersController < Api::V1::BaseController
       end
 
       if params[:start_date].present? || params[:end_date].present?
-        query = query.where(inflow_transaction_id: transfer_date_transaction_ids)
+        date_transaction_ids = transfer_date_transaction_ids
+        query = query
+          .where(inflow_transaction_id: date_transaction_ids)
+          .or(query.where(outflow_transaction_id: date_transaction_ids))
       end
 
       query

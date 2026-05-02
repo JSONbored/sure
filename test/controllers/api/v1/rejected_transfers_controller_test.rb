@@ -97,6 +97,21 @@ class Api::V1::RejectedTransfersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "validation_failed", response_data["error"]
   end
 
+  test "filters rejected transfers by either transaction side date" do
+    outflow = create_transaction(@account, amount: 35, date: Date.parse("2024-02-10"), name: "Rejected dated outflow")
+    inflow = create_transaction(@destination_account, amount: -35, date: Date.parse("2024-02-12"), name: "Rejected dated inflow")
+    date_matched_transfer = RejectedTransfer.create!(outflow_transaction: outflow, inflow_transaction: inflow)
+
+    get api_v1_rejected_transfers_url,
+        params: { start_date: "2024-02-10", end_date: "2024-02-10" },
+        headers: api_headers(@api_key)
+
+    assert_response :success
+    transfer_ids = JSON.parse(response.body)["rejected_transfers"].map { |transfer| transfer["id"] }
+    assert_includes transfer_ids, date_matched_transfer.id
+    assert_not_includes transfer_ids, @rejected_transfer.id
+  end
+
   test "requires authentication" do
     get api_v1_rejected_transfers_url
 

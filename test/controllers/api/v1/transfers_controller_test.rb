@@ -118,6 +118,21 @@ class Api::V1::TransfersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "validation_failed", response_data["error"]
   end
 
+  test "filters transfers by either transaction side date" do
+    outflow = create_transaction(@account, amount: 75, date: Date.parse("2024-02-10"), name: "Dated outflow")
+    inflow = create_transaction(@destination_account, amount: -75, date: Date.parse("2024-02-12"), name: "Dated inflow")
+    date_matched_transfer = Transfer.create!(outflow_transaction: outflow, inflow_transaction: inflow)
+
+    get api_v1_transfers_url,
+        params: { start_date: "2024-02-10", end_date: "2024-02-10" },
+        headers: api_headers(@api_key)
+
+    assert_response :success
+    transfer_ids = JSON.parse(response.body)["transfers"].map { |transfer| transfer["id"] }
+    assert_includes transfer_ids, date_matched_transfer.id
+    assert_not_includes transfer_ids, @transfer.id
+  end
+
   test "requires authentication" do
     get api_v1_transfers_url
 
