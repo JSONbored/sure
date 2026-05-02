@@ -161,6 +161,15 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response_data["errors"], "offline must be true or false"
   end
 
+  test "rejects blank offline filter" do
+    get api_v1_securities_url, params: { offline: "" }, headers: api_headers(@api_key)
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "offline must be true or false"
+  end
+
   test "requires authentication" do
     get api_v1_securities_url
 
@@ -187,6 +196,6 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.plain_key }
+      { "X-Api-Key" => api_key.display_key }
     end
 end

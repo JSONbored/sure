@@ -82,7 +82,7 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
     def parse_boolean_filter_param(key)
       normalized_value = params[key].to_s.strip.downcase
 
-      return nil if normalized_value.blank?
+      raise InvalidFilterError, "#{key} must be true or false" if normalized_value.blank?
       return BOOLEAN_FILTERS.fetch(normalized_value) if BOOLEAN_FILTERS.key?(normalized_value)
 
       raise InvalidFilterError, "#{key} must be true or false"

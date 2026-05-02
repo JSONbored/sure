@@ -128,14 +128,15 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ @security_price.id ], response_data["security_prices"].map { |price| price["id"] }
   end
 
-  test "ignores blank provisional filter" do
+  test "rejects blank provisional filter" do
     get api_v1_security_prices_url,
         params: { provisional: "" },
         headers: api_headers(@api_key)
 
-    assert_response :success
+    assert_response :unprocessable_entity
     response_data = JSON.parse(response.body)
-    assert_includes response_data["security_prices"].map { |price| price["id"] }, @security_price.id
+    assert_equal "validation_failed", response_data["error"]
+    assert_includes response_data["errors"], "provisional must be true or false"
   end
 
   test "rejects malformed provisional filter" do
@@ -198,6 +199,6 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.plain_key }
+      { "X-Api-Key" => api_key.display_key }
     end
 end
