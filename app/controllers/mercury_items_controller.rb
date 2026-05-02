@@ -436,7 +436,12 @@ class MercuryItemsController < ApplicationController
   end
 
   def update
-    if @mercury_item.update(mercury_item_params)
+    permitted_params = mercury_item_params
+    expire_accounts_cache = mercury_accounts_cache_sensitive_update?(permitted_params)
+
+    if @mercury_item.update(permitted_params)
+      Rails.cache.delete(mercury_accounts_cache_key(@mercury_item)) if expire_accounts_cache
+
       if turbo_frame_request?
         flash.now[:notice] = t(".success")
         @mercury_items = Current.family.mercury_items.active.ordered.includes(:syncs, :mercury_accounts)
@@ -738,20 +743,25 @@ class MercuryItemsController < ApplicationController
     end
 
     def mercury_items_with_credentials
-      Current.family.mercury_items.active.where.not(token: [ nil, "" ])
+      Current.family.mercury_items.active.ordered.select(&:credentials_configured?)
     end
 
     def mercury_item_for_account_flow
+      credentialed_items = mercury_items_with_credentials
+
       if params[:mercury_item_id].present?
-        return mercury_items_with_credentials.find_by(id: params[:mercury_item_id])
+        return credentialed_items.find { |item| item.id.to_s == params[:mercury_item_id].to_s }
       end
 
-      items = mercury_items_with_credentials.to_a
-      items.one? ? items.first : nil
+      credentialed_items.one? ? credentialed_items.first : nil
     end
 
     def mercury_accounts_cache_key(mercury_item)
       "mercury_accounts_#{Current.family.id}_#{mercury_item.id}"
+    end
+
+    def mercury_accounts_cache_sensitive_update?(permitted_params)
+      permitted_params.key?(:token) || permitted_params.key?(:base_url)
     end
 
     def mercury_item_selection_error_payload

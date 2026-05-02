@@ -47,6 +47,20 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
     assert_includes existing_account_uri.query, "mercury_item_id=#{second_item.id}"
   end
 
+  test "connection configs ignore items with whitespace-only tokens" do
+    family = families(:dylan_family)
+    MercuryItem.create!(
+      family: family,
+      name: "Blank Mercury",
+      token: "temporary_token",
+      base_url: "https://api.mercury.com/api/v1"
+    ).update_column(:token, "   ")
+
+    configs = Provider::MercuryAdapter.connection_configs(family: family)
+
+    assert_equal [ "mercury_#{mercury_items(:one).id}" ], configs.map { |config| config[:key] }
+  end
+
   test "build_provider returns nil when family is nil" do
     assert_nil Provider::MercuryAdapter.build_provider(family: nil)
   end
@@ -89,5 +103,18 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
     )
 
     assert_nil Provider::MercuryAdapter.build_provider(family: family, mercury_item: other_item)
+  end
+
+  test "build_provider refuses explicit mercury item without usable credentials" do
+    family = families(:dylan_family)
+    blank_item = MercuryItem.create!(
+      family: family,
+      name: "Blank Mercury",
+      token: "temporary_token",
+      base_url: "https://api.mercury.com/api/v1"
+    )
+    blank_item.update_column(:token, "   ")
+
+    assert_nil Provider::MercuryAdapter.build_provider(family: family, mercury_item: blank_item)
   end
 end

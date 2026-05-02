@@ -74,6 +74,21 @@ class MercuryItemsControllerTest < ActionDispatch::IntegrationTest
     assert_equal original_token, @second_item.token
   end
 
+  test "update expires selected mercury account cache when credentials change" do
+    Rails.cache.write(mercury_cache_key(@second_item), mercury_accounts_payload)
+
+    patch mercury_item_url(@second_item), params: {
+      mercury_item: {
+        name: "Renamed Business Mercury",
+        token: "updated_second_token",
+        base_url: "https://api-sandbox.mercury.com/api/v1"
+      }
+    }
+
+    assert_redirected_to accounts_path
+    assert_nil Rails.cache.read(mercury_cache_key(@second_item))
+  end
+
   test "preload accounts uses selected mercury item cache key" do
     Rails.cache.expects(:read).with(mercury_cache_key(@second_item)).returns(nil)
     Rails.cache.expects(:write).with(mercury_cache_key(@second_item), mercury_accounts_payload, expires_in: 5.minutes)

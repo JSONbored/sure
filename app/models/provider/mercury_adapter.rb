@@ -15,7 +15,7 @@ class Provider::MercuryAdapter < Provider::Base
   def self.connection_configs(family:)
     return [] unless family.can_connect_mercury?
 
-    mercury_items = family.mercury_items.active.where.not(token: [ nil, "" ]).ordered
+    mercury_items = family.mercury_items.active.ordered.select(&:credentials_configured?)
 
     return [ connection_config_for(nil) ] if mercury_items.empty?
 
@@ -68,10 +68,13 @@ class Provider::MercuryAdapter < Provider::Base
   def self.resolve_mercury_item(family, mercury_item)
     if mercury_item.present?
       mercury_item_id = mercury_item.respond_to?(:id) ? mercury_item.id : mercury_item
-      return family.mercury_items.active.find_by(id: mercury_item_id)
+      item = family.mercury_items.active.find_by(id: mercury_item_id)
+      return item if item&.credentials_configured?
+
+      return nil
     end
 
-    family.mercury_items.active.where.not(token: [ nil, "" ]).ordered.first
+    family.mercury_items.active.ordered.find(&:credentials_configured?)
   end
   private_class_method :resolve_mercury_item
 
