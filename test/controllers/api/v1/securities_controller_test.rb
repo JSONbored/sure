@@ -130,7 +130,7 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "filters securities by exchange operating mic" do
-    get api_v1_securities_url, params: { exchange_operating_mic: "arcx" }, headers: api_headers(@api_key)
+    get api_v1_securities_url, params: { exchange_operating_mic: " arcx " }, headers: api_headers(@api_key)
 
     assert_response :success
     response_data = JSON.parse(response.body)

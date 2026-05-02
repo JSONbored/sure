@@ -66,7 +66,7 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
 
     def apply_filters(query)
       query = query.where("securities.ticker ILIKE ?", params[:ticker].to_s.strip) if params[:ticker].present?
-      query = query.where(exchange_operating_mic: params[:exchange_operating_mic].to_s.upcase) if params[:exchange_operating_mic].present?
+      query = query.where(exchange_operating_mic: params[:exchange_operating_mic].to_s.strip.upcase) if params[:exchange_operating_mic].present?
       if params[:kind].present?
         raise InvalidFilterError, "kind must be one of: #{Security::KINDS.join(', ')}" unless Security::KINDS.include?(params[:kind])
 
