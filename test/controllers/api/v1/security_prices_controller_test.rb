@@ -138,6 +138,13 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     assert_includes response_data["security_prices"].map { |price| price["id"] }, @security_price.id
   end
 
+  test "caps per_page at documented maximum" do
+    get api_v1_security_prices_url, params: { per_page: 250 }, headers: api_headers(@api_key)
+
+    assert_response :success
+    assert_equal 100, JSON.parse(response.body).dig("pagination", "per_page")
+  end
+
   test "rejects malformed security_id filter" do
     get api_v1_security_prices_url, params: { security_id: "not-a-uuid" }, headers: api_headers(@api_key)
 

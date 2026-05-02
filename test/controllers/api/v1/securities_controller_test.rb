@@ -137,6 +137,13 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ @holding_security.id ], response_data["securities"].map { |security| security["id"] }
   end
 
+  test "caps per_page at documented maximum" do
+    get api_v1_securities_url, params: { per_page: 250 }, headers: api_headers(@api_key)
+
+    assert_response :success
+    assert_equal 100, JSON.parse(response.body).dig("pagination", "per_page")
+  end
+
   test "rejects invalid kind filter" do
     get api_v1_securities_url, params: { kind: "unsupported" }, headers: api_headers(@api_key)
 

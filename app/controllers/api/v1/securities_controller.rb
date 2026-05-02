@@ -82,12 +82,9 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
     def safe_per_page_param
       per_page = params[:per_page].to_i
 
-      case per_page
-      when 1..100
-        per_page
-      else
-        25
-      end
+      return 25 if per_page < 1
+
+      [ per_page, 100 ].min
     end
 
     def render_validation_error(message)
