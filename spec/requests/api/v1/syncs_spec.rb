@@ -31,7 +31,7 @@ RSpec.describe "Api::V1::Syncs", type: :request do
     )
   end
   let(:'X-Api-Key') { api_key.plain_key }
-  let!(:sync) { Sync.create!(syncable: family, status: "completed", completed_at: 1.minute.ago) }
+  let(:sync) { Sync.create!(syncable: family, status: "completed", completed_at: 1.minute.ago) }
   let(:id) { sync.id }
 
   path "/api/v1/syncs" do
@@ -45,6 +45,7 @@ RSpec.describe "Api::V1::Syncs", type: :request do
 
       response "200", "syncs listed" do
         schema "$ref" => "#/components/schemas/SyncCollection"
+        before { sync }
         run_test!
       end
 
@@ -65,6 +66,7 @@ RSpec.describe "Api::V1::Syncs", type: :request do
 
       response "200", "latest sync shown" do
         schema "$ref" => "#/components/schemas/SyncResponse"
+        before { sync }
         run_test!
       end
 

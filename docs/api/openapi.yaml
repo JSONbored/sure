@@ -1403,9 +1403,7 @@ components:
           format: date-time
           nullable: true
         error:
-          oneOf:
-          - "$ref": "#/components/schemas/SyncErrorSummary"
-          - type: 'null'
+          "$ref": "#/components/schemas/SyncErrorSummary"
           nullable: true
         created_at:
           type: string
@@ -1419,9 +1417,7 @@ components:
       - data
       properties:
         data:
-          oneOf:
-          - "$ref": "#/components/schemas/SyncResource"
-          - type: 'null'
+          "$ref": "#/components/schemas/SyncResource"
           nullable: true
     SyncCollection:
       type: object

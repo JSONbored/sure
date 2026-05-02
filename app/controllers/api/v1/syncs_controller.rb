@@ -3,6 +3,9 @@
 class Api::V1::SyncsController < Api::V1::BaseController
   include Pagy::Backend
 
+  UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
+  private_constant :UUID_PATTERN
+
   SYNCABLE_ASSOCIATIONS = {
     "Account" => :accounts,
     "PlaidItem" => :plaid_items,
@@ -46,6 +49,8 @@ class Api::V1::SyncsController < Api::V1::BaseController
   private
 
     def set_sync
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
+
       @sync = family_syncs_query.preload(:syncable, :children).find(params[:id])
     end
 
@@ -58,11 +63,21 @@ class Api::V1::SyncsController < Api::V1::BaseController
       query = Sync.where(syncable_type: "Family", syncable_id: family.id)
 
       SYNCABLE_ASSOCIATIONS.each do |syncable_type, association_name|
-        ids = family.public_send(association_name).select(:id)
+        ids = syncable_ids_for(family, syncable_type, association_name)
         query = query.or(Sync.where(syncable_type: syncable_type, syncable_id: ids))
       end
 
       query
+    end
+
+    def syncable_ids_for(family, syncable_type, association_name)
+      return current_resource_owner.accessible_accounts.select(:id) if syncable_type == "Account"
+
+      family.public_send(association_name).select(:id)
+    end
+
+    def valid_uuid?(value)
+      value.to_s.match?(UUID_PATTERN)
     end
 
     def sync_error_payload(sync)

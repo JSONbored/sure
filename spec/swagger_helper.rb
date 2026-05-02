@@ -777,13 +777,7 @@ RSpec.configure do |config|
               syncing_at: { type: :string, format: :'date-time', nullable: true },
               completed_at: { type: :string, format: :'date-time', nullable: true },
               failed_at: { type: :string, format: :'date-time', nullable: true },
-              error: {
-                oneOf: [
-                  { '$ref' => '#/components/schemas/SyncErrorSummary' },
-                  { type: :null }
-                ],
-                nullable: true
-              },
+              error: { '$ref' => '#/components/schemas/SyncErrorSummary', nullable: true },
               created_at: { type: :string, format: :'date-time' },
               updated_at: { type: :string, format: :'date-time' }
             }
@@ -792,13 +786,7 @@ RSpec.configure do |config|
             type: :object,
             required: %w[data],
             properties: {
-              data: {
-                oneOf: [
-                  { '$ref' => '#/components/schemas/SyncResource' },
-                  { type: :null }
-                ],
-                nullable: true
-              }
+              data: { '$ref' => '#/components/schemas/SyncResource', nullable: true }
             }
           },
           SyncCollection: {
