@@ -774,6 +774,7 @@ RSpec.configure do |config|
               error: {
                 type: :object,
                 nullable: true,
+                required: %w[present message],
                 properties: {
                   present: { type: :boolean },
                   message: { type: :string }

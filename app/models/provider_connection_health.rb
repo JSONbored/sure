@@ -18,11 +18,21 @@ class ProviderConnectionHealth
   class << self
     def for_family(family)
       PROVIDERS.flat_map do |provider|
-        family.public_send(provider[:association]).includes(:syncs).ordered.map do |item|
+        family.public_send(provider[:association]).includes(association_includes_for(family, provider)).ordered.map do |item|
           new(provider, item).to_h
         end
       end
     end
+
+    private
+
+      def association_includes_for(family, provider)
+        relation = family.public_send(provider[:association])
+        includes = [ :syncs, provider[:accounts] ]
+        includes << provider[:linked_accounts] if provider[:linked_accounts]
+        includes << :accounts if relation.klass.reflect_on_association(:accounts)
+        includes
+      end
   end
 
   def initialize(provider, item)
@@ -54,9 +64,9 @@ class ProviderConnectionHealth
     attr_reader :provider, :item
 
     def credentials_configured?
-      return item.credentials_configured? if item.respond_to?(:credentials_configured?)
+      return false unless item.respond_to?(:credentials_configured?)
 
-      true
+      item.credentials_configured?
     end
 
     def pending_account_setup?

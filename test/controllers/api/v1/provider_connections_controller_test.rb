@@ -26,8 +26,9 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
       source: "mobile"
     )
 
-    Redis.new.del("api_rate_limit:#{@api_key.id}")
-    Redis.new.del("api_rate_limit:#{@write_key.id}")
+    redis = Redis.new
+    redis.del("api_rate_limit:#{@api_key.id}")
+    redis.del("api_rate_limit:#{@write_key.id}")
   end
 
   test "lists provider connection health for current family" do
@@ -70,6 +71,18 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     refute_includes response.body, "raw provider token secret"
   end
 
+  test "fails closed when credential readiness is unknown" do
+    get api_v1_provider_connections_url, headers: api_headers(@api_key)
+    assert_response :success
+
+    plaid_connection = JSON.parse(response.body)["data"].detect do |connection|
+      connection["provider"] == "plaid"
+    end
+
+    assert_not_nil plaid_connection
+    assert_equal false, plaid_connection["credentials_configured"]
+  end
+
   test "excludes another family's provider connections" do
     other_item = snaptrade_items(:pending_registration_item)
 
@@ -90,9 +103,32 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     assert_response :unauthorized
   end
 
+  test "rejects api keys without read scope" do
+    write_only_key = ApiKey.new(
+      user: @user,
+      name: "Test Write Key",
+      scopes: [ "write" ],
+      display_key: "test_write_#{SecureRandom.hex(8)}",
+      source: "monitoring"
+    ).tap { |api_key| api_key.save!(validate: false) }
+
+    get api_v1_provider_connections_url, headers: api_headers(write_only_key)
+    assert_response :forbidden
+  end
+
+  test "does not leak internal provider health errors" do
+    ProviderConnectionHealth.stub(:for_family, ->(_family) { raise StandardError, "secret provider failure" }) do
+      get api_v1_provider_connections_url, headers: api_headers(@api_key)
+    end
+
+    assert_response :internal_server_error
+    assert_equal "internal_server_error", JSON.parse(response.body)["error"]
+    refute_includes response.body, "secret provider failure"
+  end
+
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end

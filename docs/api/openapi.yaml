@@ -1378,6 +1378,9 @@ components:
         error:
           type: object
           nullable: true
+          required:
+          - present
+          - message
           properties:
             present:
               type: boolean
@@ -3335,6 +3338,12 @@ paths:
                 "$ref": "#/components/schemas/ProviderConnectionCollection"
         '401':
           description: unauthorized
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
+        '403':
+          description: insufficient scope
           content:
             application/json:
               schema:
