@@ -242,8 +242,13 @@ class User < ApplicationRecord
 
   def verify_otp?(code)
     return false if otp_secret.blank?
-    return true if verify_backup_code?(code)
-    totp.verify(code, drift_behind: 15)
+
+    normalized_code = normalize_backup_code(code)
+    return false if normalized_code.blank?
+    return true if totp.verify(normalized_code, drift_behind: 15)
+    return false unless backup_code_candidate?(normalized_code)
+
+    verify_backup_code?(normalized_code)
   end
 
   def provisioning_uri
@@ -454,18 +459,28 @@ class User < ApplicationRecord
 
     def verify_backup_code?(code)
       normalized_code = normalize_backup_code(code)
-      return false if normalized_code.blank?
-      return false if otp_backup_codes.blank?
+      return false unless backup_code_candidate?(normalized_code)
 
-      matching_index = otp_backup_codes.index do |stored_code|
-        backup_code_matches?(stored_code, normalized_code)
+      consumed = false
+
+      transaction do
+        lock!
+
+        if otp_backup_codes.present?
+          matching_index = otp_backup_codes.index do |stored_code|
+            backup_code_matches?(stored_code, normalized_code)
+          end
+
+          if matching_index
+            remaining_codes = otp_backup_codes.dup
+            remaining_codes.delete_at(matching_index)
+            update!(otp_backup_codes: remaining_codes)
+            consumed = true
+          end
+        end
       end
-      return false unless matching_index
 
-      remaining_codes = otp_backup_codes.dup
-      remaining_codes.delete_at(matching_index)
-      update!(otp_backup_codes: remaining_codes)
-      true
+      consumed
     end
 
     def generate_backup_codes
@@ -494,6 +509,10 @@ class User < ApplicationRecord
 
     def normalize_backup_code(code)
       code.to_s.strip.downcase
+    end
+
+    def backup_code_candidate?(code)
+      code.to_s.match?(/\A[0-9a-f]{8}\z/)
     end
 
     def backup_code_digest_cost

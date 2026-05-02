@@ -126,6 +126,27 @@ class UserTest < ActiveSupport::TestCase
     assert_not user.verify_otp?("123456")
   end
 
+  test "verify_otp? does not check backup code digests for normal TOTP input" do
+    user = users(:family_member)
+    user.setup_mfa!
+    user.enable_mfa!
+    valid_code = ROTP::TOTP.new(user.otp_secret, issuer: "Sure Finances").now
+
+    BCrypt::Password.expects(:new).never
+
+    assert user.verify_otp?(valid_code)
+  end
+
+  test "verify_otp? fast rejects non-backup-code input before digest checks" do
+    user = users(:family_member)
+    user.setup_mfa!
+    user.enable_mfa!
+
+    BCrypt::Password.expects(:new).never
+
+    assert_not user.verify_otp?("not-a-backup-code")
+  end
+
   test "verify_otp? accepts backup codes" do
     user = users(:family_member)
     user.setup_mfa!
@@ -142,15 +163,25 @@ class UserTest < ActiveSupport::TestCase
     assert_not user.verify_otp?(backup_code)
   end
 
+  test "verify_otp? locks the user while consuming backup codes" do
+    user = users(:family_member)
+    user.setup_mfa!
+    backup_code = user.enable_mfa!.first
+
+    user.expects(:lock!).once
+
+    assert user.verify_otp?(backup_code)
+  end
+
   test "verify_otp? accepts and consumes legacy plaintext backup codes once" do
     user = users(:family_member)
     user.setup_mfa!
-    user.update!(otp_required: true, otp_backup_codes: [ "legacy123" ])
+    user.update!(otp_required: true, otp_backup_codes: [ "deadbeef" ])
 
-    assert user.verify_otp?("legacy123")
+    assert user.verify_otp?("deadbeef")
 
     assert_empty user.reload.otp_backup_codes
-    assert_not user.verify_otp?("legacy123")
+    assert_not user.verify_otp?("deadbeef")
   end
 
   test "provisioning_uri generates correct URI" do
