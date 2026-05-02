@@ -18,7 +18,7 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
 
     assert_equal 1, configs.length
     assert_equal "mercury", configs.first[:key]
-    assert_equal "Mercury", configs.first[:name]
+    assert_equal I18n.t("mercury_items.provider_connection.default_name"), configs.first[:name]
     assert configs.first[:can_connect]
   end
 
@@ -36,7 +36,10 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
 
     assert_equal 2, configs.length
     assert_equal [ "mercury_#{second_item.id}", "mercury_#{first_item.id}" ], configs.map { |config| config[:key] }
-    assert_equal [ "Mercury - Business Mercury", "Mercury - Test Mercury Connection" ], configs.map { |config| config[:name] }
+    assert_equal [
+      I18n.t("mercury_items.provider_connection.name", name: second_item.name),
+      I18n.t("mercury_items.provider_connection.name", name: first_item.name)
+    ], configs.map { |config| config[:name] }
 
     new_account_uri = URI.parse(configs.first[:new_account_path].call("Depository", "/accounts"))
     assert_equal "/mercury_items/select_accounts", new_account_uri.path
