@@ -48,8 +48,8 @@ class Provider::MercuryAdapter < Provider::Base
 
     {
       key: mercury_item.present? ? "mercury_#{mercury_item.id}" : "mercury",
-      name: mercury_item.present? ? "Mercury - #{mercury_item.name}" : "Mercury",
-      description: mercury_item.present? ? "Connect using #{mercury_item.name}" : "Connect to your bank via Mercury",
+      name: mercury_item.present? ? I18n.t("mercury_items.provider_connection.name", name: mercury_item.name) : I18n.t("mercury_items.provider_connection.default_name"),
+      description: mercury_item.present? ? I18n.t("mercury_items.provider_connection.description", name: mercury_item.name) : I18n.t("mercury_items.provider_connection.default_description"),
       can_connect: true,
       new_account_path: ->(accountable_type, return_to) {
         Rails.application.routes.url_helpers.select_accounts_mercury_items_path(

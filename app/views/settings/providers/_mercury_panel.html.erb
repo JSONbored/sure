@@ -1,6 +1,6 @@
 <div id="mercury-providers-panel" class="space-y-4">
-  <% items = local_assigns[:mercury_items] || @mercury_items || Current.family.mercury_items.active.ordered %>
-  <% credentialed_items = items.select(&:credentials_configured?) %>
+  <% active_items = local_assigns[:mercury_items] || @mercury_items || Current.family.mercury_items.active.ordered %>
+  <% credentialed_items = active_items.select(&:credentials_configured?) %>
 
   <div class="prose prose-sm text-secondary">
     <p class="text-primary font-medium"><%= t("mercury_items.provider_panel.setup_title") %></p>
@@ -24,9 +24,9 @@
     </div>
   <% end %>
 
-  <% if items.any? %>
+  <% if active_items.any? %>
     <div class="space-y-3">
-      <% items.each do |item| %>
+      <% active_items.each do |item| %>
         <details class="group bg-container p-4 shadow-border-xs rounded-xl">
           <summary class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-3">
@@ -96,7 +96,7 @@
     </div>
   <% end %>
 
-  <details <%= "open" unless items.any? %> class="group bg-container p-4 shadow-border-xs rounded-xl">
+  <details <%= "open" unless active_items.any? %> class="group bg-container p-4 shadow-border-xs rounded-xl">
     <summary class="flex items-center gap-2 text-sm font-medium text-primary">
       <%= icon "plus" %>
       <%= t("mercury_items.provider_panel.add_connection") %>

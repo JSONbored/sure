@@ -68,6 +68,11 @@ en:
       token_label: Token
       token_placeholder: Paste token here
       update_connection: Update connection
+    provider_connection:
+      default_description: Connect to your bank via Mercury
+      default_name: Mercury
+      description: "Connect using %{name}"
+      name: "Mercury - %{name}"
     select_accounts:
       accounts_selected: accounts selected
       api_error: "API error: %{message}"
