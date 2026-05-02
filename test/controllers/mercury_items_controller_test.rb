@@ -75,7 +75,8 @@ class MercuryItemsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "update expires selected mercury account cache when credentials change" do
-    Rails.cache.write(mercury_cache_key(@second_item), mercury_accounts_payload)
+    Rails.cache.expects(:delete).with(mercury_cache_key(@existing_item)).never
+    Rails.cache.expects(:delete).with(mercury_cache_key(@second_item)).once
 
     patch mercury_item_url(@second_item), params: {
       mercury_item: {
@@ -86,7 +87,6 @@ class MercuryItemsControllerTest < ActionDispatch::IntegrationTest
     }
 
     assert_redirected_to accounts_path
-    assert_nil Rails.cache.read(mercury_cache_key(@second_item))
   end
 
   test "preload accounts uses selected mercury item cache key" do

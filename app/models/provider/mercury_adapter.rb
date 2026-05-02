@@ -36,7 +36,7 @@ class Provider::MercuryAdapter < Provider::Base
     return nil unless mercury_item&.credentials_configured?
 
     Provider::Mercury.new(
-      mercury_item.token,
+      mercury_item.token.to_s.strip,
       base_url: mercury_item.effective_base_url
     )
   end

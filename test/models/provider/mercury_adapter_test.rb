@@ -93,6 +93,20 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
     assert_equal "https://api.mercury.com/api/v1", provider.base_url
   end
 
+  test "build_provider strips surrounding token whitespace" do
+    family = families(:dylan_family)
+    second_item = MercuryItem.create!(
+      family: family,
+      name: "Business Mercury",
+      token: " second_mercury_token \n",
+      base_url: "https://api.mercury.com/api/v1"
+    )
+
+    provider = Provider::MercuryAdapter.build_provider(family: family, mercury_item: second_item)
+
+    assert_equal "second_mercury_token", provider.token
+  end
+
   test "build_provider refuses mercury items outside the family" do
     family = families(:dylan_family)
     other_item = MercuryItem.create!(
