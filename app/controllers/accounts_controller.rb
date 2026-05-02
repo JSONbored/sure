@@ -39,7 +39,7 @@ class AccountsController < ApplicationController
 
   def bulk_domains
     @accounts = bulk_domain_accounts
-    render layout: "settings"
+    render layout: false
   end
 
   def bulk_update_domains
@@ -56,6 +56,8 @@ class AccountsController < ApplicationController
     end
 
     redirect_to accounts_path, notice: t(".success", count: accounts.count)
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to bulk_domains_accounts_path, alert: e.record.errors.full_messages.to_sentence
   end
 
   def sync_all

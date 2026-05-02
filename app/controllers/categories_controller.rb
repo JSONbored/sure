@@ -83,18 +83,29 @@ class CategoriesController < ApplicationController
       return redirect_to merge_categories_path, alert: t(".invalid_categories")
     end
 
-    target = merge_target_category(permitted_params)
+    target = nil
+    merger = nil
+    merge_succeeded = false
+
+    Category.transaction do
+      target = merge_target_category(permitted_params)
+      raise ActiveRecord::Rollback unless target
+
+      merger = Category::Merger.new(
+        family: Current.family,
+        target_category: target,
+        source_categories: sources
+      )
+
+      merge_succeeded = merger.merge!
+      raise ActiveRecord::Rollback unless merge_succeeded
+    end
+
     unless target
       return redirect_to merge_categories_path, alert: t(".target_not_found")
     end
 
-    merger = Category::Merger.new(
-      family: Current.family,
-      target_category: target,
-      source_categories: sources
-    )
-
-    if merger.merge!
+    if merge_succeeded
       redirect_to categories_path, notice: t(".success", count: merger.merged_count)
     else
       redirect_to merge_categories_path, alert: t(".no_categories_selected")

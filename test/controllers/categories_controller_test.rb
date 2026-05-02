@@ -128,6 +128,27 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_not Category.exists?(source.id)
   end
 
+  test "merge rolls back new target category when merge fails" do
+    source = @family.categories.create!(
+      name: "Rollback Source",
+      color: "#000000",
+      lucide_icon: "shapes"
+    )
+
+    Category::Merger.any_instance.stubs(:merge!).returns(false)
+
+    assert_no_difference "Category.count" do
+      post perform_merge_categories_path, params: {
+        new_target_name: "Rollback Target",
+        source_ids: [ source.id ]
+      }
+    end
+
+    assert_redirected_to merge_categories_path
+    assert_nil @family.categories.find_by(name: "Rollback Target")
+    assert Category.exists?(source.id)
+  end
+
   test "merge rejects conflicting existing and new targets" do
     source = @family.categories.create!(
       name: "Conflicting Source",
