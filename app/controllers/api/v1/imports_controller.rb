@@ -139,7 +139,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
       message: "CSV content could not be parsed",
       errors: [ e.message ]
     }, status: :unprocessable_entity
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "ImportsController#preflight error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
