@@ -77,6 +77,14 @@ class Api::V1::BudgetCategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "record_not_found", response_data["error"]
   end
 
+  test "returns not found for malformed budget category id" do
+    get api_v1_budget_category_url("not-a-uuid"), headers: api_headers(@api_key)
+
+    assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
+  end
+
   test "filters budget categories by budget_id" do
     get api_v1_budget_categories_url,
         params: { budget_id: @budget.id },

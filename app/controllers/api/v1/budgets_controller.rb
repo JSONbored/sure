@@ -3,6 +3,9 @@
 class Api::V1::BudgetsController < Api::V1::BaseController
   include Pagy::Backend
 
+  UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+  private_constant :UUID_PATTERN
+
   InvalidFilterError = Class.new(StandardError)
 
   before_action :ensure_read_scope
@@ -35,6 +38,8 @@ class Api::V1::BudgetsController < Api::V1::BaseController
   private
 
     def set_budget
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
+
       @budget = current_resource_owner.family.budgets.includes(budget_categories: :category).find(params[:id])
     end
 
@@ -52,6 +57,10 @@ class Api::V1::BudgetsController < Api::V1::BaseController
       Date.iso8601(params[key].to_s)
     rescue ArgumentError
       raise InvalidFilterError, "#{key} must be an ISO 8601 date"
+    end
+
+    def valid_uuid?(value)
+      value.to_s.match?(UUID_PATTERN)
     end
 
     def safe_page_param
