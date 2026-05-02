@@ -1146,6 +1146,7 @@ components:
       required:
       - key
       - type
+      - value
       - create_when_empty
       - creatable
       - mappable
@@ -1155,6 +1156,9 @@ components:
           nullable: true
         type:
           type: string
+        value:
+          type: string
+          nullable: true
         create_when_empty:
           type: boolean
         creatable:

@@ -663,10 +663,11 @@ RSpec.configure do |config|
           },
           ImportRowMapping: {
             type: :object,
-            required: %w[key type create_when_empty creatable mappable],
+            required: %w[key type value create_when_empty creatable mappable],
             properties: {
               key: { type: :string, nullable: true },
               type: { type: :string },
+              value: { type: :string, nullable: true },
               create_when_empty: { type: :boolean },
               creatable: { type: :boolean },
               mappable: {

@@ -43,14 +43,17 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
       tags_col_label: "tags"
     )
     @diagnostic_row = @diagnostic_import.rows.create!(
+      source_row_number: 7,
       date: "01/15/2024",
       amount: "-10.00",
       currency: "USD",
       name: "Grocery Run",
       category: @diagnostic_category_name,
+      entity_type: "checking",
       tags: "Food|Weekly"
     )
     @invalid_diagnostic_row = @diagnostic_import.rows.build(
+      source_row_number: 8,
       date: "not-a-date",
       amount: "not-a-number",
       currency: "BAD",
@@ -67,6 +70,11 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
       import: @diagnostic_import,
       key: @diagnostic_category_name,
       mappable: @diagnostic_category
+    )
+    Import::AccountTypeMapping.create!(
+      import: @diagnostic_import,
+      key: "checking",
+      value: "Depository"
     )
   end
 
@@ -123,9 +131,11 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
 
     assert_not_nil row_data
     assert_equal true, row_data["valid"]
+    assert_equal 7, row_data["row_number"]
     assert_equal "Grocery Run", row_data.dig("fields", "name")
     assert_equal @diagnostic_category_name, row_data.dig("fields", "category")
     assert_equal @diagnostic_category.id, row_data.dig("mappings", "category", "mappable", "id")
+    assert_equal "Depository", row_data.dig("mappings", "account_type", "value")
     assert_not row_data.key?("raw_file_str")
     refute_includes response.body, @diagnostic_import.raw_file_str
   end

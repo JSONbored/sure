@@ -15,6 +15,7 @@ mapping_summary = lambda do |type, key|
     {
       key: mapping.key,
       type: mapping.type,
+      value: mapping.value,
       create_when_empty: mapping.create_when_empty,
       creatable: mapping.creatable?,
       mappable: mappable
@@ -33,7 +34,7 @@ end
 json.data do
   json.array! @rows.each_with_index.to_a do |(row, index)|
     json.id row.id
-    json.row_number ((@pagy.page - 1) * @per_page) + index + 1
+    json.row_number row.source_row_number || ((@pagy.page - 1) * @per_page) + index + 1
     json.valid row.valid?
     json.errors row.errors.full_messages
 
