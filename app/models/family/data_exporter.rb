@@ -210,6 +210,41 @@ class Family::DataExporter
         }.to_json
       end
 
+      # Export transfer decisions after transactions so import can remap both sides.
+      family_transfers.includes(
+        inflow_transaction: { entry: :account },
+        outflow_transaction: { entry: :account }
+      ).find_each do |transfer|
+        lines << {
+          type: "Transfer",
+          data: {
+            id: transfer.id,
+            inflow_transaction_id: transfer.inflow_transaction_id,
+            outflow_transaction_id: transfer.outflow_transaction_id,
+            status: transfer.status,
+            notes: transfer.notes,
+            created_at: transfer.created_at,
+            updated_at: transfer.updated_at
+          }
+        }.to_json
+      end
+
+      family_rejected_transfers.includes(
+        inflow_transaction: { entry: :account },
+        outflow_transaction: { entry: :account }
+      ).find_each do |rejected_transfer|
+        lines << {
+          type: "RejectedTransfer",
+          data: {
+            id: rejected_transfer.id,
+            inflow_transaction_id: rejected_transfer.inflow_transaction_id,
+            outflow_transaction_id: rejected_transfer.outflow_transaction_id,
+            created_at: rejected_transfer.created_at,
+            updated_at: rejected_transfer.updated_at
+          }
+        }.to_json
+      end
+
       # Export trades with full data
       @family.trades.includes(:security, entry: :account).find_each do |trade|
         lines << {
@@ -276,6 +311,24 @@ class Family::DataExporter
       end
 
       lines.join("\n")
+    end
+
+    def family_transaction_ids
+      @family_transaction_ids ||= @family.transactions.joins(:entry).select(:id)
+    end
+
+    def family_transfers
+      Transfer.where(
+        inflow_transaction_id: family_transaction_ids,
+        outflow_transaction_id: family_transaction_ids
+      )
+    end
+
+    def family_rejected_transfers
+      RejectedTransfer.where(
+        inflow_transaction_id: family_transaction_ids,
+        outflow_transaction_id: family_transaction_ids
+      )
     end
 
     def serialize_recurring_transaction_for_export(recurring_transaction)
