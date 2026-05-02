@@ -22,6 +22,12 @@ class AccountTest < ActiveSupport::TestCase
     assert_equal "example.com", @account.reload.read_attribute(:institution_domain)
   end
 
+  test "normalizes malformed institution domain to host only" do
+    @account.update!(institution_domain: "https://www.Example.com/%")
+
+    assert_equal "example.com", @account.reload.read_attribute(:institution_domain)
+  end
+
   test "create_and_sync calls sync_later by default" do
     Account.any_instance.expects(:sync_later).once
 
