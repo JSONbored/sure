@@ -4,9 +4,9 @@ class Api::V1::ImportsController < Api::V1::BaseController
   include Pagy::Backend
 
   # Ensure proper scope authorization
-  before_action :ensure_read_scope, only: [ :index, :show ]
+  before_action :ensure_read_scope, only: [ :index, :show, :rows ]
   before_action :ensure_write_scope, only: [ :create ]
-  before_action :set_import, only: [ :show ]
+  before_action :set_import, only: [ :show, :rows ]
 
   def index
     family = current_resource_owner.family
@@ -41,6 +41,21 @@ class Api::V1::ImportsController < Api::V1::BaseController
     render :show
   rescue StandardError => e
     Rails.logger.error "ImportsController#show error: #{e.message}"
+    render json: { error: "internal_server_error", message: e.message }, status: :internal_server_error
+  end
+
+  def rows
+    @per_page = safe_per_page_param
+    @pagy, @rows = pagy(
+      @import.rows_ordered,
+      page: safe_page_param,
+      limit: @per_page
+    )
+    @row_mapping_lookup = @import.mappings.includes(:mappable).index_by { |mapping| [ mapping.type, mapping.key.to_s ] }
+
+    render :rows
+  rescue StandardError => e
+    Rails.logger.error "ImportsController#rows error: #{e.message}"
     render json: { error: "internal_server_error", message: e.message }, status: :internal_server_error
   end
 
