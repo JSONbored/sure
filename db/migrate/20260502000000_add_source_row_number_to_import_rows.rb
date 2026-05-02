@@ -16,7 +16,7 @@ class AddSourceRowNumberToImportRows < ActiveRecord::Migration[7.2]
 
     change_column_null :import_rows, :source_row_number, false
     add_check_constraint :import_rows, "source_row_number > 0", name: "chk_import_rows_source_row_number_positive"
-    add_index :import_rows, [ :import_id, :source_row_number ], name: "index_import_rows_on_import_id_and_source_row_number"
+    add_index :import_rows, [ :import_id, :source_row_number ], unique: true, name: "index_import_rows_on_import_id_and_source_row_number"
   end
 
   def down
