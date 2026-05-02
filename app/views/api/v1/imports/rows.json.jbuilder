@@ -24,6 +24,7 @@ mapping_summary = lambda do |type, key|
     {
       key: key,
       type: type,
+      value: nil,
       create_when_empty: false,
       creatable: false,
       mappable: nil

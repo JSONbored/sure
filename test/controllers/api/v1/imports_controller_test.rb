@@ -136,6 +136,8 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @diagnostic_category_name, row_data.dig("fields", "category")
     assert_equal @diagnostic_category.id, row_data.dig("mappings", "category", "mappable", "id")
     assert_equal "Depository", row_data.dig("mappings", "account_type", "value")
+    tag_mapping = row_data.dig("mappings", "tags").find { |mapping| mapping["key"] == "Weekly" }
+    assert_nil tag_mapping["value"]
     assert_not row_data.key?("raw_file_str")
     refute_includes response.body, @diagnostic_import.raw_file_str
   end
