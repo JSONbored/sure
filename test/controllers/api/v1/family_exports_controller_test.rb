@@ -124,6 +124,13 @@ class Api::V1::FamilyExportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "record_not_found", JSON.parse(response.body)["error"]
   end
 
+  test "download returns not found for malformed export id" do
+    get download_api_v1_family_export_url("not-a-uuid"), headers: api_headers(@read_only_api_key)
+    assert_response :not_found
+
+    assert_equal "record_not_found", JSON.parse(response.body)["error"]
+  end
+
   test "redirects completed export downloads to the attached file" do
     export = @family.family_exports.create!(status: "completed")
     export.export_file.attach(

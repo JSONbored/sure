@@ -2450,36 +2450,24 @@ paths:
         '401':
           description: unauthorized
           content:
-            application/zip:
-              schema:
-                "$ref": "#/components/schemas/ErrorResponse"
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '403':
           description: forbidden
           content:
-            application/zip:
-              schema:
-                "$ref": "#/components/schemas/ErrorResponse"
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '404':
           description: not found
           content:
-            application/zip:
-              schema:
-                "$ref": "#/components/schemas/ErrorResponse"
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '409':
           description: export not ready
           content:
-            application/zip:
-              schema:
-                "$ref": "#/components/schemas/ErrorResponse"
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"

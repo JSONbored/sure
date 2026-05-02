@@ -107,7 +107,7 @@ RSpec.describe "Api::V1::FamilyExports", type: :request do
     get "Downloads a completed family export" do
       tags "Family Exports"
       security [ apiKeyAuth: [] ]
-      produces "application/zip", "application/json"
+      produces "application/json"
 
       response "302", "family export download redirected" do
         before do

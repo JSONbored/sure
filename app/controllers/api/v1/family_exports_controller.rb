@@ -25,7 +25,7 @@ class Api::V1::FamilyExportsController < Api::V1::BaseController
     )
 
     render :index
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "FamilyExportsController#index error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
@@ -44,7 +44,7 @@ class Api::V1::FamilyExportsController < Api::V1::BaseController
     FamilyDataExportJob.perform_later(@family_export)
 
     render :show, status: :accepted
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "FamilyExportsController#create error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
