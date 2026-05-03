@@ -405,12 +405,9 @@ components:
       type: object
       required:
       - id
-      - name
       - currency
       - locale
       - date_format
-      - country
-      - timezone
       - month_start_day
       - moniker
       - default_account_sharing
@@ -443,6 +440,9 @@ components:
           maximum: 28
         moniker:
           type: string
+          enum:
+          - Family
+          - Group
         default_account_sharing:
           type: string
           enum:

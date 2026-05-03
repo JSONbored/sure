@@ -29,6 +29,7 @@ RSpec.describe 'API V1 Family Settings', type: :request do
       user: user,
       name: 'API Docs Key',
       key: key,
+      display_key: key,
       scopes: %w[read_write],
       source: 'web'
     )
@@ -36,11 +37,13 @@ RSpec.describe 'API V1 Family Settings', type: :request do
 
   let(:api_key_without_read_scope) do
     key = ApiKey.generate_secure_key
+    # Empty scopes intentionally bypass validation so the 403 response can be documented.
     ApiKey.new(
       user: user,
       name: 'No Read Docs Key',
       key: key,
-      scopes: %w[write],
+      display_key: key,
+      scopes: [],
       source: 'web'
     ).tap { |api_key| api_key.save!(validate: false) }
   end

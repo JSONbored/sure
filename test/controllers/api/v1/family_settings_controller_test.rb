@@ -26,6 +26,7 @@ class Api::V1::FamilySettingsControllerTest < ActionDispatch::IntegrationTest
       source: "web",
       display_key: "test_read_#{SecureRandom.hex(8)}"
     )
+    Redis.new.del("api_rate_limit:#{@api_key.id}")
   end
 
   test "shows current family settings snapshot" do
@@ -46,8 +47,8 @@ class Api::V1::FamilySettingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "private", response_body["default_account_sharing"]
     assert_equal true, response_body["custom_enabled_currencies"]
     assert_equal @family.enabled_currency_codes, response_body["enabled_currencies"]
-    assert response_body.key?("created_at")
-    assert response_body.key?("updated_at")
+    assert_equal @family.created_at.iso8601, response_body["created_at"]
+    assert_equal @family.updated_at.iso8601, response_body["updated_at"]
     assert_not response_body.key?("stripe_customer_id")
     assert_not response_body.key?("vector_store_id")
   end
@@ -78,6 +79,6 @@ class Api::V1::FamilySettingsControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end
