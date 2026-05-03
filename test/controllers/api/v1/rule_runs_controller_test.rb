@@ -154,6 +154,12 @@ class Api::V1::RuleRunsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+  test "show requires authentication" do
+    get api_v1_rule_run_url(@rule_run)
+
+    assert_response :unauthorized
+  end
+
   test "requires read scope" do
     api_key_without_read = ApiKey.new(
       user: @user,
