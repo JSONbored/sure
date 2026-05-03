@@ -15,6 +15,7 @@ class Category::Merger
 
     @source_categories = sources.reject { |category| category.id == target_category.id }
     validate_hierarchy!
+    validate_reparenting!
   end
 
   def merge!
@@ -45,6 +46,16 @@ class Category::Merger
         next unless target_ancestor_ids.include?(source.id)
 
         raise UnauthorizedCategoryError, "A parent category cannot be merged into its own subcategory"
+      end
+    end
+
+    def validate_reparenting!
+      return if target_category.parent_id.blank?
+
+      source_categories.each do |source|
+        next unless family.categories.exists?(parent_id: source.id)
+
+        raise UnauthorizedCategoryError, "Cannot merge a category with subcategories into a subcategory"
       end
     end
 

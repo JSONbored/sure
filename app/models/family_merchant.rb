@@ -19,7 +19,7 @@ class FamilyMerchant < Merchant
     end
 
     def generate_logo_url_from_website
-      if website_url.present? && Setting.brand_fetch_client_id.present?
+      if website_url.present?
         self.logo_url = Merchant.brandfetch_logo_url_for(website_url)
       elsif website_url.blank?
         self.logo_url = nil

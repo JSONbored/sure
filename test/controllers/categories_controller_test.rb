@@ -225,6 +225,40 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_not Category.exists?(source.id)
   end
 
+  test "merge rejects moving source children under a subcategory target" do
+    parent = @family.categories.create!(
+      name: "Target Parent Category",
+      color: "#000000",
+      lucide_icon: "folder"
+    )
+    target = @family.categories.create!(
+      name: "Target Subcategory",
+      color: "#111111",
+      lucide_icon: "folder",
+      parent: parent
+    )
+    source = @family.categories.create!(
+      name: "Source With Child",
+      color: "#222222",
+      lucide_icon: "folder"
+    )
+    child = @family.categories.create!(
+      name: "Source Child",
+      color: "#333333",
+      lucide_icon: "folder",
+      parent: source
+    )
+
+    post perform_merge_categories_path, params: {
+      target_id: target.id,
+      source_ids: [ source.id ]
+    }
+
+    assert_redirected_to merge_categories_path
+    assert Category.exists?(source.id)
+    assert_equal source.id, child.reload.parent_id
+  end
+
   test "merge ignores categories outside current family" do
     other = families(:empty).categories.create!(
       name: "Other Family Category",

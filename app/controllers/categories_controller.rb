@@ -86,19 +86,7 @@ class CategoriesController < ApplicationController
       return redirect_to merge_categories_path, alert: t(".invalid_categories")
     end
 
-    merger = nil
-
-    Category.transaction do
-      target = merge_target_category(permitted_params) || raise(MergeTargetNotFound)
-
-      merger = Category::Merger.new(
-        family: Current.family,
-        target_category: target,
-        source_categories: sources
-      )
-
-      raise EmptyCategoryMerge unless merger.merge!
-    end
+    merger = merge_categories!(permitted_params, sources)
 
     redirect_to categories_path, notice: t(".success", count: merger.merged_count)
   rescue MergeTargetNotFound
@@ -151,6 +139,21 @@ class CategoriesController < ApplicationController
         )
       else
         Current.family.categories.find_by(id: permitted_params[:target_id])
+      end
+    end
+
+    def merge_categories!(permitted_params, sources)
+      Category.transaction do
+        target = merge_target_category(permitted_params) || raise(MergeTargetNotFound)
+        merger = Category::Merger.new(
+          family: Current.family,
+          target_category: target,
+          source_categories: sources
+        )
+
+        raise EmptyCategoryMerge unless merger.merge!
+
+        merger
       end
     end
 end

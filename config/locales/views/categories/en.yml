@@ -33,7 +33,7 @@ en:
       new_target_color: New category color
       new_target_icon: New category icon
       sources_label: Categories to merge
-      sources_hint: Selected categories will be deleted after their transactions and budget lines move to the target.
+      sources_hint: Selected categories will be deleted after their transactions and budget lines move to the target. If the target is also selected below, it is automatically ignored.
       submit: Merge selected
     menu:
       loading: Loading...

@@ -24,7 +24,7 @@ class ProviderMerchant < Merchant
 
   # Generate logo URL from website_url using BrandFetch, if configured.
   def generate_logo_url_from_website!
-    if website_url.present? && Setting.brand_fetch_client_id.present?
+    if website_url.present?
       update!(logo_url: Merchant.brandfetch_logo_url_for(website_url))
     elsif website_url.blank?
       update!(logo_url: nil)

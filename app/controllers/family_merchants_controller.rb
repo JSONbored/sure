@@ -205,7 +205,7 @@ class FamilyMerchantsController < ApplicationController
         Current.family.merchants.create!(
           name: permitted_params[:new_target_name],
           color: permitted_params[:new_target_color].presence || FamilyMerchant::COLORS.first,
-          website_url: permitted_params[:new_target_website_url].presence
+          website_url: Merchant.extract_domain(permitted_params[:new_target_website_url])
         )
       else
         valid_merchants.find_by(id: permitted_params[:target_id])
