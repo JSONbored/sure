@@ -33,10 +33,10 @@ mapping_summary = lambda do |type, key|
 end
 
 json.data do
-  json.array! @rows.each_with_index.to_a do |(row, index)|
+  json.array! @rows do |row|
     json.id row.id
-    json.row_number row.source_row_number || ((@pagy.page - 1) * @per_page) + index + 1
-    json.valid row.valid?
+    json.row_number row.source_row_number
+    json.valid row.errors.empty?
     json.errors row.errors.full_messages
 
     json.fields do

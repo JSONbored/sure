@@ -65,6 +65,7 @@ RSpec.describe 'API V1 Imports', type: :request do
 
   let!(:import_row) do
     pending_import.rows.create!(
+      source_row_number: 1,
       date: '01/01/2024',
       amount: '10.00',
       currency: 'USD',
@@ -349,6 +350,16 @@ RSpec.describe 'API V1 Imports', type: :request do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
         let(:id) { SecureRandom.uuid }
+
+        run_test!
+      end
+
+      response '500', 'internal server error' do
+        schema '$ref' => '#/components/schemas/ErrorResponse'
+
+        before do
+          allow_any_instance_of(Import::Row).to receive(:valid?).and_raise(StandardError, 'validation down')
+        end
 
         run_test!
       end

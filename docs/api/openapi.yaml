@@ -3140,6 +3140,12 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/ErrorResponse"
   "/api/v1/merchants":
     get:
       summary: List merchants

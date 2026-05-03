@@ -6,7 +6,8 @@ class Api::V1::ImportsController < Api::V1::BaseController
   # Ensure proper scope authorization
   before_action :ensure_read_scope, only: [ :index, :show, :rows ]
   before_action :ensure_write_scope, only: [ :create ]
-  before_action :set_import, only: [ :show, :rows ]
+  before_action :set_import_with_rows, only: [ :show ]
+  before_action :set_import, only: [ :rows ]
 
   def index
     family = current_resource_owner.family
@@ -51,6 +52,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
       page: safe_page_param,
       limit: @per_page
     )
+    @rows.each(&:valid?)
     @row_mapping_lookup = @import.mappings.includes(:mappable).index_by { |mapping| [ mapping.type, mapping.key.to_s ] }
 
     render :rows
@@ -137,11 +139,22 @@ class Api::V1::ImportsController < Api::V1::BaseController
   private
 
     def set_import
-      imports_scope = current_resource_owner.family.imports
-      imports_scope = imports_scope.includes(:rows) if action_name == "show"
-
-      @import = imports_scope.find(params[:id])
+      @import = import_scope.find(params[:id])
     rescue ActiveRecord::RecordNotFound
+      render_import_not_found
+    end
+
+    def set_import_with_rows
+      @import = import_scope.includes(:rows).find(params[:id])
+    rescue ActiveRecord::RecordNotFound
+      render_import_not_found
+    end
+
+    def import_scope
+      current_resource_owner.family.imports
+    end
+
+    def render_import_not_found
       render json: { error: "not_found", message: "Import not found" }, status: :not_found
     end
 

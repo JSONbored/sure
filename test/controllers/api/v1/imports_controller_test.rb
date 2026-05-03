@@ -168,6 +168,23 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, json_response["meta"]["per_page"]
   end
 
+  test "should list import row diagnostics in source row order" do
+    @diagnostic_import.rows.create!(
+      source_row_number: 6,
+      date: "01/14/2024",
+      amount: "-5.00",
+      currency: "USD",
+      name: "Earlier Source Row"
+    )
+
+    get rows_api_v1_import_url(@diagnostic_import), headers: api_headers(@api_key)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+
+    assert_equal [ 6, 7, 8 ], json_response["data"].map { |row| row["row_number"] }
+  end
+
   test "should not expose another family's import rows" do
     other_family = Family.create!(name: "Other Family", currency: "USD", locale: "en")
     other_import = other_family.imports.create!(type: "TransactionImport", raw_file_str: "date,amount,name")
