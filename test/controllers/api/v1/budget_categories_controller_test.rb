@@ -143,10 +143,4 @@ class Api::V1::BudgetCategoriesControllerTest < ActionDispatch::IntegrationTest
   ensure
     api_key_without_read&.destroy
   end
-
-  private
-
-    def api_headers(api_key)
-      { "X-Api-Key" => api_key.plain_key }
-    end
 end

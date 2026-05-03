@@ -46,7 +46,7 @@ class Api::V1::BudgetCategoriesController < Api::V1::BaseController
       BudgetCategory
         .joins(:budget, :category)
         .where(budgets: { family_id: current_resource_owner.family_id })
-        .includes({ budget: { budget_categories: :category } }, category: :parent)
+        .includes({ budget: { budget_categories: { category: :parent } } }, category: :parent)
     end
 
     def apply_filters(query)
