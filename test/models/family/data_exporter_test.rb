@@ -402,6 +402,23 @@ class Family::DataExporterTest < ActiveSupport::TestCase
     end
   end
 
+  test "exports balance history chronologically" do
+    @account.balances.create!(date: Date.parse("2024-03-01"), balance: 300, currency: "USD")
+    @account.balances.create!(date: Date.parse("2024-01-01"), balance: 100, currency: "USD")
+
+    zip_data = @exporter.generate_export
+
+    Zip::File.open_buffer(zip_data) do |zip|
+      balance_dates = zip.read("all.ndjson")
+        .split("\n")
+        .map { |line| JSON.parse(line) }
+        .select { |record| record["type"] == "Balance" }
+        .map { |record| Date.iso8601(record.dig("data", "date")) }
+
+      assert_equal balance_dates.sort, balance_dates
+    end
+  end
+
   test "only exports rules from the specified family" do
     # Create a rule for another family that should NOT be exported
     other_rule = @other_family.rules.build(

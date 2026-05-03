@@ -157,7 +157,7 @@ class Family::DataExporter
       Balance.joins(:account)
         .where(accounts: { family_id: @family.id })
         .chronological
-        .find_each do |balance|
+        .each do |balance|
         lines << {
           type: "Balance",
           data: {
