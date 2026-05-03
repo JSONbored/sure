@@ -90,7 +90,7 @@ class MfaController < ApplicationController
     complete_mfa_sign_in(@user)
 
     render json: { redirect_url: root_path }
-  rescue WebAuthn::Error, RuntimeError, ActionController::BadRequest, ActionController::ParameterMissing
+  rescue WebAuthn::Error, ActionController::BadRequest, ActionController::ParameterMissing
     render json: { error: t(".invalid_credential") }, status: :unprocessable_entity
   end
 
@@ -102,7 +102,9 @@ class MfaController < ApplicationController
   private
 
     def determine_layout
-      if action_name.in?(%w[verify verify_code webauthn_options verify_webauthn])
+      if action_name.in?(%w[webauthn_options verify_webauthn])
+        false
+      elsif action_name.in?(%w[verify verify_code])
         "auth"
       else
         "settings"

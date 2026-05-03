@@ -252,7 +252,10 @@ class User < ApplicationRecord
   def ensure_webauthn_id!
     return webauthn_id if webauthn_id.present?
 
-    update!(webauthn_id: WebAuthn.generate_user_id)
+    with_lock do
+      update!(webauthn_id: WebAuthn.generate_user_id) unless webauthn_id.present?
+    end
+
     webauthn_id
   end
 

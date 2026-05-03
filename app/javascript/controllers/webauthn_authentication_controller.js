@@ -1,16 +1,16 @@
-import { Controller } from "@hotwired/stimulus";
+import WebauthnController from "controllers/webauthn_controller";
 import {
   prepareCredentialRequestOptions,
-  serializePublicKeyCredential
+  serializePublicKeyCredential,
 } from "utils/webauthn";
 
-export default class extends Controller {
+export default class extends WebauthnController {
   static targets = ["error"];
   static values = {
     optionsUrl: String,
     verifyUrl: String,
     unsupportedMessage: String,
-    errorFallback: String
+    errorFallback: String,
   };
 
   async authenticate(event) {
@@ -25,7 +25,7 @@ export default class extends Controller {
     try {
       const options = await this.fetchOptions();
       const credential = await navigator.credentials.get({
-        publicKey: prepareCredentialRequestOptions(options)
+        publicKey: prepareCredentialRequestOptions(options),
       });
 
       await this.verifyCredential(serializePublicKeyCredential(credential));
@@ -38,7 +38,7 @@ export default class extends Controller {
     const response = await fetch(this.optionsUrlValue, {
       method: "POST",
       headers: this.headers,
-      credentials: "same-origin"
+      credentials: "same-origin",
     });
 
     if (!response.ok) throw new Error(await this.errorMessage(response));
@@ -51,47 +51,12 @@ export default class extends Controller {
       method: "POST",
       headers: this.headers,
       credentials: "same-origin",
-      body: JSON.stringify({ credential })
+      body: JSON.stringify({ credential }),
     });
 
     if (!response.ok) throw new Error(await this.errorMessage(response));
 
     const result = await response.json();
     window.location.href = result.redirect_url;
-  }
-
-  get headers() {
-    return {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      "X-CSRF-Token": document.querySelector("meta[name='csrf-token']")?.content
-    };
-  }
-
-  async errorMessage(response) {
-    try {
-      const result = await response.clone().json();
-      if (result.error) return result.error;
-    } catch (_error) {
-      return this.errorFallbackValue;
-    }
-
-    return this.errorFallbackValue;
-  }
-
-  showError(message) {
-    if (this.hasErrorTarget) {
-      this.errorTarget.textContent = message;
-      this.errorTarget.hidden = false;
-      this.errorTarget.setAttribute("aria-hidden", "false");
-    }
-  }
-
-  clearError() {
-    if (this.hasErrorTarget) {
-      this.errorTarget.textContent = "";
-      this.errorTarget.hidden = true;
-      this.errorTarget.setAttribute("aria-hidden", "true");
-    }
   }
 }

@@ -21,6 +21,8 @@ en:
         webauthn_remove: Remove
         webauthn_remove_confirm: Are you sure you want to remove this passkey or
           security key?
+        webauthn_remove_confirm_body: You will need to register this passkey or
+          security key again before it can be used for sign-in verification.
         webauthn_title: Passkeys and security keys
         webauthn_unsupported: This browser does not support passkeys or security
           keys.

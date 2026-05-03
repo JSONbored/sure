@@ -7,6 +7,8 @@ module WebauthnRelyingParty
         name: "Sure",
         id: request.host,
         allowed_origins: [ request.base_url ],
+        # Accept consumer passkeys/security keys without attesting device vendor
+        # identity; this keeps MFA registration broad for self-hosted users.
         verify_attestation_statement: false
       )
     end
