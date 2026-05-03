@@ -3,9 +3,6 @@
 class Api::V1::SyncsController < Api::V1::BaseController
   include Pagy::Backend
 
-  UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
-  private_constant :UUID_PATTERN
-
   before_action :ensure_read_scope
   before_action :set_sync, only: [ :show ]
 
@@ -22,6 +19,8 @@ class Api::V1::SyncsController < Api::V1::BaseController
 
   def latest
     @sync = family_syncs_query.preload(:syncable, :children).ordered.first
+    return render json: { data: nil } unless @sync
+
     render :show
   end
 
@@ -42,11 +41,7 @@ class Api::V1::SyncsController < Api::V1::BaseController
     end
 
     def family_syncs_query
-      Sync.for_family(current_resource_owner.family, resource_owner: current_resource_owner)
-    end
-
-    def valid_uuid?(value)
-      value.to_s.match?(UUID_PATTERN)
+      Sync.for_family(Current.family, resource_owner: Current.user)
     end
 
     def safe_page_param
