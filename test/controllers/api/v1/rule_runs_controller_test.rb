@@ -124,6 +124,14 @@ class Api::V1::RuleRunsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "validation_failed", response_data["error"]
   end
 
+  test "clamps oversized per_page values to the documented maximum" do
+    get api_v1_rule_runs_url, params: { per_page: 500 }, headers: api_headers(@api_key)
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_equal 100, response_data["meta"]["per_page"]
+  end
+
   test "rejects malformed rule_id filter" do
     get api_v1_rule_runs_url, params: { rule_id: "not-a-uuid" }, headers: api_headers(@api_key)
 

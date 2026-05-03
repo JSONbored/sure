@@ -3453,7 +3453,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '422':
-          description: invalid status filter
+          description: invalid filter
           content:
             application/json:
               schema:
@@ -3466,6 +3466,7 @@ paths:
       description: Rule run ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a rule run
       description: Retrieve one rule run from the authenticated user family.

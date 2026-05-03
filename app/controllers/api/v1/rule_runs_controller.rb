@@ -44,7 +44,7 @@ class Api::V1::RuleRunsController < Api::V1::BaseController
     def rule_runs_scope
       RuleRun
         .joins(:rule)
-        .where(rules: { family_id: current_resource_owner.family_id })
+        .where(rules: { family_id: Current.family.id })
         .includes(:rule)
     end
 
@@ -78,9 +78,5 @@ class Api::V1::RuleRunsController < Api::V1::BaseController
       Time.iso8601(params[key].to_s)
     rescue ArgumentError
       raise InvalidFilterError, "#{key} must be an ISO 8601 timestamp"
-    end
-
-    def valid_uuid?(value)
-      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
     end
 end

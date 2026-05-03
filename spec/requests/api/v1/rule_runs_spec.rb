@@ -121,7 +121,7 @@ RSpec.describe 'API V1 Rule Runs', type: :request do
         run_test!
       end
 
-      response '422', 'invalid status filter' do
+      response '422', 'invalid filter' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
         let(:status) { 'unknown' }
@@ -132,7 +132,8 @@ RSpec.describe 'API V1 Rule Runs', type: :request do
   end
 
   path '/api/v1/rule_runs/{id}' do
-    parameter name: :id, in: :path, type: :string, required: true, description: 'Rule run ID'
+    parameter name: :id, in: :path, required: true, description: 'Rule run ID',
+              schema: { type: :string, format: :uuid }
 
     get 'Retrieve a rule run' do
       description 'Retrieve one rule run from the authenticated user family.'
