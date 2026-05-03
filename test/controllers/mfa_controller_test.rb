@@ -154,6 +154,33 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_operator stored_credential.sign_count, :>, 0
   end
 
+  test "verify_webauthn authenticates with configured relying party id" do
+    with_webauthn_config(rp_id: "example.test", allowed_origins: [ "https://app.example.test" ]) do
+      @user.setup_mfa!
+      @user.enable_mfa!
+      client = register_webauthn_credential(origin: "https://app.example.test", rp_id: "example.test")
+      stored_credential = @user.webauthn_credentials.first
+      sign_out
+
+      post sessions_path, params: { email: @user.email, password: user_password_test }
+      post webauthn_options_mfa_path, as: :json
+      assert_response :success
+
+      options = JSON.parse(response.body)
+      assert_equal "example.test", options.fetch("rpId")
+      assertion = client.get(
+        challenge: options.fetch("challenge"),
+        rp_id: "example.test",
+        allow_credentials: [ stored_credential.credential_id ]
+      )
+
+      post verify_webauthn_mfa_path, params: { credential: assertion }, as: :json
+
+      assert_response :success
+      assert_equal root_path, JSON.parse(response.body).fetch("redirect_url")
+    end
+  end
+
   test "verify_webauthn rejects invalid credentials" do
     @user.setup_mfa!
     @user.enable_mfa!
@@ -213,12 +240,12 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
-    def register_webauthn_credential
-      client = WebAuthn::FakeClient.new("http://www.example.com")
+    def register_webauthn_credential(origin: "http://www.example.com", rp_id: "www.example.com")
+      client = WebAuthn::FakeClient.new(origin)
 
       post options_settings_webauthn_credentials_path, as: :json
       options = JSON.parse(response.body)
-      credential = client.create(challenge: options.fetch("challenge"), rp_id: "www.example.com")
+      credential = client.create(challenge: options.fetch("challenge"), rp_id: rp_id)
       post settings_webauthn_credentials_path, params: {
         webauthn_credential: { nickname: "MacBook Touch ID" },
         credential: credential
@@ -226,5 +253,18 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
       assert_response :success
 
       client
+    end
+
+    def with_webauthn_config(rp_id:, allowed_origins:)
+      config = Rails.application.config.x.webauthn
+      previous_rp_id = config.rp_id
+      previous_allowed_origins = config.allowed_origins
+      config.rp_id = rp_id
+      config.allowed_origins = allowed_origins
+
+      yield
+    ensure
+      config.rp_id = previous_rp_id
+      config.allowed_origins = previous_allowed_origins
     end
 end

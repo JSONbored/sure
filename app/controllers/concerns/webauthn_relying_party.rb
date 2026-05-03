@@ -1,12 +1,16 @@
+# frozen_string_literal: true
+
 module WebauthnRelyingParty
   extend ActiveSupport::Concern
 
   private
     def webauthn_relying_party
+      webauthn_config = Rails.application.config.x.webauthn
+
       WebAuthn::RelyingParty.new(
         name: "Sure",
-        id: request.host,
-        allowed_origins: [ request.base_url ],
+        id: webauthn_config.rp_id,
+        allowed_origins: webauthn_config.allowed_origins,
         # Accept consumer passkeys/security keys without attesting device vendor
         # identity; this keeps MFA registration broad for self-hosted users.
         verify_attestation_statement: false

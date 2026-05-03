@@ -41,6 +41,26 @@ class Settings::WebauthnCredentialsControllerTest < ActionDispatch::IntegrationT
     assert @user.reload.webauthn_id.present?
   end
 
+  test "uses configured relying party id and allowed origin" do
+    with_webauthn_config(rp_id: "example.test", allowed_origins: [ "https://app.example.test" ]) do
+      client = WebAuthn::FakeClient.new("https://app.example.test")
+      options = registration_options
+
+      assert_equal "example.test", options.dig("rp", "id")
+
+      credential = client.create(challenge: options.fetch("challenge"), rp_id: "example.test")
+
+      assert_difference -> { @user.webauthn_credentials.count }, 1 do
+        post settings_webauthn_credentials_path, params: {
+          webauthn_credential: { nickname: "Configured origin key" },
+          credential: credential
+        }, as: :json
+      end
+
+      assert_response :success
+    end
+  end
+
   test "rejects a credential when registration challenge has already been used" do
     options = registration_options
     credential = @client.create(challenge: options.fetch("challenge"), rp_id: "www.example.com")
@@ -131,5 +151,18 @@ class Settings::WebauthnCredentialsControllerTest < ActionDispatch::IntegrationT
       post options_settings_webauthn_credentials_path, as: :json
       assert_response :success
       JSON.parse(response.body)
+    end
+
+    def with_webauthn_config(rp_id:, allowed_origins:)
+      config = Rails.application.config.x.webauthn
+      previous_rp_id = config.rp_id
+      previous_allowed_origins = config.allowed_origins
+      config.rp_id = rp_id
+      config.allowed_origins = allowed_origins
+
+      yield
+    ensure
+      config.rp_id = previous_rp_id
+      config.allowed_origins = previous_allowed_origins
     end
 end
