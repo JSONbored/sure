@@ -39,7 +39,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     account_sync = Sync.create!(syncable: @account, status: "syncing", syncing_at: Time.current)
     other_sync = Sync.create!(syncable: families(:empty), status: "completed", completed_at: 1.hour.ago)
 
-    get api_v1_sync_records_url, headers: api_headers(@read_only_api_key)
+    get api_v1_syncs_url, headers: api_headers(@read_only_api_key)
     assert_response :success
 
     json_response = JSON.parse(response.body)
@@ -63,7 +63,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
 
     @read_only_api_key.update_column(:user_id, users(:family_member).id)
 
-    get api_v1_sync_records_url, headers: api_headers(@read_only_api_key)
+    get api_v1_syncs_url, headers: api_headers(@read_only_api_key)
     assert_response :success
 
     sync_ids = JSON.parse(response.body)["data"].map { |sync| sync["id"] }
@@ -79,7 +79,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
       window_end_date: Date.current
     )
 
-    get api_v1_sync_record_url(sync), headers: api_headers(@read_only_api_key)
+    get api_v1_sync_url(sync), headers: api_headers(@read_only_api_key)
     assert_response :success
 
     data = JSON.parse(response.body)["data"]
@@ -96,14 +96,14 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     Sync.create!(syncable: @family, status: "completed", created_at: 2.hours.ago, completed_at: 2.hours.ago)
     latest_sync = Sync.create!(syncable: @account, status: "pending", created_at: 1.minute.ago)
 
-    get latest_api_v1_sync_records_url, headers: api_headers(@read_only_api_key)
+    get latest_api_v1_syncs_url, headers: api_headers(@read_only_api_key)
     assert_response :success
 
     assert_equal latest_sync.id, JSON.parse(response.body)["data"]["id"]
   end
 
   test "latest returns null data when no sync exists" do
-    get latest_api_v1_sync_records_url, headers: api_headers(@read_only_api_key)
+    get latest_api_v1_syncs_url, headers: api_headers(@read_only_api_key)
     assert_response :success
 
     assert_nil JSON.parse(response.body)["data"]
@@ -117,7 +117,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
       error: "provider token secret leaked"
     )
 
-    get api_v1_sync_record_url(sync), headers: api_headers(@read_only_api_key)
+    get api_v1_sync_url(sync), headers: api_headers(@read_only_api_key)
     assert_response :success
 
     data = JSON.parse(response.body)["data"]
@@ -132,7 +132,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
       status: "stale"
     )
 
-    get api_v1_sync_record_url(sync), headers: api_headers(@read_only_api_key)
+    get api_v1_sync_url(sync), headers: api_headers(@read_only_api_key)
     assert_response :success
 
     assert_nil JSON.parse(response.body).dig("data", "error")
@@ -141,33 +141,33 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
   test "returns not found for another family sync" do
     sync = Sync.create!(syncable: families(:empty), status: "completed")
 
-    get api_v1_sync_record_url(sync), headers: api_headers(@read_only_api_key)
+    get api_v1_sync_url(sync), headers: api_headers(@read_only_api_key)
     assert_response :not_found
 
     assert_equal "record_not_found", JSON.parse(response.body)["error"]
   end
 
   test "returns not found for malformed sync id" do
-    get api_v1_sync_record_url("not-a-uuid"), headers: api_headers(@read_only_api_key)
+    get api_v1_sync_url("not-a-uuid"), headers: api_headers(@read_only_api_key)
     assert_response :not_found
 
     assert_equal "record_not_found", JSON.parse(response.body)["error"]
   end
 
   test "index requires authentication" do
-    get api_v1_sync_records_url
+    get api_v1_syncs_url
     assert_response :unauthorized
   end
 
   test "latest requires authentication" do
-    get latest_api_v1_sync_records_url
+    get latest_api_v1_syncs_url
     assert_response :unauthorized
   end
 
   test "show requires authentication" do
     sync = Sync.create!(syncable: @family, status: "completed", completed_at: 1.hour.ago)
 
-    get api_v1_sync_record_url(sync)
+    get api_v1_sync_url(sync)
     assert_response :unauthorized
   end
 
@@ -181,7 +181,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     )
     api_key_without_read.save!(validate: false)
 
-    get api_v1_sync_records_url, headers: api_headers(api_key_without_read)
+    get api_v1_syncs_url, headers: api_headers(api_key_without_read)
 
     assert_response :forbidden
   ensure
