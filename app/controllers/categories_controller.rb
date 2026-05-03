@@ -81,6 +81,10 @@ class CategoriesController < ApplicationController
       return redirect_to merge_categories_path, alert: t(".conflicting_target")
     end
 
+    if target_selected_as_source?(permitted_params)
+      return redirect_to merge_categories_path, alert: t(".target_selected_as_source")
+    end
+
     sources = Current.family.categories.where(id: permitted_params[:source_ids])
     unless sources.any?
       return redirect_to merge_categories_path, alert: t(".invalid_categories")
@@ -128,6 +132,10 @@ class CategoriesController < ApplicationController
 
     def conflicting_merge_target?(permitted_params)
       permitted_params[:target_id].present? && permitted_params[:new_target_name].present?
+    end
+
+    def target_selected_as_source?(permitted_params)
+      permitted_params[:target_id].present? && Array(permitted_params[:source_ids]).include?(permitted_params[:target_id])
     end
 
     def merge_target_category(permitted_params)

@@ -75,6 +75,24 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_not FamilyMerchant.exists?(source.id)
   end
 
+  test "merge preserves reviewed new target merchant color" do
+    source = FamilyMerchant.create!(
+      family: @user.family,
+      name: "Color Source Merchant",
+      color: "#000000"
+    )
+
+    post perform_merge_family_merchants_path, params: {
+      new_target_name: "Color Target Merchant",
+      new_target_color: "#123456",
+      source_ids: [ source.id ]
+    }
+
+    target = FamilyMerchant.find_by!(family: @user.family, name: "Color Target Merchant")
+    assert_redirected_to family_merchants_path
+    assert_equal "#123456", target.color
+  end
+
   test "merge normalizes new target merchant website" do
     source = FamilyMerchant.create!(
       family: @user.family,
@@ -163,15 +181,15 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "provider merchant logo clears when Brandfetch is unavailable" do
-    Setting.stubs(:brand_fetch_client_id).returns(nil)
     provider_merchant = ProviderMerchant.create!(
       name: "Logo Clearing Provider Merchant",
       source: "plaid",
       provider_merchant_id: "logo-clearing-provider-merchant",
-      website_url: "old.example.com",
-      logo_url: "https://cdn.brandfetch.io/old.example.com/icon"
+      website_url: "old.example.com"
     )
+    provider_merchant.update_column(:logo_url, "https://cdn.brandfetch.io/old.example.com/icon")
 
+    Setting.stubs(:brand_fetch_client_id).returns(nil)
     provider_merchant.update!(website_url: "new.example.com")
     provider_merchant.generate_logo_url_from_website!
 
@@ -179,15 +197,15 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "family merchant logo clears when Brandfetch is unavailable" do
-    Setting.stubs(:brand_fetch_client_id).returns(nil)
     merchant = FamilyMerchant.create!(
       family: @user.family,
       name: "Logo Clearing Family Merchant",
       color: "#000000",
-      website_url: "old.example.com",
-      logo_url: "https://cdn.brandfetch.io/old.example.com/icon"
+      website_url: "old.example.com"
     )
+    merchant.update_column(:logo_url, "https://cdn.brandfetch.io/old.example.com/icon")
 
+    Setting.stubs(:brand_fetch_client_id).returns(nil)
     merchant.update!(website_url: "new.example.com")
 
     assert_nil merchant.reload.logo_url

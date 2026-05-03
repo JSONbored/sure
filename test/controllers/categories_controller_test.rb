@@ -167,6 +167,28 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_nil @family.categories.find_by(name: "Conflicting Target")
   end
 
+  test "merge rejects selecting the target as a source" do
+    target = @family.categories.create!(
+      name: "Self Target",
+      color: "#000000",
+      lucide_icon: "shapes"
+    )
+    source = @family.categories.create!(
+      name: "Self Source",
+      color: "#111111",
+      lucide_icon: "shapes"
+    )
+
+    post perform_merge_categories_path, params: {
+      target_id: target.id,
+      source_ids: [ target.id, source.id ]
+    }
+
+    assert_redirected_to merge_categories_path
+    assert Category.exists?(target.id)
+    assert Category.exists?(source.id)
+  end
+
   test "merge rejects parent category into any descendant" do
     parent = @family.categories.create!(
       name: "Parent Category",
