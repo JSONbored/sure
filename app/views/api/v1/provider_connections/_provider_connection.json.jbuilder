@@ -3,7 +3,7 @@
 json.extract! provider_connection,
               :id,
               :provider,
-              :type,
+              :provider_type,
               :name,
               :status,
               :requires_update,

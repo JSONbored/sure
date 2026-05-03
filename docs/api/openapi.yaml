@@ -1409,7 +1409,7 @@ components:
       required:
       - id
       - provider
-      - type
+      - provider_type
       - name
       - status
       - requires_update
@@ -1427,7 +1427,7 @@ components:
           format: uuid
         provider:
           type: string
-        type:
+        provider_type:
           type: string
         name:
           type: string

@@ -18,7 +18,9 @@ class ProviderConnectionHealth
   class << self
     def for_family(family)
       PROVIDERS.flat_map do |provider|
-        family.public_send(provider[:association]).includes(association_includes_for(family, provider)).ordered.map do |item|
+        relation = family.public_send(provider[:association])
+
+        relation.includes(association_includes_for(relation, provider)).ordered.map do |item|
           new(provider, item).to_h
         end
       end
@@ -26,9 +28,8 @@ class ProviderConnectionHealth
 
     private
 
-      def association_includes_for(family, provider)
-        relation = family.public_send(provider[:association])
-        includes = [ :syncs, provider[:accounts] ]
+      def association_includes_for(relation, provider)
+        includes = [ provider[:accounts] ]
         includes << provider[:linked_accounts] if provider[:linked_accounts]
         includes << :accounts if relation.klass.reflect_on_association(:accounts)
         includes
@@ -44,12 +45,12 @@ class ProviderConnectionHealth
     {
       id: item.id,
       provider: provider[:key],
-      type: provider[:type],
+      provider_type: provider[:type],
       name: item.name,
       status: item.status,
-      requires_update: item.respond_to?(:requires_update?) ? item.requires_update? : false,
+      requires_update: item_boolean(:requires_update?),
       credentials_configured: credentials_configured?,
-      scheduled_for_deletion: item.respond_to?(:scheduled_for_deletion?) ? item.scheduled_for_deletion? : false,
+      scheduled_for_deletion: item_boolean(:scheduled_for_deletion?),
       pending_account_setup: pending_account_setup?,
       institution: institution_payload,
       accounts: accounts_payload,
@@ -64,22 +65,18 @@ class ProviderConnectionHealth
     attr_reader :provider, :item
 
     def credentials_configured?
-      return false unless item.respond_to?(:credentials_configured?)
-
-      item.credentials_configured?
+      item_boolean(:credentials_configured?)
     end
 
     def pending_account_setup?
-      return item.pending_account_setup? if item.respond_to?(:pending_account_setup?)
-
-      false
+      item_boolean(:pending_account_setup?)
     end
 
     def institution_payload
       {
-        name: item.respond_to?(:institution_display_name) ? item.institution_display_name : item.name,
-        domain: item.respond_to?(:institution_domain) ? item.institution_domain : nil,
-        url: item.respond_to?(:institution_url) ? item.institution_url : nil
+        name: item_value(:institution_display_name, item.name),
+        domain: item_value(:institution_domain),
+        url: item_value(:institution_url)
       }
     end
 
@@ -111,14 +108,16 @@ class ProviderConnectionHealth
     end
 
     def sync_payload
-      latest_sync = item.syncs.max_by(&:created_at)
-
       {
-        syncing: item.respond_to?(:syncing?) ? item.syncing? : false,
-        status_summary: item.respond_to?(:sync_status_summary) ? item.sync_status_summary : nil,
-        last_synced_at: item.respond_to?(:last_synced_at) ? item.last_synced_at : nil,
+        syncing: item_boolean(:syncing?),
+        status_summary: item_value(:sync_status_summary),
+        last_synced_at: item_value(:last_synced_at),
         latest: latest_sync_payload(latest_sync)
       }
+    end
+
+    def latest_sync
+      @latest_sync ||= item.syncs.ordered.first
     end
 
     def latest_sync_payload(sync)
@@ -139,8 +138,18 @@ class ProviderConnectionHealth
       return unless sync.failed? || sync.stale?
 
       {
-        present: sync.error.present?,
+        present: true,
         message: sync.stale? ? "Sync became stale before completion" : "Sync failed"
       }
+    end
+
+    def item_boolean(method_name)
+      item_value(method_name, false) == true
+    end
+
+    def item_value(method_name, default = nil)
+      return default unless item.respond_to?(method_name)
+
+      item.public_send(method_name)
     end
 end

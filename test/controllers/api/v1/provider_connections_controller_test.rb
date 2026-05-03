@@ -18,7 +18,7 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
       source: "web"
     )
 
-    @write_key = ApiKey.create!(
+    @read_write_key = ApiKey.create!(
       user: @user,
       name: "Test Read-Write Key",
       scopes: [ "read_write" ],
@@ -28,7 +28,7 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
 
     redis = Redis.new
     redis.del("api_rate_limit:#{@api_key.id}")
-    redis.del("api_rate_limit:#{@write_key.id}")
+    redis.del("api_rate_limit:#{@read_write_key.id}")
   end
 
   test "lists provider connection health for current family" do
@@ -48,12 +48,32 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
 
     assert_not_nil mercury_connection
     assert_equal "mercury", mercury_connection["provider"]
-    assert_equal "MercuryItem", mercury_connection["type"]
+    assert_equal "MercuryItem", mercury_connection["provider_type"]
     assert_equal @mercury_item.name, mercury_connection["name"]
     assert_equal @mercury_item.status, mercury_connection["status"]
     assert_equal true, mercury_connection["credentials_configured"]
     assert_equal @mercury_item.mercury_accounts.count, mercury_connection["accounts"]["total_count"]
     assert_equal failed_sync.id, mercury_connection["sync"]["latest"]["id"]
+    assert_equal true, mercury_connection["sync"]["latest"]["error"]["present"]
+    assert_equal "Sync failed", mercury_connection["sync"]["latest"]["error"]["message"]
+  end
+
+  test "reports failed sync errors as present without exposing raw messages" do
+    failed_sync = @mercury_item.syncs.create!(
+      status: "failed",
+      failed_at: Time.current,
+      error: nil
+    )
+
+    get api_v1_provider_connections_url, headers: api_headers(@api_key)
+    assert_response :success
+
+    mercury_connection = JSON.parse(response.body)["data"].detect do |connection|
+      connection["id"] == @mercury_item.id && connection["provider"] == "mercury"
+    end
+
+    assert_equal failed_sync.id, mercury_connection["sync"]["latest"]["id"]
+    assert_equal true, mercury_connection["sync"]["latest"]["error"]["present"]
     assert_equal "Sync failed", mercury_connection["sync"]["latest"]["error"]["message"]
   end
 
@@ -94,8 +114,17 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
   end
 
   test "read_write key can list provider connection health" do
-    get api_v1_provider_connections_url, headers: api_headers(@write_key)
+    get api_v1_provider_connections_url, headers: api_headers(@read_write_key)
     assert_response :success
+  end
+
+  test "returns an empty list when no provider connections exist" do
+    ProviderConnectionHealth.stub(:for_family, []) do
+      get api_v1_provider_connections_url, headers: api_headers(@api_key)
+    end
+
+    assert_response :success
+    assert_equal [], JSON.parse(response.body)["data"]
   end
 
   test "requires authentication" do

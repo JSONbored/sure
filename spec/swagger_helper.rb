@@ -797,11 +797,11 @@ RSpec.configure do |config|
           },
           ProviderConnection: {
             type: :object,
-            required: %w[id provider type name status requires_update credentials_configured scheduled_for_deletion pending_account_setup institution accounts sync created_at updated_at],
+            required: %w[id provider provider_type name status requires_update credentials_configured scheduled_for_deletion pending_account_setup institution accounts sync created_at updated_at],
             properties: {
               id: { type: :string, format: :uuid },
               provider: { type: :string },
-              type: { type: :string },
+              provider_type: { type: :string },
               name: { type: :string },
               status: { type: :string, nullable: true },
               requires_update: { type: :boolean },

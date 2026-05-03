@@ -8,7 +8,7 @@ class Api::V1::ProviderConnectionsController < Api::V1::BaseController
     render :index
   rescue StandardError => e
     Rails.logger.error "ProviderConnectionsController#index error: #{e.message}"
-    Rails.logger.error e.backtrace.join("\n")
+    e.backtrace&.each { |line| Rails.logger.error line }
 
     render_json({
       error: "internal_server_error",
