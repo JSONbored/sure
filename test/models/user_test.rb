@@ -94,9 +94,8 @@ class UserTest < ActiveSupport::TestCase
     backup_codes = user.enable_mfa!
 
     assert user.otp_required?
-    assert user.otp_backup_codes_generated_at.present?
     assert_equal 8, backup_codes.length
-    assert backup_codes.all? { |code| code.length == 8 }
+    assert backup_codes.all? { |code| code.match?(/\A[0-9a-f]{16}\z/) }
     assert_equal 8, user.otp_backup_codes.length
     assert user.otp_backup_codes.all? { |code| code.start_with?("$2") }
     assert_empty backup_codes & user.otp_backup_codes
@@ -111,7 +110,6 @@ class UserTest < ActiveSupport::TestCase
     assert_nil user.otp_secret
     assert_not user.otp_required?
     assert_empty user.otp_backup_codes
-    assert_nil user.otp_backup_codes_generated_at
   end
 
   test "verify_otp? validates TOTP codes" do
@@ -147,6 +145,16 @@ class UserTest < ActiveSupport::TestCase
     assert_not user.verify_otp?("not-a-backup-code")
   end
 
+  test "verify_otp? does not check digests for legacy-shaped hashed backup input" do
+    user = users(:family_member)
+    user.setup_mfa!
+    user.enable_mfa!
+
+    BCrypt::Password.expects(:new).never
+
+    assert_not user.verify_otp?("deadbeef")
+  end
+
   test "verify_otp? accepts backup codes" do
     user = users(:family_member)
     user.setup_mfa!
@@ -166,14 +174,16 @@ class UserTest < ActiveSupport::TestCase
     assert_not user.verify_otp?(backup_code)
   end
 
-  test "verify_otp? locks the user while consuming backup codes" do
+  test "verify_otp? reloads backup codes while consuming under lock" do
     user = users(:family_member)
     user.setup_mfa!
     backup_code = user.enable_mfa!.first
+    stale_user = User.find(user.id)
 
-    user.expects(:lock!).once
+    user.update!(otp_backup_codes: [])
 
-    assert user.verify_otp?(backup_code)
+    assert_not stale_user.verify_otp?(backup_code)
+    assert_empty stale_user.reload.otp_backup_codes
   end
 
   test "verify_otp? accepts and consumes legacy plaintext backup codes once" do

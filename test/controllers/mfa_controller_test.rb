@@ -42,6 +42,7 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
     assert_select "div.grid-cols-2" # Check for backup codes grid
     rendered_codes = css_select("div.grid-cols-2 div").map { |node| node.text.strip }
     assert_equal 8, rendered_codes.length
+    assert rendered_codes.all? { |code| code.match?(/\A[0-9a-f]{16}\z/) }
     assert_empty rendered_codes & @user.otp_backup_codes
   end
 

@@ -214,8 +214,7 @@ class User < ApplicationRecord
     update!(
       otp_secret: ROTP::Base32.random(32),
       otp_required: false,
-      otp_backup_codes: [],
-      otp_backup_codes_generated_at: nil
+      otp_backup_codes: []
     )
   end
 
@@ -224,8 +223,7 @@ class User < ApplicationRecord
 
     update!(
       otp_required: true,
-      otp_backup_codes: backup_codes.map { |code| digest_backup_code(code) },
-      otp_backup_codes_generated_at: Time.current
+      otp_backup_codes: backup_codes.map { |code| digest_backup_code(code) }
     )
 
     backup_codes
@@ -235,20 +233,19 @@ class User < ApplicationRecord
     update!(
       otp_secret: nil,
       otp_required: false,
-      otp_backup_codes: [],
-      otp_backup_codes_generated_at: nil
+      otp_backup_codes: []
     )
   end
 
   def verify_otp?(code)
     return false if otp_secret.blank?
 
-    normalized_code = normalize_backup_code(code)
+    normalized_code = normalize_mfa_code(code)
     return false if normalized_code.blank?
     return true if totp.verify(normalized_code, drift_behind: 15)
-    return false unless backup_code_candidate?(normalized_code)
+    return false unless backup_code_input?(normalized_code)
 
-    verify_backup_code?(normalized_code)
+    consume_backup_code!(normalized_code)
   end
 
   def provisioning_uri
@@ -457,10 +454,7 @@ class User < ApplicationRecord
       ROTP::TOTP.new(otp_secret, issuer: "Sure Finances")
     end
 
-    def verify_backup_code?(code)
-      normalized_code = normalize_backup_code(code)
-      return false unless backup_code_candidate?(normalized_code)
-
+    def consume_backup_code!(normalized_code)
       consumed = false
 
       transaction do
@@ -484,19 +478,21 @@ class User < ApplicationRecord
     end
 
     def generate_backup_codes
-      MFA_BACKUP_CODE_COUNT.times.map { SecureRandom.hex(4) }
+      MFA_BACKUP_CODE_COUNT.times.map { SecureRandom.hex(8) }
     end
 
     def digest_backup_code(code)
-      BCrypt::Password.create(normalize_backup_code(code), cost: backup_code_digest_cost).to_s
+      BCrypt::Password.create(normalize_mfa_code(code), cost: backup_code_digest_cost).to_s
     end
 
     def backup_code_matches?(stored_code, normalized_code)
       if backup_code_digest?(stored_code)
+        return false unless backup_code_candidate?(normalized_code)
+
         BCrypt::Password.new(stored_code).is_password?(normalized_code)
       else
-        # One-time compatibility for plaintext codes generated before backup
-        # code hashing. A matching legacy code is consumed immediately.
+        # Legacy plaintext codes are accepted once so existing MFA users are
+        # not locked out after backup-code hashing ships.
         ActiveSupport::SecurityUtils.secure_compare(stored_code.to_s, normalized_code)
       end
     rescue BCrypt::Errors::InvalidHash
@@ -507,11 +503,19 @@ class User < ApplicationRecord
       stored_code.to_s.start_with?("$2a$", "$2b$", "$2y$")
     end
 
-    def normalize_backup_code(code)
+    def normalize_mfa_code(code)
       code.to_s.strip.downcase
     end
 
+    def backup_code_input?(code)
+      backup_code_candidate?(code) || legacy_plaintext_backup_code_candidate?(code)
+    end
+
     def backup_code_candidate?(code)
+      code.to_s.match?(/\A[0-9a-f]{16}\z/)
+    end
+
+    def legacy_plaintext_backup_code_candidate?(code)
       code.to_s.match?(/\A[0-9a-f]{8}\z/)
     end
 

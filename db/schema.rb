@@ -1605,7 +1605,6 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_02_120000) do
     t.string "locale"
     t.string "ui_layout"
     t.uuid "default_account_id"
-    t.datetime "otp_backup_codes_generated_at"
     t.index ["default_account_id"], name: "index_users_on_default_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["family_id"], name: "index_users_on_family_id"
