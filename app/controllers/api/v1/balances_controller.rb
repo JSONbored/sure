@@ -3,10 +3,9 @@
 class Api::V1::BalancesController < Api::V1::BaseController
   include Pagy::Backend
 
-  InvalidFilterError = Class.new(StandardError)
-
   before_action :ensure_read_scope
   before_action :set_balance, only: :show
+  helper_method :format_money, :money_to_minor_units
 
   def index
     balances_query = apply_filters(balances_scope).order(date: :desc, created_at: :desc)
@@ -34,6 +33,8 @@ class Api::V1::BalancesController < Api::V1::BaseController
   private
 
     def set_balance
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
+
       @balance = balances_scope.find(params[:id])
     end
 
@@ -65,29 +66,11 @@ class Api::V1::BalancesController < Api::V1::BaseController
       query
     end
 
-    def parse_date_param(key)
-      Date.iso8601(params[key].to_s)
-    rescue ArgumentError
-      raise InvalidFilterError, "#{key} must be an ISO 8601 date"
+    def format_money(money)
+      money&.format
     end
 
-    def valid_uuid?(value)
-      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
-    end
-
-    def safe_page_param
-      page = params[:page].to_i
-      page > 0 ? page : 1
-    end
-
-    def safe_per_page_param
-      per_page = params[:per_page].to_i
-
-      case per_page
-      when 1..100
-        per_page
-      else
-        25
-      end
+    def money_to_minor_units(money)
+      (money.amount * money.currency.minor_unit_conversion).round(0).to_i if money
     end
 end

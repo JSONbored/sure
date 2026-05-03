@@ -79,6 +79,14 @@ class Api::V1::BalancesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "record_not_found", response_data["error"]
   end
 
+  test "returns not found for malformed balance id" do
+    get api_v1_balance_url("not-a-uuid"), headers: api_headers(@api_key)
+
+    assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
+  end
+
   test "filters balances by account_id" do
     get api_v1_balances_url,
         params: { account_id: @account.id },
@@ -87,6 +95,23 @@ class Api::V1::BalancesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     response_data = JSON.parse(response.body)
     assert_includes response_data["balances"].map { |balance| balance["id"] }, @balance.id
+  end
+
+  test "filters balances by currency" do
+    eur_balance = @account.balances.create!(
+      date: Date.parse("2024-01-16"),
+      balance: 100,
+      currency: "EUR"
+    )
+
+    get api_v1_balances_url,
+        params: { currency: "usd" },
+        headers: api_headers(@api_key)
+
+    assert_response :success
+    balance_ids = JSON.parse(response.body)["balances"].map { |balance| balance["id"] }
+    assert_includes balance_ids, @balance.id
+    assert_not_includes balance_ids, eur_balance.id
   end
 
   test "filters balances by date range" do
