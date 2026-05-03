@@ -86,6 +86,8 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
   test "verify_code authenticates with valid backup code" do
     @user.setup_mfa!
     backup_code = @user.enable_mfa!.first
+    matching_digest = @user.otp_backup_codes.find { |digest| BCrypt::Password.new(digest).is_password?(backup_code) }
+    assert_not_nil matching_digest
     sign_out
 
     post sessions_path, params: { email: @user.email, password: user_password_test }
@@ -94,7 +96,8 @@ class MfaControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to root_path
     assert Session.exists?(user_id: @user.id)
-    assert_not @user.reload.otp_backup_codes.include?(backup_code)
+    assert_equal 7, @user.reload.otp_backup_codes.size
+    assert_not_includes @user.otp_backup_codes, matching_digest
   end
 
   test "verify_code rejects invalid codes" do

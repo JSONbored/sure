@@ -223,6 +223,7 @@ class User < ApplicationRecord
 
     backup_codes = generate_backup_codes
 
+    # Store bcrypt digests only; this Postgres array cannot use AR encryption.
     update!(
       otp_required: true,
       otp_backup_codes: backup_codes.map { |code| digest_backup_code(code) }
