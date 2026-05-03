@@ -89,6 +89,19 @@ class MercuryItemsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to accounts_path
   end
 
+  test "update does not expire selected mercury account cache for name-only changes" do
+    Rails.cache.expects(:delete).never
+
+    patch mercury_item_url(@second_item), params: {
+      mercury_item: {
+        name: "Renamed Business Mercury"
+      }
+    }
+
+    assert_redirected_to accounts_path
+    assert_equal "Renamed Business Mercury", @second_item.reload.name
+  end
+
   test "preload accounts uses selected mercury item cache key" do
     Rails.cache.expects(:read).with(mercury_cache_key(@second_item)).returns(nil)
     Rails.cache.expects(:write).with(mercury_cache_key(@second_item), mercury_accounts_payload, expires_in: 5.minutes)
@@ -134,6 +147,33 @@ class MercuryItemsControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, %(value="#{@second_item.id}")
   end
 
+  test "select existing account renders the selected mercury item id" do
+    account = @family.accounts.create!(
+      name: "Manual Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+
+    Rails.cache.expects(:read).with(mercury_cache_key(@second_item)).returns(nil)
+    Rails.cache.expects(:write).with(mercury_cache_key(@second_item), mercury_accounts_payload, expires_in: 5.minutes)
+
+    provider = mock("mercury_provider")
+    provider.expects(:get_accounts).returns(accounts: mercury_accounts_payload)
+    Provider::Mercury.expects(:new)
+      .with(@second_item.token, base_url: @second_item.effective_base_url)
+      .returns(provider)
+
+    get select_existing_account_mercury_items_url, params: {
+      mercury_item_id: @second_item.id,
+      account_id: account.id
+    }
+
+    assert_response :success
+    assert_includes @response.body, %(name="mercury_item_id")
+    assert_includes @response.body, %(value="#{@second_item.id}")
+  end
+
   test "link accounts uses selected mercury item and allows duplicate upstream ids across items" do
     @existing_item.mercury_accounts.create!(
       account_id: "shared_mercury_account",
@@ -168,6 +208,27 @@ class MercuryItemsControllerTest < ActionDispatch::IntegrationTest
         post link_accounts_mercury_items_url, params: {
           account_ids: [ "shared_mercury_account" ],
           accountable_type: "Depository"
+        }
+      end
+    end
+
+    assert_redirected_to settings_providers_path
+    assert_equal "Choose a Mercury connection before linking accounts.", flash[:alert]
+  end
+
+  test "link existing account does not silently use the first connection when multiple items exist" do
+    account = @family.accounts.create!(
+      name: "Manual Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+
+    assert_no_difference "MercuryAccount.count" do
+      assert_no_difference "AccountProvider.count" do
+        post link_existing_account_mercury_items_url, params: {
+          account_id: account.id,
+          mercury_account_id: "shared_mercury_account"
         }
       end
     end

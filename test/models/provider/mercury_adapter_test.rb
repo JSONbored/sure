@@ -89,7 +89,7 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
       base_url: "https://api.mercury.com/api/v1"
     )
 
-    provider = Provider::MercuryAdapter.build_provider(family: family, mercury_item: second_item)
+    provider = Provider::MercuryAdapter.build_provider(family: family, mercury_item_id: second_item.id)
 
     assert_instance_of Provider::Mercury, provider
     assert_equal "second_mercury_token", provider.token
@@ -105,7 +105,7 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
       base_url: "https://api.mercury.com/api/v1"
     )
 
-    provider = Provider::MercuryAdapter.build_provider(family: family, mercury_item: second_item)
+    provider = Provider::MercuryAdapter.build_provider(family: family, mercury_item_id: second_item.id)
 
     assert_equal "second_mercury_token", provider.token
   end
@@ -119,7 +119,7 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
       base_url: "https://api.mercury.com/api/v1"
     )
 
-    assert_nil Provider::MercuryAdapter.build_provider(family: family, mercury_item: other_item)
+    assert_nil Provider::MercuryAdapter.build_provider(family: family, mercury_item_id: other_item.id)
   end
 
   test "build_provider refuses explicit mercury item without usable credentials" do
@@ -132,6 +132,6 @@ class Provider::MercuryAdapterTest < ActiveSupport::TestCase
     )
     blank_item.update_column(:token, "   ")
 
-    assert_nil Provider::MercuryAdapter.build_provider(family: family, mercury_item: blank_item)
+    assert_nil Provider::MercuryAdapter.build_provider(family: family, mercury_item_id: blank_item.id)
   end
 end

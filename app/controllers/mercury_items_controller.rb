@@ -13,9 +13,10 @@ class MercuryItemsController < ApplicationController
   # Preload Mercury accounts in background (async, non-blocking)
   def preload_accounts
     begin
-      mercury_item = mercury_item_for_account_flow
+      account_flow = mercury_item_account_flow_context
+      mercury_item = account_flow[:mercury_item]
       unless mercury_item
-        render json: mercury_item_selection_error_payload
+        render json: mercury_item_selection_error_payload(account_flow[:credentialed_items])
         return
       end
 
@@ -62,9 +63,10 @@ class MercuryItemsController < ApplicationController
   # Fetch available accounts from Mercury API and show selection UI
   def select_accounts
     begin
-      @mercury_item = mercury_item_for_account_flow
+      account_flow = mercury_item_account_flow_context
+      @mercury_item = account_flow[:mercury_item]
       unless @mercury_item
-        render_mercury_item_selection_failure(".no_credentials_configured")
+        render_mercury_item_selection_failure(".no_credentials_configured", credentialed_items: account_flow[:credentialed_items])
         return
       end
 
@@ -125,12 +127,14 @@ class MercuryItemsController < ApplicationController
     selected_account_ids = params[:account_ids] || []
     accountable_type = params[:accountable_type] || "Depository"
     return_to = safe_return_to_path
-    mercury_item = mercury_item_for_account_flow
 
     if selected_account_ids.empty?
       redirect_to new_account_path, alert: t(".no_accounts_selected")
       return
     end
+
+    account_flow = mercury_item_account_flow_context
+    mercury_item = account_flow[:mercury_item]
 
     unless mercury_item
       redirect_to settings_providers_path, alert: t(".select_connection", default: "Choose a Mercury connection before linking accounts.")
@@ -252,9 +256,10 @@ class MercuryItemsController < ApplicationController
       return
     end
 
-    @mercury_item = mercury_item_for_account_flow
+    account_flow = mercury_item_account_flow_context
+    @mercury_item = account_flow[:mercury_item]
     unless @mercury_item
-      render_mercury_item_selection_failure(".no_credentials_configured")
+      render_mercury_item_selection_failure(".no_credentials_configured", credentialed_items: account_flow[:credentialed_items])
       return
     end
 
@@ -318,12 +323,14 @@ class MercuryItemsController < ApplicationController
     account_id = params[:account_id]
     mercury_account_id = params[:mercury_account_id]
     return_to = safe_return_to_path
-    mercury_item = mercury_item_for_account_flow
 
     unless account_id.present? && mercury_account_id.present?
       redirect_to accounts_path, alert: t(".missing_parameters")
       return
     end
+
+    account_flow = mercury_item_account_flow_context
+    mercury_item = account_flow[:mercury_item]
 
     @account = Current.family.accounts.find(account_id)
 
@@ -746,14 +753,20 @@ class MercuryItemsController < ApplicationController
       Current.family.mercury_items.active.ordered.select(&:credentials_configured?)
     end
 
-    def mercury_item_for_account_flow
+    def mercury_item_account_flow_context
       credentialed_items = mercury_items_with_credentials
+      mercury_item = nil
 
       if params[:mercury_item_id].present?
-        return credentialed_items.find { |item| item.id.to_s == params[:mercury_item_id].to_s }
+        mercury_item = credentialed_items.find { |item| item.id.to_s == params[:mercury_item_id].to_s }
+      elsif credentialed_items.one?
+        mercury_item = credentialed_items.first
       end
 
-      credentialed_items.one? ? credentialed_items.first : nil
+      {
+        mercury_item: mercury_item,
+        credentialed_items: credentialed_items
+      }
     end
 
     def mercury_accounts_cache_key(mercury_item)
@@ -764,8 +777,8 @@ class MercuryItemsController < ApplicationController
       permitted_params.key?(:token) || permitted_params.key?(:base_url)
     end
 
-    def mercury_item_selection_error_payload
-      if mercury_items_with_credentials.count > 1 && params[:mercury_item_id].blank?
+    def mercury_item_selection_error_payload(credentialed_items)
+      if mercury_item_selection_required?(credentialed_items)
         {
           success: false,
           error: "select_connection",
@@ -777,17 +790,21 @@ class MercuryItemsController < ApplicationController
       end
     end
 
-    def render_mercury_item_selection_failure(translation_key)
-      if mercury_items_with_credentials.count > 1 && params[:mercury_item_id].blank?
+    def render_mercury_item_selection_failure(fallback_translation_key, credentialed_items:)
+      if mercury_item_selection_required?(credentialed_items)
         redirect_to settings_providers_path,
                     alert: t(".select_connection", default: "Choose a Mercury connection in Provider Settings.")
       elsif turbo_frame_request?
         render partial: "mercury_items/setup_required", layout: false
       else
         redirect_to settings_providers_path,
-                    alert: t(translation_key,
+                    alert: t(fallback_translation_key,
                              default: "Please configure your Mercury API token first in Provider Settings.")
       end
+    end
+
+    def mercury_item_selection_required?(credentialed_items)
+      credentialed_items.count > 1 && params[:mercury_item_id].blank?
     end
 
     # Sanitize return_to parameter to prevent XSS attacks

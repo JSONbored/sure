@@ -29,10 +29,10 @@ class Provider::MercuryAdapter < Provider::Base
   # Build a Mercury provider instance with family-specific credentials
   # @param family [Family] The family to get credentials for (required)
   # @return [Provider::Mercury, nil] Returns nil if credentials are not configured
-  def self.build_provider(family: nil, mercury_item: nil)
+  def self.build_provider(family: nil, mercury_item_id: nil)
     return nil unless family.present?
 
-    mercury_item = resolve_mercury_item(family, mercury_item)
+    mercury_item = resolve_mercury_item(family, mercury_item_id)
     return nil unless mercury_item&.credentials_configured?
 
     Provider::Mercury.new(
@@ -65,9 +65,8 @@ class Provider::MercuryAdapter < Provider::Base
   end
   private_class_method :connection_config_for
 
-  def self.resolve_mercury_item(family, mercury_item)
-    if mercury_item.present?
-      mercury_item_id = mercury_item.respond_to?(:id) ? mercury_item.id : mercury_item
+  def self.resolve_mercury_item(family, mercury_item_id)
+    if mercury_item_id.present?
       item = family.mercury_items.active.find_by(id: mercury_item_id)
       return item if item&.credentials_configured?
 
