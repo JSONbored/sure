@@ -223,13 +223,10 @@ class Api::V1::BaseController < ApplicationController
 
     def safe_per_page_param
       per_page = params[:per_page].to_i
-      return 100 if per_page > 100
-
       case per_page
-      when 1..100
-        per_page
-      else
-        25
+      when 1..100   then per_page
+      when (101..)  then 100
+      else               25
       end
     end
 
