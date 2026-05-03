@@ -55,6 +55,13 @@ class Api::V1::BudgetCategoriesControllerTest < ActionDispatch::IntegrationTest
     assert response_data.key?("pagination")
     assert_includes response_data["budget_categories"].map { |budget_category| budget_category["id"] }, @budget_category.id
     assert_not_includes response_data["budget_categories"].map { |budget_category| budget_category["id"] }, @other_budget_category.id
+
+    budget_category = response_data["budget_categories"].find { |category| category["id"] == @budget_category.id }
+    assert_kind_of Integer, budget_category["budgeted_spending_cents"]
+    assert_not budget_category.key?("actual_spending")
+    assert_not budget_category.key?("actual_spending_cents")
+    assert_not budget_category.key?("available_to_spend")
+    assert_not budget_category.key?("available_to_spend_cents")
   end
 
   test "shows a budget category" do
@@ -66,6 +73,7 @@ class Api::V1::BudgetCategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_equal @budget.id, response_data["budget_id"]
     assert_equal @category.id, response_data.dig("category", "id")
     assert_kind_of Integer, response_data["budgeted_spending_cents"]
+    assert_kind_of Integer, response_data["actual_spending_cents"]
     assert_kind_of Integer, response_data["available_to_spend_cents"]
   end
 

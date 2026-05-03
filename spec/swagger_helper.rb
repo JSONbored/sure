@@ -337,6 +337,34 @@ RSpec.configure do |config|
               pagination: { '$ref' => '#/components/schemas/Pagination' }
             }
           },
+          BudgetCategorySummary: {
+            type: :object,
+            required: %w[id budget_id currency subcategory inherits_parent_budget category created_at updated_at],
+            properties: {
+              id: { type: :string, format: :uuid },
+              budget_id: { type: :string, format: :uuid },
+              currency: { type: :string },
+              subcategory: { type: :boolean },
+              inherits_parent_budget: { type: :boolean },
+              budgeted_spending: { type: :string },
+              budgeted_spending_cents: { type: :integer },
+              display_budgeted_spending: { type: :string },
+              display_budgeted_spending_cents: { type: :integer },
+              category: {
+                type: :object,
+                required: %w[id name color lucide_icon],
+                properties: {
+                  id: { type: :string, format: :uuid },
+                  name: { type: :string },
+                  color: { type: :string },
+                  lucide_icon: { type: :string },
+                  parent_id: { type: :string, format: :uuid, nullable: true }
+                }
+              },
+              created_at: { type: :string, format: :'date-time' },
+              updated_at: { type: :string, format: :'date-time' }
+            }
+          },
           BudgetCategory: {
             type: :object,
             required: %w[id budget_id currency subcategory inherits_parent_budget category created_at updated_at],
@@ -375,7 +403,7 @@ RSpec.configure do |config|
             properties: {
               budget_categories: {
                 type: :array,
-                items: { '$ref' => '#/components/schemas/BudgetCategory' }
+                items: { '$ref' => '#/components/schemas/BudgetCategorySummary' }
               },
               pagination: { '$ref' => '#/components/schemas/Pagination' }
             }
