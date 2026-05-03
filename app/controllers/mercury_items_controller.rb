@@ -66,7 +66,7 @@ class MercuryItemsController < ApplicationController
       account_flow = mercury_item_account_flow_context
       @mercury_item = account_flow[:mercury_item]
       unless @mercury_item
-        render_mercury_item_selection_failure(".no_credentials_configured", credentialed_items: account_flow[:credentialed_items])
+        render_mercury_item_selection_failure(credentialed_items: account_flow[:credentialed_items])
         return
       end
 
@@ -259,7 +259,7 @@ class MercuryItemsController < ApplicationController
     account_flow = mercury_item_account_flow_context
     @mercury_item = account_flow[:mercury_item]
     unless @mercury_item
-      render_mercury_item_selection_failure(".no_credentials_configured", credentialed_items: account_flow[:credentialed_items])
+      render_mercury_item_selection_failure(credentialed_items: account_flow[:credentialed_items])
       return
     end
 
@@ -790,7 +790,7 @@ class MercuryItemsController < ApplicationController
       end
     end
 
-    def render_mercury_item_selection_failure(fallback_translation_key, credentialed_items:)
+    def render_mercury_item_selection_failure(credentialed_items:)
       if mercury_item_selection_required?(credentialed_items)
         redirect_to settings_providers_path,
                     alert: t(".select_connection", default: "Choose a Mercury connection in Provider Settings.")
@@ -798,7 +798,7 @@ class MercuryItemsController < ApplicationController
         render partial: "mercury_items/setup_required", layout: false
       else
         redirect_to settings_providers_path,
-                    alert: t(fallback_translation_key,
+                    alert: t(".no_credentials_configured",
                              default: "Please configure your Mercury API token first in Provider Settings.")
       end
     end
