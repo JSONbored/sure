@@ -262,22 +262,6 @@ class Api::V1::BaseController < ApplicationController
       raise InvalidFilterError, "#{key} must be an ISO 8601 date"
     end
 
-    def safe_page_param
-      page = params[:page].to_i
-      page > 0 ? page : 1
-    end
-
-    def safe_per_page_param
-      per_page = params[:per_page].to_i
-
-      case per_page
-      when 1..100
-        per_page
-      else
-        25
-      end
-    end
-
     # Log API access for monitoring and debugging
     def log_api_access
       return unless current_resource_owner
