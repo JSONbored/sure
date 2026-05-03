@@ -10,7 +10,7 @@ RSpec.describe "Api::V1::ProviderConnections", type: :request do
       user: user,
       name: "API Docs Key",
       key: key,
-      scopes: %w[read],
+      scopes: %w[read_write],
       source: "web"
     )
   end
