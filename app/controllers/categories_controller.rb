@@ -1,4 +1,7 @@
 class CategoriesController < ApplicationController
+  MergeTargetNotFound = Class.new(StandardError)
+  EmptyCategoryMerge = Class.new(StandardError)
+
   before_action :set_category, only: %i[edit update destroy]
   before_action :set_categories, only: %i[update edit]
   before_action :set_transaction, only: :create
@@ -83,13 +86,10 @@ class CategoriesController < ApplicationController
       return redirect_to merge_categories_path, alert: t(".invalid_categories")
     end
 
-    target = nil
     merger = nil
-    merge_succeeded = false
 
     Category.transaction do
-      target = merge_target_category(permitted_params)
-      raise ActiveRecord::Rollback unless target
+      target = merge_target_category(permitted_params) || raise(MergeTargetNotFound)
 
       merger = Category::Merger.new(
         family: Current.family,
@@ -97,19 +97,14 @@ class CategoriesController < ApplicationController
         source_categories: sources
       )
 
-      merge_succeeded = merger.merge!
-      raise ActiveRecord::Rollback unless merge_succeeded
+      raise EmptyCategoryMerge unless merger.merge!
     end
 
-    unless target
-      return redirect_to merge_categories_path, alert: t(".target_not_found")
-    end
-
-    if merge_succeeded
-      redirect_to categories_path, notice: t(".success", count: merger.merged_count)
-    else
-      redirect_to merge_categories_path, alert: t(".no_categories_selected")
-    end
+    redirect_to categories_path, notice: t(".success", count: merger.merged_count)
+  rescue MergeTargetNotFound
+    redirect_to merge_categories_path, alert: t(".target_not_found")
+  rescue EmptyCategoryMerge
+    redirect_to merge_categories_path, alert: t(".no_categories_selected")
   rescue Category::Merger::UnauthorizedCategoryError => e
     redirect_to merge_categories_path, alert: e.message
   rescue ActiveRecord::RecordInvalid => e
@@ -151,7 +146,7 @@ class CategoriesController < ApplicationController
       if permitted_params[:new_target_name].present?
         Current.family.categories.create!(
           name: permitted_params[:new_target_name],
-          color: permitted_params[:new_target_color].presence || Category::COLORS.sample,
+          color: permitted_params[:new_target_color].presence || Category::COLORS.first,
           lucide_icon: permitted_params[:new_target_icon].presence || Category.suggested_icon(permitted_params[:new_target_name])
         )
       else

@@ -20,14 +20,12 @@ class Category::Merger
   def merge!
     return false if source_categories.empty?
 
-    Category.transaction do
-      source_categories.each do |source|
-        merge_transactions(source)
-        merge_budget_categories(source)
-        reparent_subcategories(source)
-        source.destroy!
-        @merged_count += 1
-      end
+    source_categories.each do |source|
+      merge_transactions(source)
+      merge_budget_categories(source)
+      reparent_subcategories(source)
+      source.destroy!
+      @merged_count += 1
     end
 
     true
@@ -87,7 +85,6 @@ class Category::Merger
     end
 
     def reparent_subcategories(source)
-      new_parent_id = target_category.parent_id.present? ? target_category.parent_id : target_category.id
-      family.categories.where(parent_id: source.id).where.not(id: target_category.id).update_all(parent_id: new_parent_id)
+      family.categories.where(parent_id: source.id).where.not(id: target_category.id).update_all(parent_id: target_category.id)
     end
 end

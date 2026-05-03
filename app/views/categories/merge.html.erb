@@ -21,7 +21,7 @@
         <div class="max-h-64 overflow-y-auto space-y-1 border border-secondary rounded-lg p-2">
           <% @categories.each do |category| %>
             <label class="flex items-center gap-2 p-2 hover:bg-surface-hover rounded cursor-pointer">
-              <%= check_box_tag "source_ids[]", category.id, false, class: "rounded border-gray-300" %>
+              <%= check_box_tag "source_ids[]", category.id, false, class: "rounded border-secondary" %>
               <span class="text-sm text-primary"><%= category.name_with_parent %></span>
             </label>
           <% end %>

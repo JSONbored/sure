@@ -13,7 +13,7 @@
         <div class="max-h-64 overflow-y-auto space-y-1 border border-secondary rounded-lg p-2">
           <% @accounts.each do |account| %>
             <label class="flex items-center gap-2 p-2 hover:bg-surface-hover rounded cursor-pointer">
-              <%= check_box_tag "account_ids[]", account.id, false, class: "rounded border-gray-300" %>
+              <%= check_box_tag "account_ids[]", account.id, false, class: "rounded border-secondary" %>
               <span class="text-sm text-primary"><%= account.name %></span>
               <% if account.institution_domain.present? %>
                 <span class="text-xs text-subdued">(<%= account.institution_domain %>)</span>

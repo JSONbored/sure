@@ -130,4 +130,17 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to bulk_websites_family_merchants_path
     assert_nil @merchant.reload.website_url
   end
+
+  test "bulk website update handles merchant validation failures" do
+    @merchant.errors.add(:website_url, "is invalid")
+    FamilyMerchant.any_instance.stubs(:update!).raises(ActiveRecord::RecordInvalid.new(@merchant))
+
+    post bulk_update_websites_family_merchants_path, params: {
+      website_url: "example.com",
+      merchant_ids: [ @merchant.id ]
+    }
+
+    assert_redirected_to bulk_websites_family_merchants_path
+    assert_match "Could not update merchant websites", flash[:alert]
+  end
 end

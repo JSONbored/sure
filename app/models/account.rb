@@ -140,18 +140,7 @@ class Account < ApplicationRecord
     end
 
     def normalize_institution_domain(value)
-      return nil if value.blank?
-
-      normalized_value = value.to_s.strip
-      normalized_value = "https://#{normalized_value}" unless normalized_value.match?(/\Ahttps?:\/\//i)
-      URI.parse(normalized_value).host&.sub(/\Awww\./i, "")&.downcase
-    rescue URI::InvalidURIError
-      value.to_s.strip
-        .sub(/\Ahttps?:\/\//i, "")
-        .sub(/\Awww\./i, "")
-        .split(/[\/?#]/, 2)
-        .first
-        .presence&.downcase
+      Merchant.extract_domain(value)
     end
 
     def create_from_simplefin_account(simplefin_account, account_type, subtype = nil)

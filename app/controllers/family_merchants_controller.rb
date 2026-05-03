@@ -123,6 +123,9 @@ class FamilyMerchantsController < ApplicationController
     end
 
     redirect_to family_merchants_path, notice: t(".success", count: merchants.count)
+  rescue ActiveRecord::RecordInvalid => e
+    error_message = e.record.errors.full_messages.to_sentence.presence || e.message
+    redirect_to bulk_websites_family_merchants_path, alert: t(".failure", error: error_message)
   end
 
   def perform_merge
@@ -201,7 +204,7 @@ class FamilyMerchantsController < ApplicationController
       if permitted_params[:new_target_name].present?
         Current.family.merchants.create!(
           name: permitted_params[:new_target_name],
-          color: permitted_params[:new_target_color].presence || FamilyMerchant::COLORS.sample,
+          color: permitted_params[:new_target_color].presence || FamilyMerchant::COLORS.first,
           website_url: permitted_params[:new_target_website_url].presence
         )
       else

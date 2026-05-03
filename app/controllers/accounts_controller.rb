@@ -57,7 +57,8 @@ class AccountsController < ApplicationController
 
     redirect_to accounts_path, notice: t(".success", count: accounts.count)
   rescue ActiveRecord::RecordInvalid => e
-    redirect_to bulk_domains_accounts_path, alert: e.record.errors.full_messages.to_sentence
+    error_message = e.record.errors.full_messages.to_sentence.presence || e.message
+    redirect_to bulk_domains_accounts_path, alert: t(".failure", error: error_message)
   end
 
   def sync_all

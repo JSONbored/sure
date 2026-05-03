@@ -20,7 +20,7 @@ class Merchant < ApplicationRecord
 
       domain.downcase
     rescue URI::InvalidURIError
-      nil
+      sanitized_domain_from(url)
     end
 
     def brandfetch_logo_url_for(url)
@@ -30,5 +30,19 @@ class Merchant < ApplicationRecord
       size = Setting.brand_fetch_logo_size
       "https://cdn.brandfetch.io/#{domain}/icon/fallback/lettermark/w/#{size}/h/#{size}?c=#{Setting.brand_fetch_client_id}"
     end
+
+    private
+      def sanitized_domain_from(url)
+        domain = url.to_s.strip
+          .sub(/\Ahttps?:\/\//i, "")
+          .split(/[\/:?#]/, 2)
+          .first
+          .to_s
+          .sub(/\Awww\./i, "")
+
+        return nil unless domain.present? && domain.match?(/\A[a-z0-9.-]+\.[a-z0-9-]+\z/i)
+
+        domain.downcase
+      end
   end
 end
