@@ -121,7 +121,8 @@ class Api::V1::ImportsController < Api::V1::BaseController
 
   def preflight
     family = current_resource_owner.family
-    type = normalized_import_type
+    type = preflight_import_type
+    return unless type
 
     if type == "SureImport"
       preflight_sure_import
@@ -189,9 +190,17 @@ class Api::V1::ImportsController < Api::V1::BaseController
       )
     end
 
-    def normalized_import_type
+    def preflight_import_type
       type = params[:type].to_s
-      Import::TYPES.include?(type) ? type : "TransactionImport"
+      return "TransactionImport" if type.blank?
+      return type if Import::TYPES.include?(type)
+
+      render json: {
+        error: "invalid_import_type",
+        message: "type must be one of: #{Import::TYPES.join(', ')}",
+        errors: [ "type must be one of: #{Import::TYPES.join(', ')}" ]
+      }, status: :unprocessable_entity
+      nil
     end
 
     def preflight_sure_import
@@ -233,6 +242,13 @@ class Api::V1::ImportsController < Api::V1::BaseController
         errors << {
           code: "missing_required_headers",
           message: "Missing required columns: #{missing_required_headers.join(', ')}"
+        }
+      end
+
+      if row_count.zero?
+        errors << {
+          code: "no_data_rows",
+          message: "No data rows were found."
         }
       end
 
@@ -394,6 +410,13 @@ class Api::V1::ImportsController < Api::V1::BaseController
         errors << {
           code: "invalid_json",
           message: "Line #{line_number} is not valid JSON: #{e.message}"
+        }
+      end
+
+      if nonblank_rows_count.zero?
+        errors << {
+          code: "no_data_rows",
+          message: "No data rows were found."
         }
       end
 

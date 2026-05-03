@@ -457,6 +457,41 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "missing_required_headers", data["errors"].first["code"]
   end
 
+  test "should reject unknown preflight import type" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "FakeImport",
+             raw_file_content: "date,amount,name\n2023-01-01,-10.00,Test Transaction"
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal "invalid_import_type", JSON.parse(response.body)["error"]
+  end
+
+  test "should report empty CSV preflight content as invalid" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             raw_file_content: "date,amount,name\n",
+             date_col_label: "date",
+             amount_col_label: "amount",
+             name_col_label: "name",
+             account_id: @account.id
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal false, data["valid"]
+    assert_equal 0, data["stats"]["rows_count"]
+    assert_equal "no_data_rows", data["errors"].first["code"]
+  end
+
   test "should preflight Sure import without persisting records" do
     ndjson_content = [
       { type: "Account", data: { id: "account_1", name: "Checking" } }.to_json,
@@ -517,6 +552,30 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, data["valid"]
     assert_equal 1, data["stats"]["invalid_rows_count"]
     assert_equal "invalid_ndjson_record", data["errors"].first["code"]
+  end
+
+  test "should report empty Sure import file as invalid during preflight" do
+    empty_file = Rack::Test::UploadedFile.new(
+      StringIO.new(""),
+      "application/x-ndjson",
+      original_filename: "empty.ndjson"
+    )
+
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "SureImport",
+             file: empty_file
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :success
+    data = JSON.parse(response.body)["data"]
+
+    assert_equal false, data["valid"]
+    assert_equal 0, data["stats"]["rows_count"]
+    assert_equal "no_data_rows", data["errors"].first["code"]
   end
 
   test "should reject preflight with no file or raw content" do
