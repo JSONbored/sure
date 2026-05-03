@@ -3,9 +3,6 @@
 class Api::V1::FamilyExportsController < Api::V1::BaseController
   include Pagy::Backend
 
-  UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
-  private_constant :UUID_PATTERN
-
   before_action :ensure_read_scope, only: [ :index, :show, :download ]
   before_action :ensure_write_scope, only: [ :create ]
   before_action :ensure_admin
@@ -88,10 +85,6 @@ class Api::V1::FamilyExportsController < Api::V1::BaseController
       raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
 
       @family_export = current_resource_owner.family.family_exports.find(params[:id])
-    end
-
-    def valid_uuid?(value)
-      value.to_s.match?(UUID_PATTERN)
     end
 
     def ensure_read_scope
