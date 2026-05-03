@@ -130,7 +130,8 @@ RSpec.describe 'API V1 Balances', type: :request do
   end
 
   path '/api/v1/balances/{id}' do
-    parameter name: :id, in: :path, type: :string, required: true, description: 'Balance ID'
+    parameter name: :id, in: :path, required: true, description: 'Balance ID',
+              schema: { type: :string, format: :uuid }
 
     get 'Retrieve a balance history record' do
       tags 'Balances'

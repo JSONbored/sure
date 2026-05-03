@@ -71,6 +71,22 @@ class Api::V1::BalancesControllerTest < ActionDispatch::IntegrationTest
     assert_kind_of Integer, response_data["end_balance_cents"]
   end
 
+  test "renders nullable cash balance fields" do
+    balance_without_cash = @account.balances.create!(
+      date: Date.parse("2024-01-16"),
+      balance: 1234.56,
+      currency: "USD"
+    )
+    balance_without_cash.update_column(:cash_balance, nil)
+
+    get api_v1_balance_url(balance_without_cash), headers: api_headers(@api_key)
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_nil response_data["cash_balance"]
+    assert_nil response_data["cash_balance_cents"]
+  end
+
   test "returns not found for another family's balance" do
     get api_v1_balance_url(@other_balance), headers: api_headers(@api_key)
 

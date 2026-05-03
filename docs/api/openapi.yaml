@@ -566,13 +566,27 @@ components:
           type: integer
           description: Ending total balance in currency minor units
         account:
-          "$ref": "#/components/schemas/Account"
+          "$ref": "#/components/schemas/BalanceAccount"
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+    BalanceAccount:
+      type: object
+      required:
+      - id
+      - name
+      - account_type
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        account_type:
+          type: string
     BalanceCollection:
       type: object
       required:
@@ -2433,6 +2447,7 @@ paths:
       description: Balance ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a balance history record
       tags:

@@ -335,9 +335,18 @@ RSpec.configure do |config|
               end_non_cash_balance_cents: { type: :integer, description: 'Ending non-cash balance in currency minor units' },
               end_balance: { type: :string },
               end_balance_cents: { type: :integer, description: 'Ending total balance in currency minor units' },
-              account: { '$ref' => '#/components/schemas/Account' },
+              account: { '$ref' => '#/components/schemas/BalanceAccount' },
               created_at: { type: :string, format: :'date-time' },
               updated_at: { type: :string, format: :'date-time' }
+            }
+          },
+          BalanceAccount: {
+            type: :object,
+            required: %w[id name account_type],
+            properties: {
+              id: { type: :string, format: :uuid },
+              name: { type: :string },
+              account_type: { type: :string }
             }
           },
           BalanceCollection: {
