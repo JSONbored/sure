@@ -200,6 +200,11 @@ RSpec.describe 'API V1 Imports', type: :request do
             enum: [ ',', ';' ],
             description: 'CSV imports only. Column separator'
           },
+          rows_to_skip: {
+            type: :integer,
+            minimum: 0,
+            description: 'CSV imports only. Number of leading rows to skip before reading headers'
+          },
           amount_type_strategy: {
             type: :string,
             enum: %w[signed_amount custom_column],
@@ -346,6 +351,11 @@ RSpec.describe 'API V1 Imports', type: :request do
             type: :string,
             enum: [ ',', ';' ],
             description: 'CSV imports only. Column separator'
+          },
+          rows_to_skip: {
+            type: :integer,
+            minimum: 0,
+            description: 'CSV imports only. Number of leading rows to skip before reading headers'
           },
           amount_type_strategy: {
             type: :string,

@@ -681,9 +681,21 @@ RSpec.configure do |config|
             type: :object,
             required: %w[rows_count valid_rows_count invalid_rows_count],
             properties: {
-              rows_count: { type: :integer, minimum: 0 },
-              valid_rows_count: { type: :integer, minimum: 0 },
-              invalid_rows_count: { type: :integer, minimum: 0 },
+              rows_count: {
+                type: :integer,
+                minimum: 0,
+                description: 'Parsed non-header rows. CSV preflight reports parse-level counts; configuration and header problems are listed in errors.'
+              },
+              valid_rows_count: {
+                type: :integer,
+                minimum: 0,
+                description: 'Rows that parsed as CSV rows or valid Sure NDJSON records.'
+              },
+              invalid_rows_count: {
+                type: :integer,
+                minimum: 0,
+                description: 'Rows that could not be parsed as Sure NDJSON records. CSV malformed content returns a 422 instead.'
+              },
               entity_counts: {
                 type: :object,
                 additionalProperties: { type: :integer },

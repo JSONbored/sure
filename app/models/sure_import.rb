@@ -11,6 +11,10 @@ class SureImport < Import
   has_one_attached :ndjson_file, dependent: :purge_later
 
   class << self
+    def max_row_count
+      100_000
+    end
+
     # Counts JSON lines by top-level "type" (used for dry-run summaries and row limits).
     def ndjson_line_type_counts(content)
       return {} unless content.present?
@@ -121,7 +125,7 @@ class SureImport < Import
   end
 
   def max_row_count
-    100_000
+    self.class.max_row_count
   end
 
   # Row total for max-row enforcement (counts every parsed line with a "type", including unsupported types).

@@ -3,14 +3,53 @@
 class Import::Preflight
   Response = Struct.new(:status, :payload, keyword_init: true)
 
-  CSV_IMPORT_TYPES = %w[
-    TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport
+  class PreflightError < StandardError
+    attr_reader :status, :payload
+
+    def initialize(response)
+      @status = response.status
+      @payload = response.payload
+      super(response.payload[:message])
+    end
+  end
+
+  CONFIG_PARAM_KEYS = %i[
+    date_col_label
+    amount_col_label
+    name_col_label
+    category_col_label
+    tags_col_label
+    notes_col_label
+    account_col_label
+    qty_col_label
+    ticker_col_label
+    price_col_label
+    entity_type_col_label
+    currency_col_label
+    exchange_operating_mic_col_label
+    date_format
+    number_format
+    signage_convention
+    col_sep
+    amount_type_strategy
+    amount_type_inflow_value
+    rows_to_skip
   ].freeze
-  IMPORT_TYPES = (CSV_IMPORT_TYPES + [ "SureImport" ]).freeze
+
+  PARAM_KEYS = ([
+    :type,
+    :account_id,
+    :file,
+    :raw_file_content
+  ] + CONFIG_PARAM_KEYS).freeze
+
+  UNSUPPORTED_PREFLIGHT_IMPORT_TYPES = %w[PdfImport QifImport].freeze
+  IMPORT_TYPES = (Import::TYPES - UNSUPPORTED_PREFLIGHT_IMPORT_TYPES).freeze
+  CSV_IMPORT_TYPES = (IMPORT_TYPES - [ "SureImport" ]).freeze
 
   def initialize(family:, params:)
     @family = family
-    @params = params
+    @params = params.to_h.symbolize_keys
   end
 
   def call
@@ -18,6 +57,8 @@ class Import::Preflight
     return invalid_import_type_response unless type
 
     type == "SureImport" ? sure_import_response : csv_import_response(type)
+  rescue PreflightError => e
+    Response.new(status: e.status, payload: e.payload)
   end
 
   private
@@ -44,7 +85,6 @@ class Import::Preflight
     def sure_import_response
       upload_attributes = sure_import_upload_attributes
       return missing_sure_content_response unless upload_attributes
-      return upload_attributes if upload_attributes.is_a?(Response)
 
       content, filename, content_type = upload_attributes
       Response.new(
@@ -58,7 +98,6 @@ class Import::Preflight
     def csv_import_response(type)
       upload_attributes = csv_upload_attributes
       return missing_csv_content_response unless upload_attributes
-      return upload_attributes if upload_attributes.is_a?(Response)
 
       content, filename, content_type = upload_attributes
       import = family.imports.build(import_config_params.merge(type: type, raw_file_str: content))
@@ -70,7 +109,7 @@ class Import::Preflight
       import.valid?
       csv_content = csv_content_for(import, content)
       csv = Import.parse_csv_str(csv_content, col_sep: import.col_sep)
-      row_count = csv.length
+      parsed_rows_count = csv.length
       csv_headers = Array(csv.headers).compact
       missing_required_headers = missing_required_headers(import, csv_headers)
       errors = import.errors.full_messages.map { |message| { code: "validation_failed", message: message } }
@@ -82,7 +121,7 @@ class Import::Preflight
         }
       end
 
-      if row_count.zero?
+      if parsed_rows_count.zero?
         errors << {
           code: "no_data_rows",
           message: "No data rows were found."
@@ -90,7 +129,7 @@ class Import::Preflight
       end
 
       warnings = []
-      warnings << "Row count exceeds this import type's publish limit." if row_count > import.max_row_count
+      warnings << "Row count exceeds this import type's publish limit." if parsed_rows_count > import.max_row_count
 
       Response.new(
         status: :ok,
@@ -100,8 +139,8 @@ class Import::Preflight
             valid: errors.empty?,
             content: content_payload(filename, content_type, content),
             stats: {
-              rows_count: row_count,
-              valid_rows_count: row_count,
+              rows_count: parsed_rows_count,
+              valid_rows_count: parsed_rows_count,
               invalid_rows_count: 0
             },
             headers: csv_headers,
@@ -115,27 +154,7 @@ class Import::Preflight
     end
 
     def import_config_params
-      params.permit(
-        :date_col_label,
-        :amount_col_label,
-        :name_col_label,
-        :category_col_label,
-        :tags_col_label,
-        :notes_col_label,
-        :account_col_label,
-        :qty_col_label,
-        :ticker_col_label,
-        :price_col_label,
-        :entity_type_col_label,
-        :currency_col_label,
-        :exchange_operating_mic_col_label,
-        :date_format,
-        :number_format,
-        :signage_convention,
-        :col_sep,
-        :amount_type_strategy,
-        :amount_type_inflow_value
-      )
+      params.slice(*CONFIG_PARAM_KEYS)
     end
 
     def csv_upload_attributes
@@ -147,8 +166,8 @@ class Import::Preflight
     end
 
     def csv_file_upload_attributes(file)
-      return csv_file_too_large_response if file.size > Import::MAX_CSV_SIZE
-      return invalid_csv_file_type_response unless Import::ALLOWED_CSV_MIME_TYPES.include?(file.content_type)
+      raise_response csv_file_too_large_response if file.size > Import::MAX_CSV_SIZE
+      raise_response invalid_csv_file_type_response unless Import::ALLOWED_CSV_MIME_TYPES.include?(file.content_type)
 
       [
         file.read,
@@ -158,7 +177,7 @@ class Import::Preflight
     end
 
     def csv_raw_content_attributes(content)
-      return csv_content_too_large_response if content.bytesize > Import::MAX_CSV_SIZE
+      raise_response csv_content_too_large_response if content.bytesize > Import::MAX_CSV_SIZE
 
       [ content, "import.csv", "text/csv" ]
     end
@@ -172,11 +191,11 @@ class Import::Preflight
     end
 
     def sure_import_file_upload_attributes(file)
-      return sure_file_too_large_response if file.size > SureImport::MAX_NDJSON_SIZE
+      raise_response sure_file_too_large_response if file.size > SureImport::MAX_NDJSON_SIZE
 
       extension = File.extname(file.original_filename.to_s).downcase
       unless SureImport::ALLOWED_NDJSON_CONTENT_TYPES.include?(file.content_type) || extension.in?(%w[.ndjson .json])
-        return invalid_sure_file_type_response
+        raise_response invalid_sure_file_type_response
       end
 
       [
@@ -187,7 +206,7 @@ class Import::Preflight
     end
 
     def sure_import_raw_content_attributes(content)
-      return sure_content_too_large_response if content.bytesize > SureImport::MAX_NDJSON_SIZE
+      raise_response sure_content_too_large_response if content.bytesize > SureImport::MAX_NDJSON_SIZE
 
       [ content, "sure-import.ndjson", "application/x-ndjson" ]
     end
@@ -243,7 +262,7 @@ class Import::Preflight
       warnings = []
       warnings << "No importable records were found." if nonblank_rows_count.positive? && entity_counts.values.sum.zero?
       warnings << "Some records use unsupported types: #{unsupported_types.join(', ')}" if unsupported_types.any?
-      warnings << "Row count exceeds this import type's publish limit." if nonblank_rows_count > SureImport.new.max_row_count
+      warnings << "Row count exceeds this import type's publish limit." if nonblank_rows_count > SureImport.max_row_count
 
       {
         type: "SureImport",
@@ -389,6 +408,10 @@ class Import::Preflight
           message: "Invalid file type. Please upload a Sure NDJSON file."
         }
       )
+    end
+
+    def raise_response(response)
+      raise PreflightError, response
     end
 
     def unsupported_import_type_response

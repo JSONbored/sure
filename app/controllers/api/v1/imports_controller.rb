@@ -120,7 +120,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
   end
 
   def preflight
-    response = Import::Preflight.new(family: current_resource_owner.family, params: params).call
+    response = Import::Preflight.new(family: current_resource_owner.family, params: preflight_params).call
     render json: response.payload, status: response.status
   rescue ActiveRecord::RecordNotFound
     render json: {
@@ -135,7 +135,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
     }, status: :unprocessable_entity
   rescue StandardError => e
     Rails.logger.error "ImportsController#preflight error: #{e.message}"
-    Rails.logger.error e.backtrace.join("\n")
+    e.backtrace&.each { |line| Rails.logger.error line }
 
     render json: {
       error: "internal_server_error",
@@ -179,8 +179,13 @@ class Api::V1::ImportsController < Api::V1::BaseController
         :signage_convention,
         :col_sep,
         :amount_type_strategy,
-        :amount_type_inflow_value
+        :amount_type_inflow_value,
+        :rows_to_skip
       )
+    end
+
+    def preflight_params
+      params.permit(*Import::Preflight::PARAM_KEYS)
     end
 
     def create_sure_import(family)
