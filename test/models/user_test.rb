@@ -101,6 +101,15 @@ class UserTest < ActiveSupport::TestCase
     assert_empty backup_codes & user.otp_backup_codes
   end
 
+  test "enable_mfa! requires an OTP secret" do
+    user = users(:family_member)
+    user.disable_mfa!
+
+    assert_raises(ArgumentError) { user.enable_mfa! }
+    assert_not user.reload.otp_required?
+    assert_empty user.otp_backup_codes
+  end
+
   test "disable_mfa! removes all MFA data" do
     user = users(:family_member)
     user.setup_mfa!

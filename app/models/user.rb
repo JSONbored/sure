@@ -219,6 +219,8 @@ class User < ApplicationRecord
   end
 
   def enable_mfa!
+    raise ArgumentError, "OTP secret must be set before enabling MFA" if otp_secret.blank?
+
     backup_codes = generate_backup_codes
 
     update!(
