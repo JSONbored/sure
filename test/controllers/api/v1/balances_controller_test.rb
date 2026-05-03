@@ -87,6 +87,16 @@ class Api::V1::BalancesControllerTest < ActionDispatch::IntegrationTest
     assert_nil response_data["cash_balance_cents"]
   end
 
+  test "renders nullable account type" do
+    @account.update_columns(accountable_type: nil, accountable_id: nil)
+
+    get api_v1_balance_url(@balance), headers: api_headers(@api_key)
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_nil response_data.dig("account", "account_type")
+  end
+
   test "returns not found for another family's balance" do
     get api_v1_balance_url(@other_balance), headers: api_headers(@api_key)
 

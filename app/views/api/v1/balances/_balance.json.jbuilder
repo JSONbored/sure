@@ -42,7 +42,7 @@ json.end_balance_cents money_to_minor_units(balance.end_balance_money)
 json.account do
   json.id balance.account.id
   json.name balance.account.name
-  json.account_type balance.account.accountable_type.underscore
+  json.account_type balance.account.accountable_type&.underscore
 end
 
 json.created_at balance.created_at.iso8601
