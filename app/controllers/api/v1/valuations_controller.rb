@@ -4,6 +4,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
   include Pagy::Backend
 
   InvalidFilterError = Class.new(StandardError)
+  BOOLEAN_PARAM = ActiveModel::Type::Boolean.new
 
   before_action :ensure_read_scope, only: [ :index, :show ]
   before_action :ensure_write_scope, only: [ :create, :update ]
@@ -83,13 +84,16 @@ class Api::V1::ValuationsController < Api::V1::BaseController
     end
 
     account = current_resource_owner.family.accounts.find(valuation_account_id)
-    existing_entry = account.entries.valuations.find_by(date: valuation_params[:date])
-    upsert_existing = upsert_requested? && existing_entry.present?
+    requested_upsert = upsert_requested?
+    existing_write = false
 
     create_success = false
     error_payload = nil
 
     ActiveRecord::Base.transaction do
+      account.lock! if requested_upsert
+      existing_write = account.entries.valuations.exists?(date: valuation_params[:date]) if requested_upsert
+
       result = account.create_reconciliation(
         balance: valuation_params[:amount],
         date: valuation_params[:date]
@@ -126,7 +130,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
       return
     end
 
-    render :show, status: upsert_existing ? :ok : :created
+    render :show, status: requested_upsert && existing_write ? :ok : :created
 
   rescue ActiveRecord::RecordNotFound
     render json: {
@@ -293,6 +297,8 @@ class Api::V1::ValuationsController < Api::V1::BaseController
     end
 
     def upsert_requested?
-      ActiveModel::Type::Boolean.new.cast(params[:upsert] || params.dig(:valuation, :upsert))
+      raw_value = params.key?(:upsert) ? params[:upsert] : params.dig(:valuation, :upsert)
+
+      BOOLEAN_PARAM.cast(raw_value)
     end
 end

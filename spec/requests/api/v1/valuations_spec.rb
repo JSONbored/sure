@@ -121,12 +121,11 @@ RSpec.describe 'API V1 Valuations', type: :request do
               account_id: { type: :string, format: :uuid, description: 'Account ID (required)' },
               amount: { type: :number, description: 'Valuation amount (required)' },
               date: { type: :string, format: :date, description: 'Valuation date (required)' },
-              notes: { type: :string, description: 'Additional notes' },
-              upsert: { type: :boolean, description: 'Set to true to return 200 OK when updating an existing valuation for the same account and date' }
+              notes: { type: :string, description: 'Additional notes' }
             },
             required: %w[account_id amount date]
           },
-          upsert: { type: :boolean, description: 'Set to true to make same-account same-date valuation writes explicitly idempotent' }
+          upsert: { type: :boolean, description: 'Set to true to return 200 OK when the write updates an existing same-account same-date valuation. New valuations still return 201 Created.' }
         },
         required: %w[valuation]
       }
@@ -150,6 +149,7 @@ RSpec.describe 'API V1 Valuations', type: :request do
       response '200', 'existing valuation upserted' do
         schema '$ref' => '#/components/schemas/Valuation'
 
+        let!(:existing_valuation_entry) { valuation_entry }
         let(:body) do
           {
             upsert: true,

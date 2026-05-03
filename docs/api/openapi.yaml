@@ -4259,18 +4259,15 @@ paths:
                     notes:
                       type: string
                       description: Additional notes
-                    upsert:
-                      type: boolean
-                      description: Set to true to return 200 OK when updating an existing
-                        valuation for the same account and date
                   required:
                   - account_id
                   - amount
                   - date
                 upsert:
                   type: boolean
-                  description: Set to true to make same-account same-date valuation
-                    writes explicitly idempotent
+                  description: Set to true to return 200 OK when the write updates
+                    an existing same-account same-date valuation. New valuations still
+                    return 201 Created.
               required:
               - valuation
         required: true
