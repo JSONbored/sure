@@ -61,9 +61,9 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     )
     inaccessible_sync = Sync.create!(syncable: private_account, status: "completed", completed_at: 1.hour.ago)
 
-    member_api_key = create_api_key(users(:family_member), name: "Member Read Key", scopes: [ "read" ])
+    @read_only_api_key.update_column(:user_id, users(:family_member).id)
 
-    get api_v1_sync_records_url, headers: api_headers(member_api_key)
+    get api_v1_sync_records_url, headers: api_headers(@read_only_api_key)
     assert_response :success
 
     sync_ids = JSON.parse(response.body)["data"].map { |sync| sync["id"] }
@@ -192,21 +192,5 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
 
     def api_headers(api_key)
       { "X-Api-Key" => api_key.plain_key }
-    end
-
-    def create_api_key(user, name:, scopes:)
-      api_key = ApiKey.create!(
-        user: user,
-        name: name,
-        scopes: scopes,
-        display_key: "syncs-test-key-#{user.id}-#{name.parameterize}",
-        source: "web"
-      )
-
-      redis = Redis.new
-      redis.del("api_rate_limit:#{api_key.id}")
-      redis.close
-
-      api_key
     end
 end
