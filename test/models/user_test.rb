@@ -103,7 +103,8 @@ class UserTest < ActiveSupport::TestCase
 
   test "enable_mfa! requires an OTP secret" do
     user = users(:family_member)
-    user.disable_mfa!
+    user.setup_mfa!
+    user.update_column(:otp_secret, nil)
 
     assert_raises(ArgumentError) { user.enable_mfa! }
     assert_not user.reload.otp_required?
@@ -154,12 +155,10 @@ class UserTest < ActiveSupport::TestCase
     assert_not user.verify_otp?("not-a-backup-code")
   end
 
-  test "verify_otp? does not check digests for legacy-shaped hashed backup input" do
+  test "verify_otp? rejects unmatched legacy-shaped backup input" do
     user = users(:family_member)
     user.setup_mfa!
     user.enable_mfa!
-
-    BCrypt::Password.expects(:new).never
 
     assert_not user.verify_otp?("deadbeef")
   end
@@ -199,6 +198,20 @@ class UserTest < ActiveSupport::TestCase
     user = users(:family_member)
     user.setup_mfa!
     user.update!(otp_required: true, otp_backup_codes: [ "deadbeef" ])
+
+    assert user.verify_otp?("deadbeef")
+
+    assert_empty user.reload.otp_backup_codes
+    assert_not user.verify_otp?("deadbeef")
+  end
+
+  test "verify_otp? accepts and consumes migrated legacy backup code digests" do
+    user = users(:family_member)
+    user.setup_mfa!
+    user.update!(
+      otp_required: true,
+      otp_backup_codes: [ BCrypt::Password.create("deadbeef", cost: BCrypt::Engine::MIN_COST).to_s ]
+    )
 
     assert user.verify_otp?("deadbeef")
 

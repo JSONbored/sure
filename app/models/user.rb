@@ -490,7 +490,7 @@ class User < ApplicationRecord
 
     def backup_code_matches?(stored_code, normalized_code)
       if backup_code_digest?(stored_code)
-        return false unless backup_code_candidate?(normalized_code)
+        return false unless backup_code_input?(normalized_code)
 
         BCrypt::Password.new(stored_code).is_password?(normalized_code)
       else
