@@ -454,6 +454,7 @@ RSpec.configure do |config|
               error_message: { type: :string, nullable: true },
               rule: {
                 type: :object,
+                nullable: true,
                 required: %w[id resource_type active],
                 properties: {
                   id: { type: :string, format: :uuid },

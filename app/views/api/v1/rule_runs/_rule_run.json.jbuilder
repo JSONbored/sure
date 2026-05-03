@@ -12,11 +12,15 @@ json.pending_jobs_count rule_run.pending_jobs_count
 json.executed_at rule_run.executed_at.iso8601
 json.error_message rule_run.error_message
 
-json.rule do
-  json.id rule_run.rule.id
-  json.name rule_run.rule.name
-  json.resource_type rule_run.rule.resource_type
-  json.active rule_run.rule.active
+if rule_run.rule
+  json.rule do
+    json.id rule_run.rule.id
+    json.name rule_run.rule.name
+    json.resource_type rule_run.rule.resource_type
+    json.active rule_run.rule.active
+  end
+else
+  json.rule nil
 end
 
 json.created_at rule_run.created_at.iso8601

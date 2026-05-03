@@ -738,6 +738,7 @@ components:
           nullable: true
         rule:
           type: object
+          nullable: true
           required:
           - id
           - resource_type

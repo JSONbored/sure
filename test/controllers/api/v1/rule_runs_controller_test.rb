@@ -15,6 +15,8 @@ class Api::V1::RuleRunsControllerTest < ActionDispatch::IntegrationTest
       source: "web",
       display_key: "test_read_#{SecureRandom.hex(8)}"
     )
+    @redis = Redis.new
+    @redis.del("api_rate_limit:#{@api_key.id}")
 
     @rule = @family.rules.build(
       name: "Coffee cleanup",
@@ -61,7 +63,8 @@ class Api::V1::RuleRunsControllerTest < ActionDispatch::IntegrationTest
     assert_includes rule_run_ids, @rule_run.id
     assert_includes rule_run_ids, @failed_rule_run.id
     assert_not_includes rule_run_ids, other_rule_run.id
-    assert_equal @family.rules.joins(:rule_runs).count, response_data["meta"]["total_count"]
+    expected_count = RuleRun.joins(:rule).where(rules: { family_id: @family.id }).count
+    assert_equal expected_count, response_data["meta"]["total_count"]
   end
 
   test "shows a rule run" do
@@ -158,6 +161,10 @@ class Api::V1::RuleRunsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   ensure
     api_key_without_read&.destroy
+  end
+
+  teardown do
+    @redis&.close
   end
 
   private
