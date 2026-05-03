@@ -199,7 +199,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
         user: user,
         name: name,
         scopes: scopes,
-        display_key: "test_#{SecureRandom.hex(8)}",
+        display_key: "syncs-test-key-#{user.id}-#{name.parameterize}",
         source: "web"
       )
 
