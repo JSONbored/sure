@@ -126,6 +126,18 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "provider token secret leaked"
   end
 
+  test "omits stale sync error payload when no error is present" do
+    sync = Sync.create!(
+      syncable: @family,
+      status: "stale"
+    )
+
+    get api_v1_sync_record_url(sync), headers: api_headers(@read_only_api_key)
+    assert_response :success
+
+    assert_nil JSON.parse(response.body).dig("data", "error")
+  end
+
   test "returns not found for another family sync" do
     sync = Sync.create!(syncable: families(:empty), status: "completed")
 
@@ -157,6 +169,23 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
 
     get api_v1_sync_record_url(sync)
     assert_response :unauthorized
+  end
+
+  test "index requires read scope" do
+    api_key_without_read = ApiKey.new(
+      user: @user,
+      name: "No Read Key",
+      scopes: [],
+      source: "monitoring",
+      display_key: "no_read_#{SecureRandom.hex(8)}"
+    )
+    api_key_without_read.save!(validate: false)
+
+    get api_v1_sync_records_url, headers: api_headers(api_key_without_read)
+
+    assert_response :forbidden
+  ensure
+    api_key_without_read&.destroy
   end
 
   private

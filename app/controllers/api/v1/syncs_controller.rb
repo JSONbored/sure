@@ -43,20 +43,4 @@ class Api::V1::SyncsController < Api::V1::BaseController
     def family_syncs_query
       Sync.for_family(Current.family, resource_owner: Current.user)
     end
-
-    def safe_page_param
-      page = params[:page].to_i
-      page > 0 ? page : 1
-    end
-
-    def safe_per_page_param
-      per_page = params[:per_page].to_i
-
-      case per_page
-      when 1..100
-        per_page
-      else
-        25
-      end
-    end
 end

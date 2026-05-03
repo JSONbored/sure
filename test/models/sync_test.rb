@@ -200,6 +200,20 @@ class SyncTest < ActiveSupport::TestCase
     assert_equal "stale", stale_syncing.reload.status
   end
 
+  test "ordered uses id as deterministic tie breaker" do
+    timestamp = Time.current.change(usec: 0)
+    older_id = SecureRandom.uuid
+    newer_id = SecureRandom.uuid
+    older_id, newer_id = [ older_id, newer_id ].sort
+
+    older_sync = Sync.create!(id: older_id, syncable: accounts(:depository), status: :completed, created_at: timestamp)
+    newer_sync = Sync.create!(id: newer_id, syncable: accounts(:connected), status: :completed, created_at: timestamp)
+
+    ordered_ids = Sync.where(id: [ older_sync.id, newer_sync.id ]).ordered.pluck(:id)
+
+    assert_equal [ newer_sync.id, older_sync.id ], ordered_ids
+  end
+
   test "expand_window_if_needed widens start and end dates on a pending sync" do
     initial_start = 1.day.ago.to_date
     initial_end   = 1.day.ago.to_date

@@ -15,7 +15,7 @@ class Sync < ApplicationRecord
   belongs_to :parent, class_name: "Sync", optional: true
   has_many :children, class_name: "Sync", foreign_key: :parent_id, dependent: :destroy
 
-  scope :ordered, -> { order(created_at: :desc) }
+  scope :ordered, -> { order(created_at: :desc, id: :desc) }
   scope :incomplete, -> { where("syncs.status IN (?)", %w[pending syncing]) }
   scope :visible, -> { incomplete.where("syncs.created_at > ?", VISIBLE_FOR.ago) }
 
@@ -111,6 +111,7 @@ class Sync < ApplicationRecord
 
   def api_error_payload
     return unless failed? || stale?
+    return if stale? && error.blank?
 
     {
       present: error.present?,
