@@ -2,6 +2,7 @@
 
 class Api::V1::TransfersController < Api::V1::BaseController
   include Pagy::Backend
+  include Api::V1::TransferDecisionFiltering
 
   InvalidFilterError = Class.new(StandardError)
 
@@ -9,7 +10,7 @@ class Api::V1::TransfersController < Api::V1::BaseController
   before_action :set_transfer, only: :show
 
   def index
-    transfers_query = apply_filters(transfers_scope).order(created_at: :desc)
+    transfers_query = apply_transfer_decision_filters(transfers_scope, status_model: Transfer).order(created_at: :desc)
     @per_page = safe_per_page_param
 
     @pagy, @transfers = pagy(
@@ -42,80 +43,7 @@ class Api::V1::TransfersController < Api::V1::BaseController
     end
 
     def transfers_scope
-      Transfer
-        .where(
-          inflow_transaction_id: accessible_transaction_ids,
-          outflow_transaction_id: accessible_transaction_ids
-        )
-        .includes(
-          inflow_transaction: { entry: :account },
-          outflow_transaction: { entry: :account }
-        )
-    end
-
-    def accessible_transaction_ids
-      @accessible_transaction_ids ||= Transaction
-        .joins(:entry)
-        .where(entries: { account_id: accessible_account_ids })
-        .select(:id)
-    end
-
-    def accessible_account_ids
-      @accessible_account_ids ||= current_resource_owner.family.accounts.accessible_by(current_resource_owner).select(:id)
-    end
-
-    def apply_filters(query)
-      if params[:status].present?
-        raise InvalidFilterError, "status must be one of: #{Transfer.statuses.keys.join(", ")}" unless Transfer.statuses.key?(params[:status])
-
-        query = query.where(status: params[:status])
-      end
-
-      if params[:account_id].present?
-        raise InvalidFilterError, "account_id must be a valid UUID" unless valid_uuid?(params[:account_id])
-
-        account_transaction_ids = accessible_transaction_ids_for_account(params[:account_id])
-        query = query
-          .where(inflow_transaction_id: account_transaction_ids)
-          .or(query.where(outflow_transaction_id: account_transaction_ids))
-      end
-
-      if params[:start_date].present? || params[:end_date].present?
-        date_transaction_ids = transfer_date_transaction_ids
-        query = query
-          .where(inflow_transaction_id: date_transaction_ids)
-          .or(query.where(outflow_transaction_id: date_transaction_ids))
-      end
-
-      query
-    end
-
-    def accessible_transaction_ids_for_account(account_id)
-      Transaction
-        .joins(:entry)
-        .where(entries: { account_id: account_id })
-        .where(entries: { account_id: accessible_account_ids })
-        .select(:id)
-    end
-
-    def transfer_date_transaction_ids
-      query = Transaction
-        .joins(:entry)
-        .where(entries: { account_id: accessible_account_ids })
-
-      query = query.where("entries.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
-      query = query.where("entries.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
-      query.select(:id)
-    end
-
-    def parse_date_param(key)
-      Date.iso8601(params[key].to_s)
-    rescue ArgumentError
-      raise InvalidFilterError, "#{key} must be an ISO 8601 date"
-    end
-
-    def valid_uuid?(value)
-      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
+      transfer_decision_scope(Transfer)
     end
 
     def safe_page_param

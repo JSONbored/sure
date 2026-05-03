@@ -211,10 +211,7 @@ class Family::DataExporter
       end
 
       # Export transfer decisions after transactions so import can remap both sides.
-      family_transfers.includes(
-        inflow_transaction: { entry: :account },
-        outflow_transaction: { entry: :account }
-      ).find_each do |transfer|
+      family_transfers.find_each do |transfer|
         lines << {
           type: "Transfer",
           data: {
@@ -229,10 +226,7 @@ class Family::DataExporter
         }.to_json
       end
 
-      family_rejected_transfers.includes(
-        inflow_transaction: { entry: :account },
-        outflow_transaction: { entry: :account }
-      ).find_each do |rejected_transfer|
+      family_rejected_transfers.find_each do |rejected_transfer|
         lines << {
           type: "RejectedTransfer",
           data: {

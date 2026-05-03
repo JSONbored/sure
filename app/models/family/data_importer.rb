@@ -319,12 +319,13 @@ class Family::DataImporter
         outflow_transaction_id = @id_mappings[:transactions][data["outflow_transaction_id"]]
         next unless inflow_transaction_id && outflow_transaction_id
 
-        Transfer.create!(
+        Transfer.find_or_create_by!(
           inflow_transaction_id: inflow_transaction_id,
-          outflow_transaction_id: outflow_transaction_id,
-          status: transfer_status_for(data["status"]),
-          notes: data["notes"]
-        )
+          outflow_transaction_id: outflow_transaction_id
+        ) do |transfer|
+          transfer.status = transfer_status_for(data["status"])
+          transfer.notes = data["notes"]
+        end
       end
     end
 
@@ -343,7 +344,11 @@ class Family::DataImporter
     end
 
     def transfer_status_for(status)
-      status.to_s.in?(Transfer.statuses.keys) ? status.to_s : "pending"
+      status = status.to_s
+      return status if Transfer.statuses.key?(status)
+
+      Rails.logger.debug("Unknown transfer status #{status.inspect}; defaulting to pending") if status.present?
+      "pending"
     end
 
     def import_trades(records)

@@ -416,6 +416,14 @@ class Family::DataExporterTest < ActiveSupport::TestCase
       assert rejected_transfer_data
       assert_equal rejected_inflow.entryable.id, rejected_transfer_data["data"]["inflow_transaction_id"]
       assert_equal rejected_outflow.entryable.id, rejected_transfer_data["data"]["outflow_transaction_id"]
+
+      # Transfer decisions must follow Transaction records so import can remap both sides.
+      transaction_indices = ndjson_records.each_index.select { |index| ndjson_records[index]["type"] == "Transaction" }
+      transfer_index = ndjson_records.index(transfer_data)
+      rejected_transfer_index = ndjson_records.index(rejected_transfer_data)
+
+      assert_operator transaction_indices.max, :<, transfer_index
+      assert_operator transaction_indices.max, :<, rejected_transfer_index
     end
   end
 

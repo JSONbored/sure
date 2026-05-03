@@ -1,14 +1,10 @@
 # frozen_string_literal: true
 
-money_to_minor_units = lambda do |money|
-  (money.amount * money.currency.minor_unit_conversion).round(0).to_i if money
-end
-
 json.id transfer.id
 json.status transfer.status
 json.date transfer.date
 json.amount transfer.amount_abs.format
-json.amount_cents money_to_minor_units.call(transfer.amount_abs)
+json.amount_cents money_to_minor_units(transfer.amount_abs)
 json.currency transfer.inflow_transaction.entry.currency
 json.transfer_type transfer.transfer_type
 json.notes transfer.notes
