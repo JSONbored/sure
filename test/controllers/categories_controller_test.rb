@@ -97,6 +97,13 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to categories_url
   end
 
+  test "merge renders in the settings layout" do
+    get merge_categories_path
+
+    assert_response :success
+    assert_select "#mobile-settings-nav"
+  end
+
   test "merge selected categories into a new category" do
     source = @family.categories.create!(
       name: "Coffee Shops",
@@ -146,6 +153,31 @@ class CategoriesControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to merge_categories_path
     assert_nil @family.categories.find_by(name: "Rollback Target")
+    assert Category.exists?(source.id)
+  end
+
+  test "merge redirects when a source category cannot be destroyed" do
+    target = @family.categories.create!(
+      name: "Destroy Failure Target",
+      color: "#000000",
+      lucide_icon: "shapes"
+    )
+    source = @family.categories.create!(
+      name: "Destroy Failure Source",
+      color: "#111111",
+      lucide_icon: "shapes"
+    )
+
+    Category::Merger.any_instance
+                    .stubs(:merge!)
+                    .raises(ActiveRecord::RecordNotDestroyed.new("cannot destroy category", source))
+
+    post perform_merge_categories_path, params: {
+      target_id: target.id,
+      source_ids: [ source.id ]
+    }
+
+    assert_redirected_to merge_categories_path
     assert Category.exists?(source.id)
   end
 

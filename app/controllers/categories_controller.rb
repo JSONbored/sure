@@ -19,6 +19,8 @@ class CategoriesController < ApplicationController
 
   def merge
     @categories = Current.family.categories.alphabetically
+
+    render layout: "settings"
   end
 
   def create
@@ -99,8 +101,8 @@ class CategoriesController < ApplicationController
     redirect_to merge_categories_path, alert: t(".no_categories_selected")
   rescue Category::Merger::UnauthorizedCategoryError => e
     redirect_to merge_categories_path, alert: e.message
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to merge_categories_path, alert: e.record.errors.full_messages.to_sentence
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotDestroyed => e
+    redirect_to merge_categories_path, alert: record_error_message(e)
   end
 
   private
@@ -163,5 +165,10 @@ class CategoriesController < ApplicationController
 
         merger
       end
+    end
+
+    def record_error_message(error)
+      record = error.respond_to?(:record) ? error.record : nil
+      record&.errors&.full_messages&.to_sentence.presence || error.message
     end
 end
