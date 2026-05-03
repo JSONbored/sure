@@ -2470,6 +2470,7 @@ paths:
       description: Budget category ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a budget category
       tags:
@@ -2568,6 +2569,7 @@ paths:
       description: Budget ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a budget
       tags:

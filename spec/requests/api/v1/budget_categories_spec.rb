@@ -116,7 +116,8 @@ RSpec.describe 'API V1 Budget Categories', type: :request do
   end
 
   path '/api/v1/budget_categories/{id}' do
-    parameter name: :id, in: :path, type: :string, required: true, description: 'Budget category ID'
+    parameter name: :id, in: :path, required: true, description: 'Budget category ID',
+              schema: { type: :string, format: :uuid }
 
     get 'Retrieve a budget category' do
       tags 'Budget Categories'
