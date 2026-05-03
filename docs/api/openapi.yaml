@@ -587,6 +587,7 @@ components:
           type: string
         account_type:
           type: string
+          nullable: true
     BalanceCollection:
       type: object
       required:
@@ -2434,7 +2435,7 @@ paths:
               schema:
                 "$ref": "#/components/schemas/ErrorResponse"
         '422':
-          description: invalid date filter
+          description: invalid filter
           content:
             application/json:
               schema:

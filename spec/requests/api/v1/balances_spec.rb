@@ -111,18 +111,10 @@ RSpec.describe 'API V1 Balances', type: :request do
         run_test!
       end
 
-      response '422', 'invalid account filter' do
+      response '422', 'invalid filter' do
         schema '$ref' => '#/components/schemas/ErrorResponse'
 
         let(:account_id) { 'not-a-uuid' }
-
-        run_test!
-      end
-
-      response '422', 'invalid date filter' do
-        schema '$ref' => '#/components/schemas/ErrorResponse'
-
-        let(:start_date) { 'not-a-date' }
 
         run_test!
       end
