@@ -356,12 +356,11 @@ RSpec.configure do |config|
               available_to_spend_cents: { type: :integer },
               category: {
                 type: :object,
-                required: %w[id name color classification lucide_icon],
+                required: %w[id name color lucide_icon],
                 properties: {
                   id: { type: :string, format: :uuid },
                   name: { type: :string },
                   color: { type: :string },
-                  classification: { type: :string },
                   lucide_icon: { type: :string },
                   parent_id: { type: :string, format: :uuid, nullable: true }
                 }

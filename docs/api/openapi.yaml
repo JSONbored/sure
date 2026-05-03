@@ -586,7 +586,6 @@ components:
           - id
           - name
           - color
-          - classification
           - lucide_icon
           properties:
             id:
@@ -595,8 +594,6 @@ components:
             name:
               type: string
             color:
-              type: string
-            classification:
               type: string
             lucide_icon:
               type: string

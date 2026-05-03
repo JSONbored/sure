@@ -23,7 +23,6 @@ json.category do
   json.id budget_category.category.id
   json.name budget_category.category.name
   json.color budget_category.category.color
-  json.classification budget_category.category.classification_unused
   json.lucide_icon budget_category.category.lucide_icon
   json.parent_id budget_category.category.parent_id
 end
