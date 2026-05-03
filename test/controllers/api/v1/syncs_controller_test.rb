@@ -8,7 +8,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     @family = @user.family
     @account = @family.accounts.first
 
-    Sync.destroy_all
+    Sync.for_family(@family).destroy_all
 
     @user.api_keys.active.destroy_all
 
@@ -40,6 +40,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     redis.del("api_rate_limit:#{@api_key.id}")
     redis.del("api_rate_limit:#{@read_only_api_key.id}")
     redis.del("api_rate_limit:#{@member_api_key.id}")
+    redis.close
   end
 
   test "lists family scoped syncs" do

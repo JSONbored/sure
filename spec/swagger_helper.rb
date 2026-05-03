@@ -795,6 +795,7 @@ RSpec.configure do |config|
             properties: {
               data: {
                 type: :array,
+                maxItems: 100,
                 items: { '$ref' => '#/components/schemas/SyncResource' }
               },
               meta: { '$ref' => '#/components/schemas/Pagination' }

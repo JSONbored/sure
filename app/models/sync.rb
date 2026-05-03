@@ -19,6 +19,22 @@ class Sync < ApplicationRecord
   scope :incomplete, -> { where("syncs.status IN (?)", %w[pending syncing]) }
   scope :visible, -> { incomplete.where("syncs.created_at > ?", VISIBLE_FOR.ago) }
 
+  SYNCABLE_ASSOCIATIONS = {
+    "Account" => :accounts,
+    "PlaidItem" => :plaid_items,
+    "SimplefinItem" => :simplefin_items,
+    "LunchflowItem" => :lunchflow_items,
+    "EnableBankingItem" => :enable_banking_items,
+    "CoinbaseItem" => :coinbase_items,
+    "BinanceItem" => :binance_items,
+    "CoinstatsItem" => :coinstats_items,
+    "SnaptradeItem" => :snaptrade_items,
+    "MercuryItem" => :mercury_items,
+    "SophtronItem" => :sophtron_items,
+    "IndexaCapitalItem" => :indexa_capital_items
+  }.freeze
+  private_constant :SYNCABLE_ASSOCIATIONS
+
   after_commit :update_family_sync_timestamp
 
   serialize :sync_stats, coder: JSON
@@ -57,6 +73,49 @@ class Sync < ApplicationRecord
     def clean
       incomplete.where("syncs.created_at < ?", STALE_AFTER.ago).find_each(&:mark_stale!)
     end
+
+    def for_family(family, resource_owner: nil)
+      query = where(syncable_type: "Family", syncable_id: family.id)
+
+      SYNCABLE_ASSOCIATIONS.each do |syncable_type, association_name|
+        ids = syncable_ids_for_family(family, syncable_type, association_name, resource_owner)
+        next unless ids
+
+        query = query.or(where(syncable_type: syncable_type, syncable_id: ids))
+      end
+
+      query
+    end
+
+    private
+      def syncable_ids_for_family(family, syncable_type, association_name, resource_owner)
+        if syncable_type == "Account"
+          return (resource_owner ? resource_owner.accessible_accounts : family.accounts)
+            .where(family_id: family.id)
+            .select(:id)
+        end
+
+        return unless family.respond_to?(association_name)
+
+        family.public_send(association_name).select(:id)
+      end
+  end
+
+  def in_progress?
+    pending? || syncing?
+  end
+
+  def terminal?
+    completed? || failed? || stale?
+  end
+
+  def api_error_payload
+    return unless failed? || stale?
+
+    {
+      present: error.present?,
+      message: stale? ? "Sync became stale before completion" : "Sync failed"
+    }
   end
 
   def perform

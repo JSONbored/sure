@@ -444,6 +444,7 @@ Rails.application.routes.draw do
       resource :balance_sheet, only: [ :show ], controller: :balance_sheet
       resource :family_settings, only: [ :show ], controller: :family_settings
       post :sync, to: "sync#create"
+      # Alias route helpers to avoid colliding with the singular POST /api/v1/sync helper.
       resources :syncs, only: [ :index, :show ], as: :sync_records do
         get :latest, on: :collection
       end

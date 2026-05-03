@@ -6,25 +6,8 @@ class Api::V1::SyncsController < Api::V1::BaseController
   UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
   private_constant :UUID_PATTERN
 
-  SYNCABLE_ASSOCIATIONS = {
-    "Account" => :accounts,
-    "PlaidItem" => :plaid_items,
-    "SimplefinItem" => :simplefin_items,
-    "LunchflowItem" => :lunchflow_items,
-    "EnableBankingItem" => :enable_banking_items,
-    "CoinbaseItem" => :coinbase_items,
-    "BinanceItem" => :binance_items,
-    "CoinstatsItem" => :coinstats_items,
-    "SnaptradeItem" => :snaptrade_items,
-    "MercuryItem" => :mercury_items,
-    "SophtronItem" => :sophtron_items,
-    "IndexaCapitalItem" => :indexa_capital_items
-  }.freeze
-
   before_action :ensure_read_scope
   before_action :set_sync, only: [ :show ]
-
-  helper_method :sync_error_payload
 
   def index
     @per_page = safe_per_page_param
@@ -59,34 +42,11 @@ class Api::V1::SyncsController < Api::V1::BaseController
     end
 
     def family_syncs_query
-      family = current_resource_owner.family
-      query = Sync.where(syncable_type: "Family", syncable_id: family.id)
-
-      SYNCABLE_ASSOCIATIONS.each do |syncable_type, association_name|
-        ids = syncable_ids_for(family, syncable_type, association_name)
-        query = query.or(Sync.where(syncable_type: syncable_type, syncable_id: ids))
-      end
-
-      query
-    end
-
-    def syncable_ids_for(family, syncable_type, association_name)
-      return current_resource_owner.accessible_accounts.select(:id) if syncable_type == "Account"
-
-      family.public_send(association_name).select(:id)
+      Sync.for_family(current_resource_owner.family, resource_owner: current_resource_owner)
     end
 
     def valid_uuid?(value)
       value.to_s.match?(UUID_PATTERN)
-    end
-
-    def sync_error_payload(sync)
-      return unless sync.failed? || sync.stale?
-
-      {
-        present: sync.error.present?,
-        message: sync.stale? ? "Sync became stale before completion" : "Sync failed"
-      }
     end
 
     def safe_page_param

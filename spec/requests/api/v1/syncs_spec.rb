@@ -40,8 +40,8 @@ RSpec.describe "Api::V1::Syncs", type: :request do
       tags "Syncs"
       security [ { apiKeyAuth: [] } ]
       produces "application/json"
-      parameter name: :page, in: :query, type: :integer, required: false
-      parameter name: :per_page, in: :query, type: :integer, required: false
+      parameter name: :page, in: :query, type: :integer, required: false, description: "Page number (default: 1)"
+      parameter name: :per_page, in: :query, type: :integer, required: false, description: "Items per page (default: 25, max: 100)"
 
       response "200", "syncs listed" do
         schema "$ref" => "#/components/schemas/SyncCollection"
@@ -54,12 +54,19 @@ RSpec.describe "Api::V1::Syncs", type: :request do
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end
+
+      response "403", "forbidden" do
+        before { api_key.update_column(:scopes, [ "write" ]) }
+
+        schema "$ref" => "#/components/schemas/ErrorResponse"
+        run_test!
+      end
     end
   end
 
   path "/api/v1/syncs/latest" do
     get "Shows the latest sync" do
-      description "Return the most recently created sanitized sync status for the authenticated user's family."
+      description "Return the most recently created sanitized sync status for the authenticated user's family, or data: null when no sync exists."
       tags "Syncs"
       security [ { apiKeyAuth: [] } ]
       produces "application/json"
@@ -72,6 +79,13 @@ RSpec.describe "Api::V1::Syncs", type: :request do
 
       response "401", "unauthorized" do
         let(:'X-Api-Key') { nil }
+        schema "$ref" => "#/components/schemas/ErrorResponse"
+        run_test!
+      end
+
+      response "403", "forbidden" do
+        before { api_key.update_column(:scopes, [ "write" ]) }
+
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end
@@ -94,6 +108,13 @@ RSpec.describe "Api::V1::Syncs", type: :request do
 
       response "401", "unauthorized" do
         let(:'X-Api-Key') { nil }
+        schema "$ref" => "#/components/schemas/ErrorResponse"
+        run_test!
+      end
+
+      response "403", "forbidden" do
+        before { api_key.update_column(:scopes, [ "write" ]) }
+
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
       end
