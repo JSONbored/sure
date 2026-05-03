@@ -281,7 +281,6 @@ class Family::DataExporter
     def serialize_recurring_transaction_for_export(recurring_transaction)
       {
         id: recurring_transaction.id,
-        family_id: recurring_transaction.family_id,
         account_id: recurring_transaction.account_id,
         merchant_id: recurring_transaction.merchant_id,
         amount: recurring_transaction.amount,

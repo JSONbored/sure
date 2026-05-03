@@ -200,18 +200,24 @@ class Family::DataImporter
         new_merchant_id = remap_optional_id(:merchants, data["merchant_id"])
         next if data["merchant_id"].present? && new_merchant_id.blank?
 
+        expected_day_of_month = recurring_expected_day_for(data["expected_day_of_month"])
+        next unless expected_day_of_month
+        last_occurrence_date = parse_import_date(data["last_occurrence_date"])
+        next_expected_date = parse_import_date(data["next_expected_date"])
+        next unless last_occurrence_date && next_expected_date
+
         recurring_transaction = @family.recurring_transactions.build(
           account_id: new_account_id,
           merchant_id: new_merchant_id,
           amount: data["amount"].to_d,
           currency: data["currency"] || @family.currency,
-          expected_day_of_month: data["expected_day_of_month"].to_i,
-          last_occurrence_date: Date.parse(data["last_occurrence_date"].to_s),
-          next_expected_date: Date.parse(data["next_expected_date"].to_s),
+          expected_day_of_month: expected_day_of_month,
+          last_occurrence_date: last_occurrence_date,
+          next_expected_date: next_expected_date,
           status: recurring_transaction_status_for(data["status"]),
           occurrence_count: data["occurrence_count"].to_i,
           name: data["name"],
-          manual: boolean_export_value(data, "manual", default: false),
+          manual: boolean_import_value(data, "manual", default: false),
           expected_amount_min: data["expected_amount_min"]&.to_d,
           expected_amount_max: data["expected_amount_max"]&.to_d,
           expected_amount_avg: data["expected_amount_avg"]&.to_d
@@ -232,7 +238,14 @@ class Family::DataImporter
       status.to_s.in?(RecurringTransaction.statuses.keys) ? status.to_s : "active"
     end
 
-    def boolean_export_value(data, key, default:)
+    def recurring_expected_day_for(value)
+      return if value.blank?
+
+      expected_day = value.to_i
+      expected_day if expected_day.between?(1, 31)
+    end
+
+    def boolean_import_value(data, key, default:)
       return default unless data.key?(key)
 
       ActiveModel::Type::Boolean.new.cast(data[key])

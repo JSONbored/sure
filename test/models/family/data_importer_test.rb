@@ -313,6 +313,117 @@ class Family::DataImporterTest < ActiveSupport::TestCase
     assert_equal(-89.99, recurring_transaction.expected_amount_avg.to_f)
   end
 
+  test "imports recurring transactions with unknown status fallback" do
+    ndjson = build_ndjson([
+      {
+        type: "Account",
+        data: {
+          id: "acct-1",
+          name: "Main Checking",
+          balance: "5000",
+          currency: "USD",
+          accountable_type: "Depository"
+        }
+      },
+      {
+        type: "Merchant",
+        data: {
+          id: "merchant-1",
+          name: "Streaming Service"
+        }
+      },
+      {
+        type: "RecurringTransaction",
+        data: {
+          id: "recurring-1",
+          account_id: "acct-1",
+          merchant_id: "merchant-1",
+          amount: "-15.99",
+          currency: "USD",
+          expected_day_of_month: "8",
+          last_occurrence_date: "2024-01-08",
+          next_expected_date: "2024-02-08",
+          status: "paused",
+          occurrence_count: 2
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    recurring_transaction = @family.recurring_transactions.first
+    assert_not_nil recurring_transaction
+    assert_equal 8, recurring_transaction.expected_day_of_month
+    assert_equal Date.parse("2024-01-08"), recurring_transaction.last_occurrence_date
+    assert_equal Date.parse("2024-02-08"), recurring_transaction.next_expected_date
+    assert_equal "active", recurring_transaction.status
+  end
+
+  test "skips recurring transactions with missing recurrence dates" do
+    ndjson = build_ndjson([
+      {
+        type: "RecurringTransaction",
+        data: {
+          id: "recurring-1",
+          amount: "-15.99",
+          currency: "USD",
+          expected_day_of_month: "8",
+          last_occurrence_date: nil,
+          status: "active",
+          occurrence_count: 2,
+          name: "Streaming Service"
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    assert_equal 0, @family.recurring_transactions.count
+  end
+
+  test "skips recurring transactions when referenced account is missing" do
+    ndjson = build_ndjson([
+      {
+        type: "RecurringTransaction",
+        data: {
+          id: "recurring-1",
+          account_id: "missing-account",
+          amount: "-89.99",
+          currency: "USD",
+          expected_day_of_month: 14,
+          last_occurrence_date: "2024-01-14",
+          next_expected_date: "2024-02-14",
+          status: "active",
+          name: "Internet Provider"
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    assert_equal 0, @family.recurring_transactions.count
+  end
+
+  test "skips recurring transactions with blank expected day" do
+    ndjson = build_ndjson([
+      {
+        type: "RecurringTransaction",
+        data: {
+          id: "recurring-1",
+          amount: "-89.99",
+          currency: "USD",
+          expected_day_of_month: "",
+          status: "active",
+          name: "Internet Provider"
+        }
+      }
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    assert_equal 0, @family.recurring_transactions.count
+  end
+
   test "imports transactions with references" do
     ndjson = build_ndjson([
       {
