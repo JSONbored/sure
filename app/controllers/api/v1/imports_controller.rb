@@ -3,6 +3,11 @@
 class Api::V1::ImportsController < Api::V1::BaseController
   include Pagy::Backend
 
+  PREFLIGHT_CSV_IMPORT_TYPES = %w[
+    TransactionImport TradeImport AccountImport MintImport CategoryImport RuleImport
+  ].freeze
+  PREFLIGHT_IMPORT_TYPES = (PREFLIGHT_CSV_IMPORT_TYPES + [ "SureImport" ]).freeze
+
   # Ensure proper scope authorization
   before_action :ensure_read_scope, only: [ :index, :show, :preflight ]
   before_action :ensure_write_scope, only: [ :create ]
@@ -193,12 +198,12 @@ class Api::V1::ImportsController < Api::V1::BaseController
     def preflight_import_type
       type = params[:type].to_s
       return "TransactionImport" if type.blank?
-      return type if Import::TYPES.include?(type)
+      return type if PREFLIGHT_IMPORT_TYPES.include?(type)
 
       render json: {
         error: "invalid_import_type",
-        message: "type must be one of: #{Import::TYPES.join(', ')}",
-        errors: [ "type must be one of: #{Import::TYPES.join(', ')}" ]
+        message: "type must be one of: #{PREFLIGHT_IMPORT_TYPES.join(', ')}",
+        errors: [ "type must be one of: #{PREFLIGHT_IMPORT_TYPES.join(', ')}" ]
       }, status: :unprocessable_entity
       nil
     end
@@ -253,7 +258,6 @@ class Api::V1::ImportsController < Api::V1::BaseController
       end
 
       warnings = []
-      warnings << "No data rows were found." if row_count.zero?
       warnings << "Row count exceeds this import type's publish limit." if row_count > import.max_row_count
 
       render json: {
@@ -263,8 +267,8 @@ class Api::V1::ImportsController < Api::V1::BaseController
           content: preflight_content_payload(filename, content_type, content),
           stats: {
             rows_count: row_count,
-            valid_rows_count: errors.empty? ? row_count : 0,
-            invalid_rows_count: errors.empty? ? 0 : row_count
+            valid_rows_count: row_count,
+            invalid_rows_count: 0
           },
           headers: csv_headers,
           required_headers: preflight_required_header_labels(import),
@@ -425,7 +429,7 @@ class Api::V1::ImportsController < Api::V1::BaseController
         Account Category Tag Merchant Transaction Trade Valuation Budget BudgetCategory Rule
       ]
       warnings = []
-      warnings << "No importable records were found." if entity_counts.values.sum.zero?
+      warnings << "No importable records were found." if nonblank_rows_count.positive? && entity_counts.values.sum.zero?
       warnings << "Some records use unsupported types: #{unsupported_types.join(', ')}" if unsupported_types.any?
       warnings << "Row count exceeds this import type's publish limit." if nonblank_rows_count > SureImport.new.max_row_count
 

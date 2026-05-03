@@ -453,6 +453,9 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     data = JSON.parse(response.body)["data"]
 
     assert_equal false, data["valid"]
+    assert_equal 1, data["stats"]["rows_count"]
+    assert_equal 1, data["stats"]["valid_rows_count"]
+    assert_equal 0, data["stats"]["invalid_rows_count"]
     assert_equal [ "date", "amount" ], data["missing_required_headers"]
     assert_equal "missing_required_headers", data["errors"].first["code"]
   end
@@ -469,6 +472,23 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_equal "invalid_import_type", JSON.parse(response.body)["error"]
+  end
+
+  test "should reject preflight types that do not use CSV or Sure NDJSON content" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             type: "QifImport",
+             raw_file_content: "!Type:Bank\nD01/01/2024\nT-10.00\nPTest\n^"
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :unprocessable_entity
+    response_data = JSON.parse(response.body)
+    assert_equal "invalid_import_type", response_data["error"]
+    assert_not_includes response_data["message"], "QifImport"
+    assert_not_includes response_data["message"], "PdfImport"
   end
 
   test "should report empty CSV preflight content as invalid" do
@@ -490,6 +510,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, data["valid"]
     assert_equal 0, data["stats"]["rows_count"]
     assert_equal "no_data_rows", data["errors"].first["code"]
+    assert_empty data["warnings"]
   end
 
   test "should preflight Sure import without persisting records" do
@@ -576,6 +597,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, data["valid"]
     assert_equal 0, data["stats"]["rows_count"]
     assert_equal "no_data_rows", data["errors"].first["code"]
+    assert_empty data["warnings"]
   end
 
   test "should reject preflight with no file or raw content" do
