@@ -580,6 +580,105 @@ class Family::DataImporterTest < ActiveSupport::TestCase
     assert_equal Date.parse("2024-01-14"), opening_anchor.entry.date
   end
 
+  test "imports duplicate holding snapshots idempotently by account security and date" do
+    holding_record = {
+      type: "Holding",
+      data: {
+        id: "holding-1",
+        account_id: "inv-acct-1",
+        security_id: "security-1",
+        ticker: "VTI",
+        security_name: "Vanguard Total Stock Market ETF",
+        exchange_operating_mic: "ARCX",
+        kind: "unsupported",
+        date: "2024-01-15",
+        qty: "100",
+        price: "250.25",
+        amount: "25025.00",
+        currency: "USD"
+      }
+    }
+
+    ndjson = build_ndjson([
+      {
+        type: "Account",
+        data: {
+          id: "inv-acct-1",
+          name: "Investment Account",
+          balance: "10000",
+          currency: "USD",
+          accountable_type: "Investment"
+        }
+      },
+      holding_record,
+      holding_record.deep_merge(data: { id: "holding-1-duplicate", qty: "101", amount: "25275.25" })
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    account = @family.accounts.find_by!(name: "Investment Account")
+    assert_equal 1, account.holdings.count
+
+    holding = account.holdings.first
+    assert_equal 101.0, holding.qty.to_f
+    assert_equal 25_275.25, holding.amount.to_f
+    assert_equal "standard", holding.security.kind
+  end
+
+  test "round trips holding snapshots through full export" do
+    source_family = Family.create!(
+      name: "Source Family",
+      currency: "USD",
+      locale: "en",
+      date_format: "%Y-%m-%d"
+    )
+    source_account = source_family.accounts.create!(
+      name: "Round Trip Investment",
+      accountable: Investment.new,
+      balance: 25_000,
+      currency: "USD"
+    )
+    source_security = Security.create!(
+      ticker: "VTI#{SecureRandom.hex(4).upcase}",
+      name: "Vanguard Total Stock Market ETF",
+      country_code: "US",
+      exchange_operating_mic: "ARCX"
+    )
+    source_account.holdings.create!(
+      security: source_security,
+      date: Date.parse("2024-01-15"),
+      qty: 100,
+      price: 250.25,
+      amount: 25_025,
+      currency: "USD",
+      cost_basis: 200,
+      cost_basis_source: "manual",
+      cost_basis_locked: true,
+      security_locked: true
+    )
+
+    zip_data = Family::DataExporter.new(source_family).generate_export
+    ndjson = nil
+    Zip::File.open_buffer(zip_data) do |zip|
+      ndjson = zip.read("all.ndjson")
+    end
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    imported_account = @family.accounts.find_by!(name: "Round Trip Investment")
+    imported_holding = imported_account.holdings.find_by!(date: Date.parse("2024-01-15"))
+
+    assert_equal source_security.ticker, imported_holding.security.ticker
+    assert_equal "ARCX", imported_holding.security.exchange_operating_mic
+    assert_equal 100.0, imported_holding.qty.to_f
+    assert_equal 250.25, imported_holding.price.to_f
+    assert_equal 25_025.0, imported_holding.amount.to_f
+    assert_equal 200.0, imported_holding.cost_basis.to_f
+    assert_equal "manual", imported_holding.cost_basis_source
+    assert imported_holding.cost_basis_locked
+    assert imported_holding.security_locked
+  end
+
   test "imports holding snapshots with ticker fallback when exchange mic is missing" do
     existing_security = Security.create!(
       ticker: "VTI",

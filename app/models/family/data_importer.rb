@@ -16,6 +16,7 @@ class Family::DataImporter
       budgets: {},
       securities: {}
     }
+    @security_cache = {}
     @created_accounts = []
     @created_entries = []
   end
@@ -352,13 +353,17 @@ class Family::DataImporter
     end
 
     def import_holdings(records)
+      accounts_by_id = @family.accounts.where(id: records.filter_map { |record| @id_mappings[:accounts][record.dig("data", "account_id")] }).index_by(&:id)
+
       records.each do |record|
         data = record["data"]
 
         new_account_id = @id_mappings[:accounts][data["account_id"]]
         next unless new_account_id
 
-        account = @family.accounts.find(new_account_id)
+        account = accounts_by_id[new_account_id]
+        next unless account
+
         ticker = data["ticker"]
         next unless ticker.present?
 
@@ -375,18 +380,23 @@ class Family::DataImporter
           website_url: data["website_url"]
         )
 
-        account.holdings.create!(
+        holding = account.holdings.find_or_initialize_by(
           security: security,
-          date: Date.parse(data["date"].to_s),
+          date: Date.parse(data["date"].to_s)
+        )
+
+        holding.assign_attributes(
+          security: security,
           qty: data["qty"].to_d,
           price: data["price"].to_d,
           amount: data["amount"].to_d,
           currency: data["currency"] || account.currency,
           cost_basis: data["cost_basis"]&.to_d,
           cost_basis_source: importable_cost_basis_source(data["cost_basis_source"]),
-          cost_basis_locked: truthy?(data["cost_basis_locked"]),
-          security_locked: truthy?(data["security_locked"])
+          cost_basis_locked: truthy?(data["cost_basis_locked"]) || false,
+          security_locked: truthy?(data["security_locked"]) || false
         )
+        holding.save!
       end
     end
 
@@ -652,8 +662,8 @@ class Family::DataImporter
       exchange_operating_mic = attributes[:exchange_operating_mic].presence&.upcase
       cache_key = "#{normalized_ticker}:#{exchange_operating_mic}:#{currency}"
 
-      if @id_mappings[:securities][cache_key]
-        security = @id_mappings[:securities][cache_key]
+      if @security_cache[cache_key]
+        security = @security_cache[cache_key]
         apply_security_metadata(security, normalized_ticker, attributes)
         return security
       end
@@ -661,14 +671,14 @@ class Family::DataImporter
       if old_security_id.present? && @id_mappings[:securities][old_security_id]
         security = Security.find(@id_mappings[:securities][old_security_id])
         apply_security_metadata(security, normalized_ticker, attributes)
-        @id_mappings[:securities][cache_key] = security
+        @security_cache[cache_key] = security
         return security
       end
 
       security = find_security_by_identity(normalized_ticker, exchange_operating_mic)
       apply_security_metadata(security, normalized_ticker, attributes)
 
-      @id_mappings[:securities][cache_key] = security
+      @security_cache[cache_key] = security
       @id_mappings[:securities][old_security_id] = security.id if old_security_id.present?
       security
     end
@@ -678,6 +688,7 @@ class Family::DataImporter
         return Security.find_or_initialize_by(ticker: ticker, exchange_operating_mic: exchange_operating_mic)
       end
 
+      # Without an exchange MIC, matching by ticker is a best-effort restore path and can merge same-ticker securities from different venues.
       Security.find_by(ticker: ticker, exchange_operating_mic: nil) ||
         Security.where(ticker: ticker).order(:created_at).first ||
         Security.new(ticker: ticker)
@@ -713,6 +724,6 @@ class Family::DataImporter
 
     def security_kind_for(value)
       kind = value.to_s
-      Security::KINDS.include?(kind) ? kind : "standard"
+      Security::KINDS.include?(kind) ? kind : Security::KINDS.first
     end
 end

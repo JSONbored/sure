@@ -420,6 +420,8 @@ class Family::DataExporterTest < ActiveSupport::TestCase
       assert_equal "200.0", BigDecimal(holding_data["data"]["cost_basis"].to_s).to_s("F")
       assert_equal "manual", holding_data["data"]["cost_basis_source"]
       assert_equal true, holding_data["data"]["cost_basis_locked"]
+      assert_not holding_data["data"].key?("created_at")
+      assert_not holding_data["data"].key?("updated_at")
     end
   end
 
