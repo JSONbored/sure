@@ -72,6 +72,14 @@ class Api::V1::FamilyExportsController < Api::V1::BaseController
     end
 
     redirect_to rails_blob_url(@family_export.export_file, disposition: "attachment"), allow_other_host: true
+  rescue StandardError => e
+    Rails.logger.error "FamilyExportsController#download error: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+
+    render json: {
+      error: "internal_server_error",
+      message: "An unexpected error occurred"
+    }, status: :internal_server_error
   end
 
   private

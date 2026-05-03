@@ -39,6 +39,7 @@ class Api::V1::FamilyExportsControllerTest < ActionDispatch::IntegrationTest
     redis.del("api_rate_limit:#{@api_key.id}")
     redis.del("api_rate_limit:#{@read_only_api_key.id}")
     redis.del("api_rate_limit:#{@member_api_key.id}")
+    redis.close
   end
 
   test "lists family exports" do
@@ -164,6 +165,27 @@ class Api::V1::FamilyExportsControllerTest < ActionDispatch::IntegrationTest
 
     json_response = JSON.parse(response.body)
     assert_equal "export_not_ready", json_response["error"]
+  end
+
+  test "download handles storage URL failures without leaking details" do
+    export = @family.family_exports.create!(status: "completed")
+    export.export_file.attach(
+      io: StringIO.new("test zip content"),
+      filename: "test.zip",
+      content_type: "application/zip"
+    )
+
+    Api::V1::FamilyExportsController.any_instance
+      .stubs(:rails_blob_url)
+      .raises(StandardError, "storage down")
+
+    get download_api_v1_family_export_url(export), headers: api_headers(@read_only_api_key)
+    assert_response :internal_server_error
+
+    json_response = JSON.parse(response.body)
+    assert_equal "internal_server_error", json_response["error"]
+    assert_equal "An unexpected error occurred", json_response["message"]
+    assert_not_includes response.body, "storage down"
   end
 
   test "requires authentication" do
