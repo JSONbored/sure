@@ -1504,9 +1504,6 @@ components:
         exchange_name:
           type: string
           nullable: true
-        price_provider:
-          type: string
-          nullable: true
         offline:
           type: boolean
         offline_reason:

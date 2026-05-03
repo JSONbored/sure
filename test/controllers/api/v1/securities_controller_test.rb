@@ -16,30 +16,10 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
       display_key: "test_read_#{SecureRandom.hex(8)}"
     )
 
-    @account = @family.accounts.create!(
-      name: "Investment Account",
-      accountable: Investment.new,
-      balance: 25_000,
-      currency: "USD"
-    )
-
-    @holding_ticker = "VTI#{SecureRandom.hex(4).upcase}"
+    @account = accounts(:investment)
+    @holding_security = securities(:aapl)
+    @holding_ticker = @holding_security.ticker
     @trade_ticker = "AAPL#{SecureRandom.hex(4).upcase}"
-
-    @holding_security = Security.create!(
-      ticker: @holding_ticker,
-      name: "Vanguard Total Stock Market ETF",
-      country_code: "US",
-      exchange_operating_mic: "ARCX"
-    )
-    @account.holdings.create!(
-      security: @holding_security,
-      date: Date.parse("2024-01-15"),
-      qty: 100,
-      price: 250,
-      amount: 25_000,
-      currency: "USD"
-    )
 
     @trade_security = Security.create!(
       ticker: @trade_ticker,
@@ -101,8 +81,9 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal @holding_security.id, response_data["id"]
     assert_equal @holding_ticker, response_data["ticker"]
-    assert_equal "ARCX", response_data["exchange_operating_mic"]
+    assert_equal @holding_security.exchange_operating_mic, response_data["exchange_operating_mic"]
     assert_equal "standard", response_data["kind"]
+    assert_not response_data.key?("price_provider")
   end
 
   test "returns not found for another family's security" do
@@ -122,7 +103,7 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "filters securities by ticker" do
-    get api_v1_securities_url, params: { ticker: @trade_ticker }, headers: api_headers(@api_key)
+    get api_v1_securities_url, params: { ticker: @trade_ticker.downcase }, headers: api_headers(@api_key)
 
     assert_response :success
     response_data = JSON.parse(response.body)
@@ -130,11 +111,11 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "filters securities by exchange operating mic" do
-    get api_v1_securities_url, params: { exchange_operating_mic: " arcx " }, headers: api_headers(@api_key)
+    get api_v1_securities_url, params: { exchange_operating_mic: " xnas " }, headers: api_headers(@api_key)
 
     assert_response :success
     response_data = JSON.parse(response.body)
-    assert_equal [ @holding_security.id ], response_data["securities"].map { |security| security["id"] }
+    assert_equal [ @holding_security.id, @trade_security.id ], response_data["securities"].map { |security| security["id"] }
   end
 
   test "caps per_page at documented maximum" do
@@ -196,6 +177,6 @@ class Api::V1::SecuritiesControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end

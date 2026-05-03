@@ -839,7 +839,6 @@ RSpec.configure do |config|
               exchange_acronym: { type: :string, nullable: true },
               exchange_operating_mic: { type: :string, nullable: true },
               exchange_name: { type: :string, nullable: true },
-              price_provider: { type: :string, nullable: true },
               offline: { type: :boolean },
               offline_reason: { type: :string, nullable: true },
               website_url: { type: :string, nullable: true },

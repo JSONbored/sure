@@ -2,14 +2,9 @@
 
 class Api::V1::SecurityPricesController < Api::V1::BaseController
   include Pagy::Backend
+  include Api::V1::SecurityResourceFiltering
 
   InvalidFilterError = Class.new(StandardError)
-  BOOLEAN_FILTERS = {
-    "true" => true,
-    "1" => true,
-    "false" => false,
-    "0" => false
-  }.freeze
 
   before_action :ensure_read_scope
   before_action :set_security_price, only: :show
@@ -51,25 +46,6 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
         .includes(:security)
     end
 
-    def scoped_security_ids
-      Security
-        .where(id: holding_security_ids)
-        .or(Security.where(id: trade_security_ids))
-        .select(:id)
-    end
-
-    def holding_security_ids
-      Holding.where(account_id: accessible_account_ids).select(:security_id)
-    end
-
-    def trade_security_ids
-      Trade.joins(:entry).where(entries: { account_id: accessible_account_ids }).select(:security_id)
-    end
-
-    def accessible_account_ids
-      @accessible_account_ids ||= current_resource_owner.family.accounts.visible.accessible_by(current_resource_owner).select(:id)
-    end
-
     def apply_filters(query)
       if params[:security_id].present?
         raise InvalidFilterError, "security_id must be a valid UUID" unless valid_uuid?(params[:security_id])
@@ -77,53 +53,13 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
         query = query.where(security_id: params[:security_id])
       end
 
-      query = query.where(currency: params[:currency].to_s.upcase) if params[:currency].present?
+      query = query.where(currency: params[:currency].to_s.strip.upcase) if params[:currency].present?
       query = query.where("security_prices.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
       query = query.where("security_prices.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
       if params.key?(:provisional)
-        provisional = parse_boolean_filter_param(:provisional)
+        provisional = parse_boolean_filter_param(:provisional, allow_blank: true)
         query = query.where(provisional: provisional) unless provisional.nil?
       end
       query
-    end
-
-    def parse_boolean_filter_param(key)
-      normalized_value = params[key].to_s.strip.downcase
-
-      raise InvalidFilterError, "#{key} must be true or false" if normalized_value.blank?
-      return BOOLEAN_FILTERS.fetch(normalized_value) if BOOLEAN_FILTERS.key?(normalized_value)
-
-      raise InvalidFilterError, "#{key} must be true or false"
-    end
-
-    def parse_date_param(key)
-      Date.iso8601(params[key].to_s)
-    rescue ArgumentError
-      raise InvalidFilterError, "#{key} must be an ISO 8601 date"
-    end
-
-    def valid_uuid?(value)
-      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
-    end
-
-    def safe_page_param
-      page = params[:page].to_i
-      page > 0 ? page : 1
-    end
-
-    def safe_per_page_param
-      per_page = params[:per_page].to_i
-
-      return 25 if per_page < 1
-
-      [ per_page, 100 ].min
-    end
-
-    def render_validation_error(message)
-      render json: {
-        error: "validation_failed",
-        message: message,
-        errors: [ message ]
-      }, status: :unprocessable_entity
     end
 end

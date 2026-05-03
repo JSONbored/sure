@@ -16,35 +16,15 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
       display_key: "test_read_#{SecureRandom.hex(8)}"
     )
 
-    @account = @family.accounts.create!(
-      name: "Investment Account",
-      accountable: Investment.new,
-      balance: 25_000,
-      currency: "USD"
-    )
-
-    @ticker = "VTI#{SecureRandom.hex(4).upcase}"
-
-    @security = Security.create!(
-      ticker: @ticker,
-      name: "Vanguard Total Stock Market ETF",
-      country_code: "US",
-      exchange_operating_mic: "ARCX"
-    )
-    @account.holdings.create!(
+    @account = accounts(:investment)
+    @security = securities(:aapl)
+    @ticker = @security.ticker
+    @security_price = security_prices(:one)
+    @eur_price = Security::Price.create!(
       security: @security,
-      date: Date.parse("2024-01-15"),
-      qty: 100,
-      price: 250,
-      amount: 25_000,
-      currency: "USD"
-    )
-    @security_price = Security::Price.create!(
-      security: @security,
-      date: Date.parse("2024-01-15"),
+      date: @security_price.date,
       price: BigDecimal("250.5000"),
-      currency: "USD",
-      provisional: true
+      currency: "EUR"
     )
 
     other_account = families(:empty).accounts.create!(
@@ -89,8 +69,8 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     response_data = JSON.parse(response.body)
 
     assert_equal @security_price.id, response_data["id"]
-    assert_equal "2024-01-15", response_data["date"]
-    assert_equal "250.5000", response_data["price_amount"]
+    assert_equal @security_price.date.iso8601, response_data["date"]
+    assert_equal "215.0000", response_data["price_amount"]
     assert_equal @security.id, response_data.dig("security", "id")
   end
 
@@ -115,12 +95,13 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     response_data = JSON.parse(response.body)
-    assert_equal [ @security_price.id ], response_data["security_prices"].map { |price| price["id"] }
+    assert_includes response_data["security_prices"].map { |price| price["id"] }, @security_price.id
+    assert response_data["security_prices"].all? { |price| price.dig("security", "id") == @security.id }
   end
 
   test "filters security prices by date range and provisional status" do
     get api_v1_security_prices_url,
-        params: { start_date: "2024-01-15", end_date: "2024-01-15", provisional: true },
+        params: { start_date: @security_price.date.iso8601, end_date: @security_price.date.iso8601, currency: "USD", provisional: false },
         headers: api_headers(@api_key)
 
     assert_response :success
@@ -128,15 +109,25 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ @security_price.id ], response_data["security_prices"].map { |price| price["id"] }
   end
 
-  test "rejects blank provisional filter" do
+  test "ignores blank provisional filter" do
     get api_v1_security_prices_url,
         params: { provisional: "" },
         headers: api_headers(@api_key)
 
-    assert_response :unprocessable_entity
+    assert_response :success
     response_data = JSON.parse(response.body)
-    assert_equal "validation_failed", response_data["error"]
-    assert_includes response_data["errors"], "provisional must be true or false"
+    assert_includes response_data["security_prices"].map { |price| price["id"] }, @security_price.id
+  end
+
+  test "filters security prices by currency" do
+    get api_v1_security_prices_url,
+        params: { currency: " usd " },
+        headers: api_headers(@api_key)
+
+    assert_response :success
+    response_data = JSON.parse(response.body)
+    assert_includes response_data["security_prices"].map { |price| price["id"] }, @security_price.id
+    assert_not_includes response_data["security_prices"].map { |price| price["id"] }, @eur_price.id
   end
 
   test "rejects malformed provisional filter" do
@@ -199,6 +190,6 @@ class Api::V1::SecurityPricesControllerTest < ActionDispatch::IntegrationTest
   private
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.display_key }
+      { "X-Api-Key" => api_key.plain_key }
     end
 end

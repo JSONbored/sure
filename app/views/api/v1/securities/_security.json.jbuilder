@@ -9,7 +9,6 @@ json.exchange_mic security.exchange_mic
 json.exchange_acronym security.exchange_acronym
 json.exchange_operating_mic security.exchange_operating_mic
 json.exchange_name security.exchange_name
-json.price_provider security.price_provider
 json.offline security.offline
 json.offline_reason security.offline_reason
 json.website_url security.website_url
