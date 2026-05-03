@@ -121,7 +121,8 @@ RSpec.describe 'API V1 Valuations', type: :request do
               account_id: { type: :string, format: :uuid, description: 'Account ID (required)' },
               amount: { type: :number, description: 'Valuation amount (required)' },
               date: { type: :string, format: :date, description: 'Valuation date (required)' },
-              notes: { type: :string, description: 'Additional notes' }
+              notes: { type: :string, description: 'Additional notes' },
+              upsert: { type: :boolean, description: 'Nested alternative to the top-level upsert flag. Top-level upsert takes precedence when both are provided.' }
             },
             required: %w[account_id amount date]
           },

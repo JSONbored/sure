@@ -4259,6 +4259,10 @@ paths:
                     notes:
                       type: string
                       description: Additional notes
+                    upsert:
+                      type: boolean
+                      description: Nested alternative to the top-level upsert flag.
+                        Top-level upsert takes precedence when both are provided.
                   required:
                   - account_id
                   - amount
