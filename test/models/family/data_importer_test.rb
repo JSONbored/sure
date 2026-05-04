@@ -580,7 +580,7 @@ class Family::DataImporterTest < ActiveSupport::TestCase
     assert_equal Date.parse("2024-01-14"), opening_anchor.entry.date
   end
 
-  test "imports duplicate holding snapshots idempotently by account security and date" do
+  test "imports duplicate holding snapshots idempotently by account security date and currency" do
     holding_record = {
       type: "Holding",
       data: {
@@ -623,6 +623,46 @@ class Family::DataImporterTest < ActiveSupport::TestCase
     assert_equal 101.0, holding.qty.to_f
     assert_equal 25_275.25, holding.amount.to_f
     assert_equal "standard", holding.security.kind
+  end
+
+  test "imports same holding date in different currencies separately" do
+    holding_record = {
+      type: "Holding",
+      data: {
+        id: "holding-1",
+        account_id: "inv-acct-1",
+        security_id: "security-1",
+        ticker: "VTI",
+        security_name: "Vanguard Total Stock Market ETF",
+        exchange_operating_mic: "ARCX",
+        date: "2024-01-15",
+        qty: "100",
+        price: "250.25",
+        amount: "25025.00",
+        currency: "USD"
+      }
+    }
+
+    ndjson = build_ndjson([
+      {
+        type: "Account",
+        data: {
+          id: "inv-acct-1",
+          name: "Investment Account",
+          balance: "10000",
+          currency: "USD",
+          accountable_type: "Investment"
+        }
+      },
+      holding_record,
+      holding_record.deep_merge(data: { id: "holding-2", currency: "CAD", amount: "34034.00" })
+    ])
+
+    Family::DataImporter.new(@family, ndjson).import!
+
+    account = @family.accounts.find_by!(name: "Investment Account")
+    assert_equal 2, account.holdings.count
+    assert_equal %w[CAD USD], account.holdings.order(:currency).pluck(:currency)
   end
 
   test "round trips holding snapshots through full export" do

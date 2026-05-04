@@ -380,23 +380,20 @@ class Family::DataImporter
           website_url: data["website_url"]
         )
 
-        holding = account.holdings.find_or_initialize_by(
-          security: security,
-          date: Date.parse(data["date"].to_s)
-        )
-
-        holding.assign_attributes(
-          security: security,
+        holding_date = Date.parse(data["date"].to_s)
+        holding_currency = data["currency"] || account.currency
+        holding_attributes = {
           qty: data["qty"].to_d,
           price: data["price"].to_d,
           amount: data["amount"].to_d,
-          currency: data["currency"] || account.currency,
+          currency: holding_currency,
           cost_basis: data["cost_basis"]&.to_d,
           cost_basis_source: importable_cost_basis_source(data["cost_basis_source"]),
           cost_basis_locked: truthy?(data["cost_basis_locked"]) || false,
           security_locked: truthy?(data["security_locked"]) || false
-        )
-        holding.save!
+        }
+
+        upsert_imported_holding!(account, security, holding_date, holding_currency, holding_attributes)
       end
     end
 
@@ -720,6 +717,18 @@ class Family::DataImporter
       return if current_value.present? && current_value != placeholder
 
       record.public_send("#{attribute}=", value)
+    end
+
+    def upsert_imported_holding!(account, security, date, currency, attributes)
+      holding = account.holdings.find_or_initialize_by(security: security, date: date, currency: currency)
+      holding.assign_attributes(attributes)
+
+      begin
+        Holding.transaction(requires_new: true) { holding.save! }
+      rescue ActiveRecord::RecordNotUnique
+        existing = account.holdings.find_by!(security: security, date: date, currency: currency)
+        existing.update!(attributes)
+      end
     end
 
     def security_kind_for(value)

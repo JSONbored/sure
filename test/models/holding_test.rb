@@ -20,6 +20,33 @@ class HoldingTest < ActiveSupport::TestCase
     assert_in_delta expected_nvda_weight, @nvda.weight, 0.001
   end
 
+  test "validates one holding per account security date and currency" do
+    duplicate = @account.holdings.build(
+      security: @amzn.security,
+      date: @amzn.date,
+      currency: @amzn.currency,
+      qty: 1,
+      price: 1,
+      amount: 1
+    )
+
+    assert_not duplicate.valid?
+    assert_includes duplicate.errors[:date], "has already been taken"
+  end
+
+  test "allows same account security and date in a different currency" do
+    holding = @account.holdings.build(
+      security: @amzn.security,
+      date: @amzn.date,
+      currency: "CAD",
+      qty: 1,
+      price: 1,
+      amount: 1
+    )
+
+    assert holding.valid?
+  end
+
   test "calculates average cost basis" do
     create_trade(@amzn.security, account: @account, qty: 10, price: 212.00, date: 1.day.ago.to_date)
     create_trade(@amzn.security, account: @account, qty: 15, price: 216.00, date: Date.current)
