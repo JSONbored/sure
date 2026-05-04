@@ -156,7 +156,6 @@ RSpec.describe 'API V1 Valuations', type: :request do
       response '200', 'existing valuation upserted' do
         schema '$ref' => '#/components/schemas/Valuation'
 
-        let!(:existing_valuation_entry) { valuation_entry }
         let(:body) do
           {
             upsert: true,

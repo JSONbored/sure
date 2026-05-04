@@ -94,6 +94,7 @@ class Api::V1::ValuationsController < Api::V1::BaseController
       account.lock! if requested_upsert
       existing_write = account.entries.valuations.exists?(date: valuation_params[:date]) if requested_upsert
 
+      # upsert=true only affects response status; reconciliation owns write behavior.
       result = account.create_reconciliation(
         balance: valuation_params[:amount],
         date: valuation_params[:date]
