@@ -1379,7 +1379,7 @@ components:
           type: object
           nullable: true
           description: Sanitized latest sync error summary. Null when the latest sync
-            has no error or stale state.
+            is not failed or stale.
           required:
           - present
           - message

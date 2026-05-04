@@ -19,9 +19,11 @@ class ProviderConnectionStatus
     def for_family(family)
       PROVIDERS.flat_map do |provider|
         relation = family.public_send(provider[:association])
+        items = relation.includes(association_includes_for(relation, provider)).ordered.to_a
+        sync_contexts = sync_contexts_for(provider[:type], items)
 
-        relation.includes(association_includes_for(relation, provider)).ordered.map do |item|
-          new(provider, item).to_h
+        items.map do |item|
+          new(provider, item, sync_contexts.fetch(item.id, {})).to_h
         end
       end
     end
@@ -34,11 +36,42 @@ class ProviderConnectionStatus
         includes << :accounts if relation.klass.reflect_on_association(:accounts)
         includes
       end
+
+      def sync_contexts_for(provider_type, items)
+        item_ids = items.map(&:id)
+        return {} if item_ids.empty?
+
+        latest_syncs = latest_syncs_for(provider_type, item_ids)
+        latest_completed_syncs = latest_syncs_for(provider_type, item_ids, scope: Sync.completed)
+        syncing_item_ids = Sync.visible
+                              .where(syncable_type: provider_type, syncable_id: item_ids)
+                              .distinct
+                              .pluck(:syncable_id)
+
+        item_ids.index_with do |item_id|
+          {
+            latest_sync: latest_syncs[item_id],
+            latest_completed_sync: latest_completed_syncs[item_id],
+            syncing: syncing_item_ids.include?(item_id)
+          }
+        end
+      end
+
+      def latest_syncs_for(provider_type, item_ids, scope: Sync.all)
+        ranked_syncs = scope.where(syncable_type: provider_type, syncable_id: item_ids)
+                            .select(
+                              "syncs.*, " \
+                              "ROW_NUMBER() OVER (PARTITION BY syncable_id ORDER BY created_at DESC, id DESC) AS sync_rank"
+                            )
+
+        Sync.from(ranked_syncs, :syncs).where("sync_rank = 1").index_by(&:syncable_id)
+      end
   end
 
-  def initialize(provider, item)
+  def initialize(provider, item, sync_context = {})
     @provider = provider
     @item = item
+    @sync_context = sync_context
   end
 
   def to_h
@@ -62,7 +95,7 @@ class ProviderConnectionStatus
 
   private
 
-    attr_reader :provider, :item
+    attr_reader :provider, :item, :sync_context
 
     def credentials_configured?
       item_boolean(:credentials_configured?)
@@ -109,15 +142,25 @@ class ProviderConnectionStatus
 
     def sync_payload
       {
-        syncing: item_boolean(:syncing?),
+        syncing: syncing?,
         status_summary: item_value(:sync_status_summary),
-        last_synced_at: item_value(:last_synced_at),
+        last_synced_at: latest_completed_sync&.completed_at,
         latest: latest_sync_payload(latest_sync)
       }
     end
 
+    def syncing?
+      return sync_context[:syncing] if sync_context.key?(:syncing)
+
+      item_boolean(:syncing?)
+    end
+
     def latest_sync
-      @latest_sync ||= item.syncs.ordered.first
+      sync_context[:latest_sync]
+    end
+
+    def latest_completed_sync
+      sync_context[:latest_completed_sync]
     end
 
     def latest_sync_payload(sync)

@@ -774,7 +774,7 @@ RSpec.configure do |config|
               error: {
                 type: :object,
                 nullable: true,
-                description: "Sanitized latest sync error summary. Null when the latest sync has no error or stale state.",
+                description: "Sanitized latest sync error summary. Null when the latest sync is not failed or stale.",
                 required: %w[present message],
                 properties: {
                   present: { type: :boolean, description: "Always true when this object is present." },

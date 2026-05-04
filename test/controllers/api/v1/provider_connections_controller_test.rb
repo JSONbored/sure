@@ -80,6 +80,24 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     assert_equal "Sync failed", mercury_connection["sync"]["latest"]["error"]["message"]
   end
 
+  test "reports stale sync errors as present" do
+    stale_sync = @mercury_item.syncs.create!(
+      status: "stale",
+      syncing_at: 2.days.ago
+    )
+
+    get api_v1_provider_connections_url, headers: api_headers(@api_key)
+    assert_response :success
+
+    mercury_connection = JSON.parse(response.body)["data"].detect do |connection|
+      connection["id"] == @mercury_item.id && connection["provider"] == "mercury"
+    end
+
+    assert_equal stale_sync.id, mercury_connection["sync"]["latest"]["id"]
+    assert_equal true, mercury_connection["sync"]["latest"]["error"]["present"]
+    assert_equal "Sync became stale before completion", mercury_connection["sync"]["latest"]["error"]["message"]
+  end
+
   test "does not expose provider secrets or raw sync errors" do
     @mercury_item.syncs.create!(
       status: "failed",
