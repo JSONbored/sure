@@ -385,6 +385,7 @@ class Family::DataExporterTest < ActiveSupport::TestCase
       start_non_cash_balance: 0,
       cash_inflows: 234.56,
       cash_outflows: 0,
+      flows_factor: 1,
       currency: "USD"
     )
 
@@ -403,8 +404,8 @@ class Family::DataExporterTest < ActiveSupport::TestCase
   end
 
   test "exports balance history chronologically" do
-    @account.balances.create!(date: Date.parse("2024-03-01"), balance: 300, currency: "USD")
-    @account.balances.create!(date: Date.parse("2024-01-01"), balance: 100, currency: "USD")
+    @account.balances.create!(date: Date.parse("2024-03-01"), balance: 300, flows_factor: 1, currency: "USD")
+    @account.balances.create!(date: Date.parse("2024-01-01"), balance: 100, flows_factor: 1, currency: "USD")
 
     zip_data = @exporter.generate_export
 
