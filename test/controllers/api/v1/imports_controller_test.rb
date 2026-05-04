@@ -764,6 +764,23 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "record_not_found", JSON.parse(response.body)["error"]
   end
 
+  test "should return not found for malformed preflight account id" do
+    assert_no_difference("Import.count") do
+      post preflight_api_v1_imports_url,
+           params: {
+             raw_file_content: "date,amount,name\n2023-01-01,-10.00,Test Transaction",
+             date_col_label: "date",
+             amount_col_label: "amount",
+             name_col_label: "name",
+             account_id: "not-a-uuid"
+           },
+           headers: api_headers(@read_only_api_key)
+    end
+
+    assert_response :not_found
+    assert_equal "record_not_found", JSON.parse(response.body)["error"]
+  end
+
   test "should apply Mint defaults before preflight header validation" do
     mint_content = [
       "Date,Amount,Account Name,Description,Category,Labels,Currency,Notes,Transaction Type",

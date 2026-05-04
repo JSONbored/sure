@@ -2,6 +2,8 @@
 
 class Import::Preflight
   Response = Struct.new(:status, :payload, keyword_init: true)
+  UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+  private_constant :UUID_PATTERN
 
   class PreflightError < StandardError
     attr_reader :status, :payload
@@ -101,7 +103,7 @@ class Import::Preflight
 
       content, filename, content_type = upload_attributes
       import = family.imports.build(import_config_params.merge(type: type, raw_file_str: content))
-      import.account = family.accounts.find(params[:account_id]) if params[:account_id].present?
+      import.account = preflight_account if params[:account_id].present?
       apply_import_defaults(import)
 
       return unsupported_import_type_response unless import.requires_csv_workflow?
@@ -155,6 +157,16 @@ class Import::Preflight
 
     def import_config_params
       params.slice(*CONFIG_PARAM_KEYS)
+    end
+
+    def preflight_account
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:account_id])
+
+      family.accounts.find(params[:account_id])
+    end
+
+    def valid_uuid?(value)
+      value.to_s.match?(UUID_PATTERN)
     end
 
     def csv_upload_attributes
