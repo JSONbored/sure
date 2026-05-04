@@ -122,11 +122,17 @@ RSpec.describe 'API V1 Valuations', type: :request do
               amount: { type: :number, description: 'Valuation amount (required)' },
               date: { type: :string, format: :date, description: 'Valuation date (required)' },
               notes: { type: :string, description: 'Additional notes' },
-              upsert: { type: :boolean, description: 'Nested alternative to the top-level upsert flag. Top-level upsert takes precedence when both are provided.' }
+              upsert: {
+                type: :boolean,
+                description: 'Nested alternative to the top-level response-status flag. Top-level upsert takes precedence when both are provided.'
+              }
             },
             required: %w[account_id amount date]
           },
-          upsert: { type: :boolean, description: 'Set to true to return 200 OK when the write updates an existing same-account same-date valuation. New valuations still return 201 Created.' }
+          upsert: {
+            type: :boolean,
+            description: 'Response-status signal only. When true and a same-account same-date valuation exists before the request, the endpoint returns 200 OK instead of 201 Created. The underlying reconciliation write path is unchanged; this flag does not add duplicate-prevention or safe-retry guarantees beyond existing same-date reconciliation behavior.'
+          }
         },
         required: %w[valuation]
       }
