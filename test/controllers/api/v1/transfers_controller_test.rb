@@ -118,7 +118,7 @@ class Api::V1::TransfersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "validation_failed", response_data["error"]
   end
 
-  test "filters transfers only when both transaction side dates match" do
+  test "filters transfers when either transaction side date matches" do
     matched_outflow = create_transaction(@account, amount: 75, date: Date.parse("2024-02-10"), name: "Dated outflow")
     matched_inflow = create_transaction(@destination_account, amount: -75, date: Date.parse("2024-02-10"), name: "Dated inflow")
     date_matched_transfer = Transfer.create!(outflow_transaction: matched_outflow, inflow_transaction: matched_inflow)
@@ -134,7 +134,7 @@ class Api::V1::TransfersControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     transfer_ids = JSON.parse(response.body)["transfers"].map { |transfer| transfer["id"] }
     assert_includes transfer_ids, date_matched_transfer.id
-    assert_not_includes transfer_ids, partial_date_transfer.id
+    assert_includes transfer_ids, partial_date_transfer.id
     assert_not_includes transfer_ids, @transfer.id
   end
 

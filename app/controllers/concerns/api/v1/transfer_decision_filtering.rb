@@ -59,10 +59,9 @@ module Api::V1::TransferDecisionFiltering
 
     def apply_transfer_date_filter(query)
       date_transaction_ids = transfer_date_transaction_ids
-      query.where(
-        inflow_transaction_id: date_transaction_ids,
-        outflow_transaction_id: date_transaction_ids
-      )
+      query
+        .where(inflow_transaction_id: date_transaction_ids)
+        .or(query.where(outflow_transaction_id: date_transaction_ids))
     end
 
     def accessible_transaction_ids_for_account(account_id)
