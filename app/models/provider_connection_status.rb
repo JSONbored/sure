@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class ProviderConnectionHealth
+class ProviderConnectionStatus
   PROVIDERS = [
     { key: "plaid", type: "PlaidItem", association: :plaid_items, accounts: :plaid_accounts },
     { key: "simplefin", type: "SimplefinItem", association: :simplefin_items, accounts: :simplefin_accounts },
@@ -46,8 +46,8 @@ class ProviderConnectionHealth
       id: item.id,
       provider: provider[:key],
       provider_type: provider[:type],
-      name: item.name,
-      status: item.status,
+      name: item_value(:name, provider[:key].humanize),
+      status: item_value(:status),
       requires_update: item_boolean(:requires_update?),
       credentials_configured: credentials_configured?,
       scheduled_for_deletion: item_boolean(:scheduled_for_deletion?),
@@ -74,7 +74,7 @@ class ProviderConnectionHealth
 
     def institution_payload
       {
-        name: item_value(:institution_display_name, item.name),
+        name: item_value(:institution_display_name, item_value(:name, provider[:key].humanize)),
         domain: item_value(:institution_domain),
         url: item_value(:institution_url)
       }

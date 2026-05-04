@@ -2,7 +2,7 @@
 
 require "test_helper"
 
-class ProviderConnectionHealthTest < ActiveSupport::TestCase
+class ProviderConnectionStatusTest < ActiveSupport::TestCase
   test "provider registry covers syncable family provider item associations" do
     syncable_provider_item_associations = Family.reflect_on_all_associations(:has_many).filter_map do |association|
       next unless association.name.to_s.end_with?("_items")
@@ -11,7 +11,7 @@ class ProviderConnectionHealthTest < ActiveSupport::TestCase
       association.name
     end
 
-    registered_associations = ProviderConnectionHealth::PROVIDERS.map { |provider| provider[:association] }
+    registered_associations = ProviderConnectionStatus::PROVIDERS.map { |provider| provider[:association] }
 
     assert_equal syncable_provider_item_associations.sort, registered_associations.sort
   end

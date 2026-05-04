@@ -27,13 +27,13 @@ RSpec.describe "Api::V1::ProviderConnections", type: :request do
   let(:'X-Api-Key') { api_key.plain_key }
 
   path "/api/v1/provider_connections" do
-    get "Lists provider connection health" do
-      description "List safe provider connection health metadata for the authenticated user's family without exposing credentials, raw provider payloads, or raw sync errors."
+    get "Lists provider connection status summaries" do
+      description "List safe provider connection status metadata for the authenticated user's family without exposing credentials, raw provider payloads, or raw sync errors."
       tags "Provider Connections"
       security [ { apiKeyAuth: [] } ]
       produces "application/json"
 
-      response "200", "provider connection health listed" do
+      response "200", "provider connection status summaries listed" do
         schema "$ref" => "#/components/schemas/ProviderConnectionCollection"
         run_test!
       end

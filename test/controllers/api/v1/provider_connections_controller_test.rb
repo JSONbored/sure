@@ -31,7 +31,7 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     redis.del("api_rate_limit:#{@read_write_key.id}")
   end
 
-  test "lists provider connection health for current family" do
+  test "lists provider connection status for current family" do
     failed_sync = @mercury_item.syncs.create!(
       status: "failed",
       failed_at: Time.current,
@@ -51,7 +51,10 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     assert_equal "MercuryItem", mercury_connection["provider_type"]
     assert_equal @mercury_item.name, mercury_connection["name"]
     assert_equal @mercury_item.status, mercury_connection["status"]
+    assert_includes [ true, false ], mercury_connection["requires_update"]
     assert_equal true, mercury_connection["credentials_configured"]
+    assert_includes [ true, false ], mercury_connection["scheduled_for_deletion"]
+    assert_includes [ true, false ], mercury_connection["pending_account_setup"]
     assert_equal @mercury_item.mercury_accounts.count, mercury_connection["accounts"]["total_count"]
     assert_equal failed_sync.id, mercury_connection["sync"]["latest"]["id"]
     assert_equal true, mercury_connection["sync"]["latest"]["error"]["present"]
@@ -100,7 +103,10 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     end
 
     assert_not_nil plaid_connection
+    assert_includes [ true, false ], plaid_connection["requires_update"]
     assert_equal false, plaid_connection["credentials_configured"]
+    assert_includes [ true, false ], plaid_connection["scheduled_for_deletion"]
+    assert_includes [ true, false ], plaid_connection["pending_account_setup"]
   end
 
   test "excludes another family's provider connections" do
@@ -113,13 +119,13 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     assert_not_includes ids, other_item.id
   end
 
-  test "read_write key can list provider connection health" do
+  test "read_write key can list provider connection status" do
     get api_v1_provider_connections_url, headers: api_headers(@read_write_key)
     assert_response :success
   end
 
   test "returns an empty list when no provider connections exist" do
-    ProviderConnectionHealth.stub(:for_family, []) do
+    ProviderConnectionStatus.stub(:for_family, []) do
       get api_v1_provider_connections_url, headers: api_headers(@api_key)
     end
 
@@ -145,8 +151,8 @@ class Api::V1::ProviderConnectionsControllerTest < ActionDispatch::IntegrationTe
     assert_response :forbidden
   end
 
-  test "does not leak internal provider health errors" do
-    ProviderConnectionHealth.stub(:for_family, ->(_family) { raise StandardError, "secret provider failure" }) do
+  test "does not leak internal provider status errors" do
+    ProviderConnectionStatus.stub(:for_family, ->(_family) { raise StandardError, "secret provider failure" }) do
       get api_v1_provider_connections_url, headers: api_headers(@api_key)
     end
 

@@ -1378,14 +1378,19 @@ components:
         error:
           type: object
           nullable: true
+          description: Sanitized latest sync error summary. Null when the latest sync
+            has no error or stale state.
           required:
           - present
           - message
           properties:
             present:
               type: boolean
+              description: Always true when this object is present.
             message:
               type: string
+              description: Stable sanitized error category message; raw provider error
+                text is never exposed.
     ProviderConnectionSync:
       type: object
       required:
@@ -1436,12 +1441,16 @@ components:
           nullable: true
         requires_update:
           type: boolean
+          description: False when the provider item does not expose this status.
         credentials_configured:
           type: boolean
+          description: False when credential readiness is unknown.
         scheduled_for_deletion:
           type: boolean
+          description: False when the provider item does not expose this status.
         pending_account_setup:
           type: boolean
+          description: False when account setup state is unknown.
         institution:
           "$ref": "#/components/schemas/ProviderConnectionInstitution"
         accounts:
@@ -3321,8 +3330,8 @@ paths:
                 "$ref": "#/components/schemas/ErrorResponse"
   "/api/v1/provider_connections":
     get:
-      summary: Lists provider connection health
-      description: List safe provider connection health metadata for the authenticated
+      summary: Lists provider connection status summaries
+      description: List safe provider connection status metadata for the authenticated
         user's family without exposing credentials, raw provider payloads, or raw
         sync errors.
       tags:
@@ -3331,7 +3340,7 @@ paths:
       - apiKeyAuth: []
       responses:
         '200':
-          description: provider connection health listed
+          description: provider connection status summaries listed
           content:
             application/json:
               schema:
