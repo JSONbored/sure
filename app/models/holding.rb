@@ -21,7 +21,6 @@ class Holding < ApplicationRecord
   validates :qty, :currency, :date, :price, :amount, presence: true
   validates :qty, :price, :amount, numericality: { greater_than_or_equal_to: 0 }
   validates :external_id, uniqueness: { scope: :account_id }, allow_blank: true
-  validates :date, uniqueness: { scope: %i[account_id security_id currency] }
   validates :cost_basis_source, inclusion: { in: COST_BASIS_SOURCES }, allow_nil: true
 
   scope :chronological, -> { order(:date) }
