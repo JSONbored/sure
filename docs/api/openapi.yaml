@@ -3898,6 +3898,7 @@ paths:
       description: Security ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a security referenced by family investment data
       tags:
@@ -4016,6 +4017,7 @@ paths:
       description: Security price ID
       schema:
         type: string
+        format: uuid
     get:
       summary: Retrieve a security price referenced by family investment data
       tags:

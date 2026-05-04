@@ -34,12 +34,13 @@ RSpec.describe 'API V1 Securities', type: :request do
 
   let(:api_key_without_read_scope) do
     key = ApiKey.generate_secure_key
+    # Persist an invalid key shape intentionally so rswag can document 403.
     ApiKey.new(
       user: user,
       name: 'No Read Docs Key',
       key: key,
       display_key: key,
-      scopes: %w[write],
+      scopes: [],
       source: 'web'
     ).tap { |api_key| api_key.save!(validate: false) }
   end
@@ -132,7 +133,8 @@ RSpec.describe 'API V1 Securities', type: :request do
   end
 
   path '/api/v1/securities/{id}' do
-    parameter name: :id, in: :path, type: :string, required: true, description: 'Security ID'
+    parameter name: :id, in: :path, required: true, description: 'Security ID',
+              schema: { type: :string, format: :uuid }
 
     get 'Retrieve a security referenced by family investment data' do
       tags 'Securities'
