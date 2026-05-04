@@ -274,6 +274,29 @@ RSpec.configure do |config|
               pagination: { '$ref' => '#/components/schemas/Pagination' }
             }
           },
+          FamilySettings: {
+            type: :object,
+            required: %w[id currency locale date_format month_start_day moniker default_account_sharing custom_enabled_currencies enabled_currencies created_at updated_at],
+            properties: {
+              id: { type: :string, format: :uuid },
+              name: { type: :string, nullable: true },
+              currency: { type: :string },
+              locale: { type: :string },
+              date_format: { type: :string },
+              country: { type: :string, nullable: true },
+              timezone: { type: :string, nullable: true },
+              month_start_day: { type: :integer, minimum: 1, maximum: 28 },
+              moniker: { type: :string, enum: Family::MONIKERS },
+              default_account_sharing: { type: :string, enum: %w[shared private] },
+              custom_enabled_currencies: { type: :boolean },
+              enabled_currencies: {
+                type: :array,
+                items: { type: :string }
+              },
+              created_at: { type: :string, format: :'date-time' },
+              updated_at: { type: :string, format: :'date-time' }
+            }
+          },
           Category: {
             type: :object,
             required: %w[id name color icon],
@@ -422,6 +445,65 @@ RSpec.configure do |config|
               data: {
                 type: :array,
                 items: { '$ref' => '#/components/schemas/Rule' }
+              },
+              meta: {
+                type: :object,
+                required: %w[current_page total_pages total_count per_page],
+                properties: {
+                  current_page: { type: :integer },
+                  next_page: { type: :integer, nullable: true },
+                  prev_page: { type: :integer, nullable: true },
+                  total_pages: { type: :integer },
+                  total_count: { type: :integer },
+                  per_page: { type: :integer }
+                }
+              }
+            }
+          },
+          RuleRun: {
+            type: :object,
+            required: %w[id rule_id rule_name execution_type status transactions_queued transactions_processed transactions_modified pending_jobs_count executed_at rule created_at updated_at],
+            properties: {
+              id: { type: :string, format: :uuid },
+              rule_id: { type: :string, format: :uuid },
+              rule_name: { type: :string, nullable: true },
+              execution_type: { type: :string, enum: %w[manual scheduled] },
+              status: { type: :string, enum: %w[pending success failed] },
+              transactions_queued: { type: :integer, minimum: 0 },
+              transactions_processed: { type: :integer, minimum: 0 },
+              transactions_modified: { type: :integer, minimum: 0 },
+              pending_jobs_count: { type: :integer, minimum: 0 },
+              executed_at: { type: :string, format: :'date-time' },
+              error_message: { type: :string, nullable: true },
+              rule: {
+                type: :object,
+                nullable: true,
+                required: %w[id resource_type active],
+                properties: {
+                  id: { type: :string, format: :uuid },
+                  name: { type: :string, nullable: true },
+                  resource_type: { type: :string },
+                  active: { type: :boolean }
+                }
+              },
+              created_at: { type: :string, format: :'date-time' },
+              updated_at: { type: :string, format: :'date-time' }
+            }
+          },
+          RuleRunResponse: {
+            type: :object,
+            required: %w[data],
+            properties: {
+              data: { '$ref' => '#/components/schemas/RuleRun' }
+            }
+          },
+          RuleRunCollection: {
+            type: :object,
+            required: %w[data meta],
+            properties: {
+              data: {
+                type: :array,
+                items: { '$ref' => '#/components/schemas/RuleRun' }
               },
               meta: {
                 type: :object,
