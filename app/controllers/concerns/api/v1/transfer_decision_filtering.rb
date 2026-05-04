@@ -3,6 +3,8 @@
 module Api::V1::TransferDecisionFiltering
   extend ActiveSupport::Concern
 
+  InvalidFilterError = Class.new(StandardError)
+
   private
 
     def transfer_decision_scope(model_class)
@@ -65,8 +67,9 @@ module Api::V1::TransferDecisionFiltering
     end
 
     def accessible_transaction_ids_for_account(account_id)
-      accessible_transactions
-        .where(entries: { account_id: account_id })
+      Transaction
+        .joins(:entry)
+        .where(entries: { account_id: accessible_account_ids.where(id: account_id) })
         .select(:id)
     end
 
@@ -83,11 +86,7 @@ module Api::V1::TransferDecisionFiltering
       invalid_filter!("#{key} must be an ISO 8601 date")
     end
 
-    def valid_uuid?(value)
-      value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
-    end
-
     def invalid_filter!(message)
-      raise self.class::InvalidFilterError, message
+      raise InvalidFilterError, message
     end
 end

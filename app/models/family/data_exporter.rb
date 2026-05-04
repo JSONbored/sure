@@ -308,7 +308,7 @@ class Family::DataExporter
     end
 
     def family_transaction_ids
-      @family_transaction_ids ||= @family.transactions.joins(:entry).select(:id)
+      @family_transaction_ids ||= @family.transactions.select(:id)
     end
 
     def family_transfers

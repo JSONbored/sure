@@ -767,13 +767,14 @@ class Family::DataImporterTest < ActiveSupport::TestCase
 
     fallback_logs = []
 
-    Rails.logger.stub(:debug, ->(*args, &block) do
-      message = args.first || block&.call
+    Rails.logger.stubs(:debug).with do |*args|
+      message = args.first
       fallback_logs << message if message.to_s.include?("Unknown transfer status")
-    end) do
-      assert_difference("Transfer.count", 1) do
-        Family::DataImporter.new(@family, ndjson).import!
-      end
+      true
+    end
+
+    assert_difference("Transfer.count", 1) do
+      Family::DataImporter.new(@family, ndjson).import!
     end
 
     assert_equal [ 'Unknown transfer status "settled"; defaulting to pending' ], fallback_logs

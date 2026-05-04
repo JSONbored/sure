@@ -55,6 +55,20 @@ class Api::V1::RejectedTransfersControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response_data["rejected_transfers"].map { |transfer| transfer["id"] }, @other_rejected_transfer.id
   end
 
+  test "permits read write scope" do
+    read_write_key = ApiKey.create!(
+      user: @user,
+      name: "Test Read Write Key",
+      scopes: [ "read_write" ],
+      source: "mobile",
+      display_key: "test_read_write_#{SecureRandom.hex(8)}"
+    )
+
+    get api_v1_rejected_transfers_url, headers: api_headers(read_write_key)
+
+    assert_response :success
+  end
+
   test "shows a rejected transfer" do
     get api_v1_rejected_transfer_url(@rejected_transfer), headers: api_headers(@api_key)
 
@@ -124,6 +138,7 @@ class Api::V1::RejectedTransfersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "requires read scope" do
+    # ApiKey.create! rejects empty scopes; bypass validation to exercise runtime authorization.
     api_key_without_read = ApiKey.new(
       user: @user,
       name: "No Read Key",
@@ -154,6 +169,6 @@ class Api::V1::RejectedTransfersControllerTest < ActionDispatch::IntegrationTest
     end
 
     def api_headers(api_key)
-      { "X-Api-Key" => api_key.plain_key }
+      { "X-Api-Key" => api_key.display_key }
     end
 end
