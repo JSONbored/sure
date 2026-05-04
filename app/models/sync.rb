@@ -19,22 +19,6 @@ class Sync < ApplicationRecord
   scope :incomplete, -> { where("syncs.status IN (?)", %w[pending syncing]) }
   scope :visible, -> { incomplete.where("syncs.created_at > ?", VISIBLE_FOR.ago) }
 
-  SYNCABLE_ASSOCIATIONS = {
-    "Account" => :accounts,
-    "PlaidItem" => :plaid_items,
-    "SimplefinItem" => :simplefin_items,
-    "LunchflowItem" => :lunchflow_items,
-    "EnableBankingItem" => :enable_banking_items,
-    "CoinbaseItem" => :coinbase_items,
-    "BinanceItem" => :binance_items,
-    "CoinstatsItem" => :coinstats_items,
-    "SnaptradeItem" => :snaptrade_items,
-    "MercuryItem" => :mercury_items,
-    "SophtronItem" => :sophtron_items,
-    "IndexaCapitalItem" => :indexa_capital_items
-  }.freeze
-  private_constant :SYNCABLE_ASSOCIATIONS
-
   after_commit :update_family_sync_timestamp
 
   serialize :sync_stats, coder: JSON
@@ -76,28 +60,31 @@ class Sync < ApplicationRecord
 
     def for_family(family, resource_owner: nil)
       query = where(syncable_type: "Family", syncable_id: family.id)
+      query = query.or(where(syncable_type: "Account", syncable_id: account_syncable_ids(family, resource_owner)))
 
-      SYNCABLE_ASSOCIATIONS.each do |syncable_type, association_name|
-        ids = syncable_ids_for_family(family, syncable_type, association_name, resource_owner)
-        next unless ids
-
-        query = query.or(where(syncable_type: syncable_type, syncable_id: ids))
+      family_syncable_associations.each do |association|
+        query = query.or(
+          where(syncable_type: association.klass.name, syncable_id: family.public_send(association.name).select(:id))
+        )
       end
 
       query
     end
 
     private
-      def syncable_ids_for_family(family, syncable_type, association_name, resource_owner)
-        if syncable_type == "Account"
-          return (resource_owner ? resource_owner.accessible_accounts : family.accounts)
-            .where(family_id: family.id)
-            .select(:id)
+      def account_syncable_ids(family, resource_owner)
+        (resource_owner ? resource_owner.accessible_accounts : family.accounts)
+          .where(family_id: family.id)
+          .select(:id)
+      end
+
+      def family_syncable_associations
+        Family.reflect_on_all_associations(:has_many).select do |association|
+          association.name.to_s.end_with?("_items") &&
+            association.klass.included_modules.include?(Syncable)
+        rescue NameError
+          false
         end
-
-        return unless family.respond_to?(association_name)
-
-        family.public_send(association_name).select(:id)
       end
   end
 
@@ -114,7 +101,7 @@ class Sync < ApplicationRecord
     return if stale? && error.blank?
 
     {
-      present: error.present?,
+      present: true,
       message: stale? ? "Sync became stale before completion" : "Sync failed"
     }
   end

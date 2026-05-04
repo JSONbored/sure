@@ -214,6 +214,32 @@ class SyncTest < ActiveSupport::TestCase
     assert_equal [ newer_sync.id, older_sync.id ], ordered_ids
   end
 
+  test "for_family includes syncable provider item associations from family reflections" do
+    family = families(:dylan_family)
+    syncable_item_associations = Family.reflect_on_all_associations(:has_many).select do |association|
+      association.name.to_s.end_with?("_items") &&
+        association.klass.included_modules.include?(Syncable)
+    rescue NameError
+      false
+    end
+
+    syncs = syncable_item_associations.filter_map do |association|
+      syncable = family.public_send(association.name).first
+      next unless syncable
+
+      Sync.create!(syncable: syncable, status: :completed)
+    end
+
+    assert syncs.any?, "Expected syncable provider item fixtures for this family"
+    assert_equal syncs.map(&:id).sort, Sync.for_family(family).where(id: syncs.map(&:id)).pluck(:id).sort
+  end
+
+  test "api error payload is present for failed syncs without raw error text" do
+    sync = Sync.create!(syncable: accounts(:depository), status: :failed)
+
+    assert_equal({ present: true, message: "Sync failed" }, sync.api_error_payload)
+  end
+
   test "expand_window_if_needed widens start and end dates on a pending sync" do
     initial_start = 1.day.ago.to_date
     initial_end   = 1.day.ago.to_date

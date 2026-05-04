@@ -126,6 +126,21 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "provider token secret leaked"
   end
 
+  test "reports failed sync errors as present without raw error text" do
+    sync = Sync.create!(
+      syncable: @family,
+      status: "failed",
+      failed_at: Time.current,
+      error: nil
+    )
+
+    get api_v1_sync_url(sync), headers: api_headers(@read_only_api_key)
+    assert_response :success
+
+    assert_equal true, JSON.parse(response.body).dig("data", "error", "present")
+    assert_equal "Sync failed", JSON.parse(response.body).dig("data", "error", "message")
+  end
+
   test "omits stale sync error payload when no error is present" do
     sync = Sync.create!(
       syncable: @family,
