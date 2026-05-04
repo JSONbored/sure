@@ -35,7 +35,7 @@ module Api::V1::TransferDecisionFiltering
     end
 
     def accessible_account_ids
-      @accessible_account_ids ||= current_resource_owner.family.accounts.accessible_by(current_resource_owner).select(:id)
+      @accessible_account_ids ||= Current.family.accounts.accessible_by(Current.user).select(:id)
     end
 
     def apply_transfer_status_filter(query, status_model)
