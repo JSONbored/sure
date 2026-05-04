@@ -12,4 +12,14 @@ class MerchantTest < ActiveSupport::TestCase
   test "extract_domain salvages host from malformed URL paths" do
     assert_equal "example.com", Merchant.extract_domain("https://www.Example.com/%")
   end
+
+  test "brandfetch_logo_url_for encodes domain path segment" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client")
+    Setting.stubs(:brand_fetch_logo_size).returns(128)
+    Merchant.stubs(:extract_domain).returns("example.com/path")
+
+    logo_url = Merchant.brandfetch_logo_url_for("https://example.com/path")
+
+    assert_includes logo_url, "cdn.brandfetch.io/example.com%2Fpath/icon"
+  end
 end

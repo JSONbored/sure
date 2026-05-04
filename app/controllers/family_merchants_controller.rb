@@ -100,6 +100,7 @@ class FamilyMerchantsController < ApplicationController
 
   def merge
     @merchants = all_family_merchants
+    @default_merchant_color = FamilyMerchant.default_color
   end
 
   def bulk_websites
@@ -204,7 +205,7 @@ class FamilyMerchantsController < ApplicationController
       if permitted_params[:new_target_name].present?
         Current.family.merchants.create!(
           name: permitted_params[:new_target_name],
-          color: permitted_params[:new_target_color].presence || FamilyMerchant::COLORS.first,
+          color: permitted_params[:new_target_color].presence || FamilyMerchant.default_color,
           website_url: Merchant.extract_domain(permitted_params[:new_target_website_url])
         )
       else

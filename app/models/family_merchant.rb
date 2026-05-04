@@ -9,9 +9,13 @@ class FamilyMerchant < Merchant
   validates :color, presence: true
   validates :name, uniqueness: { scope: :family }
 
+  def self.default_color
+    COLORS.first
+  end
+
   private
     def set_default_color
-      self.color = COLORS.first if color.blank?
+      self.color = self.class.default_color if color.blank?
     end
 
     def should_generate_logo?
@@ -21,7 +25,7 @@ class FamilyMerchant < Merchant
     def generate_logo_url_from_website
       if website_url.present?
         self.logo_url = Merchant.brandfetch_logo_url_for(website_url)
-      elsif website_url.blank?
+      else
         self.logo_url = nil
       end
     end

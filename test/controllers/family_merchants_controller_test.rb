@@ -37,6 +37,13 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to family_merchants_path
   end
 
+  test "merge form uses configured default merchant color" do
+    get merge_family_merchants_path
+
+    assert_response :success
+    assert_includes response.body, FamilyMerchant.default_color
+  end
+
   test "enhance enqueues job and redirects" do
     assert_enqueued_with(job: EnhanceProviderMerchantsJob) do
       post enhance_family_merchants_path

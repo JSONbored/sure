@@ -45,10 +45,11 @@ en:
     merge:
       title: Merge merchants
       description: Select a target merchant and the merchants to merge into it. All transactions from merged merchants will be reassigned to the target.
+      target_mode_hint: "Choose one: either select an existing target or create a new one."
       target_label: Merge into (target)
       select_target: Select target merchant...
       new_target_label: Or create a new target merchant
-      new_target_hint: Leave these fields blank to merge into the selected target above.
+      new_target_hint: Leave these fields blank to merge into an existing target above.
       new_target_name: New merchant name
       new_target_website: New merchant website
       new_target_color: New merchant color
