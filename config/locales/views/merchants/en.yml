@@ -80,6 +80,7 @@ en:
       target_not_found: Target merchant not found
       invalid_merchants: Invalid merchants selected
       conflicting_target: Choose an existing target or create a new target, not both.
+      invalid_website: Enter a valid website domain for the new target merchant.
     provider_merchant:
       edit: Edit
       remove: Remove

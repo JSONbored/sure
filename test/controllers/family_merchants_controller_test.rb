@@ -118,6 +118,25 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "example.com", target.website_url
   end
 
+  test "merge rejects invalid new target merchant website" do
+    source = FamilyMerchant.create!(
+      family: @user.family,
+      name: "Invalid Website Source Merchant",
+      color: "#000000"
+    )
+
+    post perform_merge_family_merchants_path, params: {
+      new_target_name: "Invalid Website Target",
+      new_target_website_url: "https://bad host",
+      source_ids: [ source.id ]
+    }
+
+    assert_redirected_to merge_family_merchants_path
+    assert_equal I18n.t("family_merchants.perform_merge.invalid_website"), flash[:alert]
+    assert FamilyMerchant.exists?(source.id)
+    assert_nil FamilyMerchant.find_by(family: @user.family, name: "Invalid Website Target")
+  end
+
   test "merge rejects conflicting existing and new targets" do
     source = FamilyMerchant.create!(
       family: @user.family,

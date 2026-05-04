@@ -1,4 +1,6 @@
 class FamilyMerchantsController < ApplicationController
+  InvalidMerchantWebsite = Class.new(StandardError)
+
   before_action :set_merchant, only: %i[edit update destroy]
 
   def index
@@ -162,6 +164,8 @@ class FamilyMerchantsController < ApplicationController
     end
   rescue Merchant::Merger::UnauthorizedMerchantError => e
     redirect_to merge_family_merchants_path, alert: e.message
+  rescue InvalidMerchantWebsite
+    redirect_to merge_family_merchants_path, alert: t(".invalid_website")
   rescue ActiveRecord::RecordInvalid => e
     redirect_to merge_family_merchants_path, alert: e.record.errors.full_messages.to_sentence
   end
@@ -203,13 +207,21 @@ class FamilyMerchantsController < ApplicationController
 
     def merge_target_merchant(valid_merchants, permitted_params)
       if permitted_params[:new_target_name].present?
+        website_url = normalized_new_target_website_url(permitted_params)
+
         Current.family.merchants.create!(
           name: permitted_params[:new_target_name],
           color: permitted_params[:new_target_color].presence || FamilyMerchant.default_color,
-          website_url: Merchant.extract_domain(permitted_params[:new_target_website_url])
+          website_url: website_url
         )
       else
         valid_merchants.find_by(id: permitted_params[:target_id])
       end
+    end
+
+    def normalized_new_target_website_url(permitted_params)
+      return if permitted_params[:new_target_website_url].blank?
+
+      Merchant.extract_domain(permitted_params[:new_target_website_url]).presence || raise(InvalidMerchantWebsite)
     end
 end
