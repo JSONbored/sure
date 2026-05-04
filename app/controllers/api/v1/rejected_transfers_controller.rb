@@ -29,6 +29,8 @@ class Api::V1::RejectedTransfersController < Api::V1::BaseController
   private
 
     def set_rejected_transfer
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
+
       @rejected_transfer = rejected_transfers_scope.find(params[:id])
     end
 

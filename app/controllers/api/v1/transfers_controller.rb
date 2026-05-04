@@ -29,6 +29,8 @@ class Api::V1::TransfersController < Api::V1::BaseController
   private
 
     def set_transfer
+      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:id])
+
       @transfer = transfers_scope.find(params[:id])
     end
 

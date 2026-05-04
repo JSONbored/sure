@@ -66,9 +66,8 @@ class Family::DataExporter
 
         # Only export transactions from accounts belonging to this family
         # Exclude split parents (export children instead)
-        @family.transactions
+        exportable_transactions
           .includes(:category, :tags, entry: :account)
-          .merge(Entry.excluding_split_parents)
           .find_each do |transaction|
             csv << [
               transaction.entry.date.iso8601,
@@ -187,7 +186,7 @@ class Family::DataExporter
       end
 
       # Export transactions with full data (exclude split parents, export children instead)
-      @family.transactions.includes(:category, :merchant, :tags, entry: :account).merge(Entry.excluding_split_parents).find_each do |transaction|
+      exportable_transactions.includes(:category, :merchant, :tags, entry: :account).find_each do |transaction|
         lines << {
           type: "Transaction",
           data: {
@@ -307,8 +306,12 @@ class Family::DataExporter
       lines.join("\n")
     end
 
+    def exportable_transactions
+      @family.transactions.merge(Entry.excluding_split_parents)
+    end
+
     def family_transaction_ids
-      @family_transaction_ids ||= @family.transactions.select(:id)
+      @family_transaction_ids ||= exportable_transactions.select(:id)
     end
 
     def family_transfers

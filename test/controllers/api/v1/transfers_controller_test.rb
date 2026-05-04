@@ -92,6 +92,14 @@ class Api::V1::TransfersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "record_not_found", response_data["error"]
   end
 
+  test "returns not found for malformed transfer id" do
+    get api_v1_transfer_url("not-a-uuid"), headers: api_headers(@api_key)
+
+    assert_response :not_found
+    response_data = JSON.parse(response.body)
+    assert_equal "record_not_found", response_data["error"]
+  end
+
   test "filters transfers by status" do
     get api_v1_transfers_url, params: { status: "confirmed" }, headers: api_headers(@api_key)
 

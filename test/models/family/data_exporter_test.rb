@@ -427,6 +427,42 @@ class Family::DataExporterTest < ActiveSupport::TestCase
     end
   end
 
+  test "does not export transfer decisions for split parent transactions" do
+    destination_account = @family.accounts.create!(
+      name: "Split Transfer Savings",
+      accountable: Depository.new,
+      balance: 0,
+      currency: "USD"
+    )
+
+    split_parent_outflow = create_transaction_entry(@account, amount: 60, date: Date.parse("2024-01-25"), name: "Split transfer parent")
+    split_parent_outflow.split!([
+      { name: "Split transfer child", amount: 60, category_id: @category.id }
+    ])
+    transfer_inflow = create_transaction_entry(destination_account, amount: -60, date: Date.parse("2024-01-25"), name: "Split transfer inflow")
+    transfer = Transfer.create!(
+      outflow_transaction: split_parent_outflow.entryable,
+      inflow_transaction: transfer_inflow.entryable,
+      status: "confirmed"
+    )
+
+    zip_data = @exporter.generate_export
+
+    Zip::File.open_buffer(zip_data) do |zip|
+      ndjson_records = zip.read("all.ndjson").split("\n").map { |line| JSON.parse(line) }
+
+      transaction_ids = ndjson_records
+        .select { |record| record["type"] == "Transaction" }
+        .map { |record| record.dig("data", "id") }
+      transfer_ids = ndjson_records
+        .select { |record| record["type"] == "Transfer" }
+        .map { |record| record.dig("data", "id") }
+
+      assert_not_includes transaction_ids, split_parent_outflow.entryable.id
+      assert_not_includes transfer_ids, transfer.id
+    end
+  end
+
   test "only exports rules from the specified family" do
     # Create a rule for another family that should NOT be exported
     other_rule = @other_family.rules.build(
