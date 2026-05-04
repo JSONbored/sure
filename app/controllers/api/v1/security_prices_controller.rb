@@ -4,8 +4,6 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
   include Pagy::Backend
   include Api::V1::SecurityResourceFiltering
 
-  InvalidFilterError = Class.new(StandardError)
-
   before_action :ensure_read_scope
   before_action :set_security_price, only: :show
 
@@ -20,7 +18,7 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
     )
 
     render :index
-  rescue InvalidFilterError => e
+  rescue Api::V1::SecurityResourceFiltering::InvalidFilterError => e
     render_validation_error(e.message)
   end
 
@@ -48,7 +46,7 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
 
     def apply_filters(query)
       if params[:security_id].present?
-        raise InvalidFilterError, "security_id must be a valid UUID" unless valid_uuid?(params[:security_id])
+        invalid_filter!("security_id must be a valid UUID") unless valid_uuid?(params[:security_id])
 
         query = query.where(security_id: params[:security_id])
       end
@@ -57,8 +55,8 @@ class Api::V1::SecurityPricesController < Api::V1::BaseController
       query = query.where("security_prices.date >= ?", parse_date_param(:start_date)) if params[:start_date].present?
       query = query.where("security_prices.date <= ?", parse_date_param(:end_date)) if params[:end_date].present?
       if params.key?(:provisional)
-        provisional = parse_boolean_filter_param(:provisional, allow_blank: true)
-        query = query.where(provisional: provisional) unless provisional.nil?
+        provisional = parse_boolean_filter_param(:provisional)
+        query = query.where(provisional: provisional)
       end
       query
     end

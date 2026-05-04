@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 module Api::V1::SecurityResourceFiltering
+  class InvalidFilterError < StandardError; end
+
   BOOLEAN_FILTERS = {
     "true" => true,
     "1" => true,
@@ -30,44 +32,22 @@ module Api::V1::SecurityResourceFiltering
       @accessible_account_ids ||= current_resource_owner.family.accounts.visible.accessible_by(current_resource_owner).select(:id)
     end
 
-    def parse_boolean_filter_param(key, allow_blank: false)
+    def parse_boolean_filter_param(key)
       normalized_value = params[key].to_s.strip.downcase
 
-      return nil if allow_blank && normalized_value.blank?
-      raise invalid_filter!("#{key} must be true or false") if normalized_value.blank?
+      invalid_filter!("#{key} must be true or false") if normalized_value.blank?
       return BOOLEAN_FILTERS.fetch(normalized_value) if BOOLEAN_FILTERS.key?(normalized_value)
 
-      raise invalid_filter!("#{key} must be true or false")
+      invalid_filter!("#{key} must be true or false")
     end
 
     def parse_date_param(key)
       Date.iso8601(params[key].to_s)
     rescue ArgumentError
-      raise invalid_filter!("#{key} must be an ISO 8601 date")
-    end
-
-    def safe_page_param
-      page = params[:page].to_i
-      page > 0 ? page : 1
-    end
-
-    def safe_per_page_param
-      per_page = params[:per_page].to_i
-
-      return 25 if per_page < 1
-
-      [ per_page, 100 ].min
-    end
-
-    def render_validation_error(message)
-      render_json({
-        error: "validation_failed",
-        message: message,
-        errors: [ message ]
-      }, status: :unprocessable_entity)
+      invalid_filter!("#{key} must be an ISO 8601 date")
     end
 
     def invalid_filter!(message)
-      self.class::InvalidFilterError.new(message)
+      raise InvalidFilterError, message
     end
 end

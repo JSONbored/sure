@@ -108,7 +108,7 @@ RSpec.describe 'API V1 Security Prices', type: :request do
                 description: 'Filter prices until this date',
                 schema: { type: :string, format: :date }
       parameter name: :provisional, in: :query, required: false,
-                description: 'Filter by provisional price status (true or false)',
+                description: 'Filter by provisional price status. When supplied, must be true or false.',
                 schema: { type: :boolean }
 
       response '200', 'security prices listed' do

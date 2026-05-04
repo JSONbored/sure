@@ -4,8 +4,6 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
   include Pagy::Backend
   include Api::V1::SecurityResourceFiltering
 
-  InvalidFilterError = Class.new(StandardError)
-
   before_action :ensure_read_scope
   before_action :set_security, only: :show
 
@@ -20,7 +18,7 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
     )
 
     render :index
-  rescue InvalidFilterError => e
+  rescue Api::V1::SecurityResourceFiltering::InvalidFilterError => e
     render_validation_error(e.message)
   end
 
@@ -49,7 +47,7 @@ class Api::V1::SecuritiesController < Api::V1::BaseController
       query = query.where("LOWER(securities.ticker) = ?", params[:ticker].to_s.strip.downcase) if params[:ticker].present?
       query = query.where(exchange_operating_mic: params[:exchange_operating_mic].to_s.strip.upcase) if params[:exchange_operating_mic].present?
       if params[:kind].present?
-        raise InvalidFilterError, "kind must be one of: #{Security::KINDS.join(', ')}" unless Security::KINDS.include?(params[:kind])
+        invalid_filter!("kind must be one of: #{Security::KINDS.join(', ')}") unless Security::KINDS.include?(params[:kind])
 
         query = query.where(kind: params[:kind])
       end
