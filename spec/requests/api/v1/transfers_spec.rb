@@ -26,7 +26,7 @@ RSpec.describe 'API V1 Transfers', type: :request do
       user: user,
       name: 'API Docs Key',
       key: key,
-      scopes: %w[read],
+      scopes: %w[read_write],
       source: 'web'
     )
   end
@@ -81,8 +81,9 @@ RSpec.describe 'API V1 Transfers', type: :request do
                 description: 'Page number (default: 1)'
       parameter name: :per_page, in: :query, type: :integer, required: false,
                 description: 'Items per page (default: 25, max: 100)'
-      parameter name: :status, in: :query, type: :string, required: false,
-                enum: %w[pending confirmed], description: 'Filter by transfer status'
+      parameter name: :status, in: :query, required: false,
+                schema: { type: :string, enum: %w[pending confirmed] },
+                description: 'Filter by transfer status'
       parameter name: :account_id, in: :query, required: false,
                 schema: { type: :string, format: :uuid },
                 description: 'Filter transfers involving this account'
