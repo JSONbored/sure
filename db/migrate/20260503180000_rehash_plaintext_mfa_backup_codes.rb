@@ -6,7 +6,7 @@ class RehashPlaintextMfaBackupCodes < ActiveRecord::Migration[7.2]
   end
 
   BCRYPT_PREFIXES = %w[$2a$ $2b$ $2y$].freeze
-  PLAINTEXT_BACKUP_CODE_PATTERN = /\A[0-9a-f]{8}([0-9a-f]{8})?\z/
+  PLAINTEXT_BACKUP_CODE_PATTERN = /\A[0-9a-f]{8}\z/
 
   def up
     require "bcrypt"
