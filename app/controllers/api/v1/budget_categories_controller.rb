@@ -18,12 +18,6 @@ class Api::V1::BudgetCategoriesController < Api::V1::BaseController
     )
 
     render :index
-  rescue InvalidFilterError => e
-    render json: {
-      error: "validation_failed",
-      message: e.message,
-      errors: [ e.message ]
-    }, status: :unprocessable_entity
   end
 
   def show
