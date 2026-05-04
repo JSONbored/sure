@@ -255,10 +255,8 @@ class Import::Preflight
         }
       end
 
-      entity_counts = SureImport.dry_run_totals_from_ndjson(content)
-      unsupported_types = line_counts.keys - %w[
-        Account Category Tag Merchant Transaction Trade Valuation Budget BudgetCategory Rule
-      ]
+      entity_counts = SureImport.dry_run_totals_from_line_type_counts(line_counts)
+      unsupported_types = line_counts.keys - SureImport.importable_ndjson_types
       warnings = []
       warnings << "No importable records were found." if nonblank_rows_count.positive? && entity_counts.values.sum.zero?
       warnings << "Some records use unsupported types: #{unsupported_types.join(', ')}" if unsupported_types.any?
@@ -266,7 +264,7 @@ class Import::Preflight
 
       {
         type: "SureImport",
-        valid: errors.empty? && nonblank_rows_count.positive?,
+        valid: errors.empty?,
         content: content_payload(filename, content_type, content),
         stats: {
           rows_count: nonblank_rows_count,
@@ -297,19 +295,7 @@ class Import::Preflight
     def apply_import_defaults(import)
       return unless import.is_a?(MintImport)
 
-      import.assign_attributes(
-        signage_convention: "inflows_positive",
-        date_col_label: "Date",
-        date_format: "%m/%d/%Y",
-        name_col_label: "Description",
-        amount_col_label: "Amount",
-        currency_col_label: "Currency",
-        account_col_label: "Account Name",
-        category_col_label: "Category",
-        tags_col_label: "Labels",
-        notes_col_label: "Notes",
-        entity_type_col_label: "Transaction Type"
-      )
+      import.assign_attributes(MintImport.default_column_mappings)
     end
 
     def required_header_labels(import)
