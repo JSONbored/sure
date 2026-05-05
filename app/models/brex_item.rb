@@ -19,6 +19,8 @@ class BrexItem < ApplicationRecord
 
   validates :name, presence: true
   validates :token, presence: true, on: :create
+  validate :base_url_must_be_official_brex_url
+  before_validation :normalize_base_url
 
   belongs_to :family
   has_one_attached :logo, dependent: :purge_later
@@ -154,6 +156,26 @@ class BrexItem < ApplicationRecord
   end
 
   def effective_base_url
-    base_url.presence || "https://api.brex.com"
+    return Provider::Brex::DEFAULT_BASE_URL if base_url.blank?
+
+    Provider::Brex.normalize_base_url(base_url)
   end
+
+  private
+    def normalize_base_url
+      stripped = base_url.to_s.strip
+      if stripped.blank?
+        self.base_url = nil
+        return
+      end
+
+      normalized = Provider::Brex.normalize_base_url(stripped)
+      self.base_url = normalized if normalized.present?
+    end
+
+    def base_url_must_be_official_brex_url
+      return if base_url.blank? || Provider::Brex.allowed_base_url?(base_url)
+
+      errors.add(:base_url, :official_hosts_only)
+    end
 end

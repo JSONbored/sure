@@ -434,7 +434,7 @@ class BrexItemsController < ApplicationController
           locals: { error_message: @error_message }
         ), status: :unprocessable_entity
       else
-        render :new, status: :unprocessable_entity
+        redirect_to settings_providers_path, alert: @error_message, status: :see_other
       end
     end
   end
@@ -473,7 +473,7 @@ class BrexItemsController < ApplicationController
           locals: { error_message: @error_message }
         ), status: :unprocessable_entity
       else
-        render :edit, status: :unprocessable_entity
+        redirect_to settings_providers_path, alert: @error_message, status: :see_other
       end
     end
   end
@@ -604,7 +604,6 @@ class BrexItemsController < ApplicationController
           end
 
           selected_subtype = account_subtypes[brex_account_id]
-          selected_type = default_account_type_for_brex_account(brex_account) if selected_type == "skip" || selected_type.blank?
 
           # Default subtype for CreditCard since it only has one option
           selected_subtype = "credit_card" if selected_type == "CreditCard" && selected_subtype.blank?
@@ -635,13 +634,13 @@ class BrexItemsController < ApplicationController
       end
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
       Rails.logger.error("Brex account setup failed: #{e.class} - #{e.message}")
-      Rails.logger.error(e.backtrace.first(10).join("\n"))
+      Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
       flash[:alert] = t(".creation_failed", error: e.message)
       redirect_to accounts_path, status: :see_other
       return
     rescue StandardError => e
       Rails.logger.error("Brex account setup failed unexpectedly: #{e.class} - #{e.message}")
-      Rails.logger.error(e.backtrace.first(10).join("\n"))
+      Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
       flash[:alert] = t(".creation_failed", error: t(".unexpected_error"))
       redirect_to accounts_path, status: :see_other
       return
@@ -742,6 +741,8 @@ class BrexItemsController < ApplicationController
     end
 
     def filtered_available_accounts(accounts, accountable_type)
+      return [] unless Provider::BrexAdapter.supported_account_types.include?(accountable_type)
+
       accounts.select do |account|
         case accountable_type
         when "CreditCard"
@@ -749,7 +750,7 @@ class BrexItemsController < ApplicationController
         when "Depository"
           brex_account_kind(account) == "cash"
         else
-          Provider::BrexAdapter.supported_account_types.include?(accountable_type)
+          true
         end
       end
     end
@@ -875,7 +876,8 @@ class BrexItemsController < ApplicationController
 
         # Reject absolute URLs with schemes (http:, https:, javascript:, etc.)
         # Only allow relative paths
-        return nil if uri.scheme.present?
+        return nil if uri.scheme.present? || uri.host.present?
+        return nil if return_to.start_with?("//")
 
         # Ensure the path starts with / (is a relative path)
         return nil unless return_to.start_with?("/")

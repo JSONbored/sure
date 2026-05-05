@@ -127,3 +127,4 @@ logs/security/
 
 # Added by codex
 .codex
+.playwright-cli/

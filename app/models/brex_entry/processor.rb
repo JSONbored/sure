@@ -35,7 +35,7 @@ class BrexEntry::Processor
     raise StandardError.new("Failed to import transaction: #{e.message}")
   rescue => e
     Rails.logger.error "BrexEntry::Processor - Unexpected error processing transaction #{external_id}: #{e.class} - #{e.message}"
-    Rails.logger.error e.backtrace.join("\n")
+    Rails.logger.error Array(e.backtrace).join("\n")
     raise StandardError.new("Unexpected error importing transaction: #{e.message}")
   end
 
@@ -77,21 +77,22 @@ class BrexEntry::Processor
 
     def merchant
       merchant_name = merchant_payload[:raw_descriptor].presence || merchant_payload[:name].presence
-      return nil if merchant_name.blank?
+      return @merchant if instance_variable_defined?(:@merchant)
+      return @merchant = nil if merchant_name.blank?
 
       merchant_name = merchant_name.to_s.strip
-      return nil if merchant_name.blank?
+      return @merchant = nil if merchant_name.blank?
 
       merchant_id = Digest::MD5.hexdigest(merchant_name.downcase)
 
-      @merchant ||= import_adapter.find_or_create_merchant(
+      @merchant = import_adapter.find_or_create_merchant(
         provider_merchant_id: "brex_merchant_#{merchant_id}",
         name: merchant_name,
         source: "brex"
       )
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error "BrexEntry::Processor - Failed to create merchant '#{merchant_name}': #{e.message}"
-      nil
+      @merchant = nil
     end
 
     def merchant_payload

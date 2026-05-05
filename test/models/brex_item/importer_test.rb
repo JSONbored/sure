@@ -46,6 +46,44 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
     assert_equal "card", @brex_item.brex_accounts.find_by!(account_id: BrexAccount.card_account_id).account_kind
   end
 
+  test "counts only newly stored transactions as imported" do
+    @brex_account.update!(
+      raw_transactions_payload: [
+        {
+          id: "cash_tx_1",
+          amount: { amount: 12_34, currency: "USD" },
+          description: "Existing wire fee",
+          posted_at_date: "2026-01-02"
+        }
+      ]
+    )
+
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(accounts: [ cash_account_payload ])
+    provider.expects(:get_cash_transactions).with("cash_1", start_date: anything).returns(
+      transactions: [
+        {
+          id: "cash_tx_1",
+          amount: { amount: 12_34, currency: "USD" },
+          description: "Existing wire fee",
+          posted_at_date: "2026-01-02"
+        },
+        {
+          id: "cash_tx_2",
+          amount: { amount: 56_78, currency: "USD" },
+          description: "New wire fee",
+          posted_at_date: "2026-01-03"
+        }
+      ]
+    )
+
+    result = BrexItem::Importer.new(@brex_item, brex_provider: provider).import
+
+    assert result[:success]
+    assert_equal 1, result[:transactions_imported]
+    assert_equal [ "cash_tx_1", "cash_tx_2" ], @brex_account.reload.raw_transactions_payload.map { |tx| tx["id"] }
+  end
+
   test "marks item as requiring update on authorization errors" do
     provider = mock("brex_provider")
     provider.expects(:get_accounts).raises(

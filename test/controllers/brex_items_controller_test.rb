@@ -47,7 +47,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
       brex_item: {
         name: "Renamed Business Brex",
         token: "updated_second_token",
-        base_url: "https://staging.example.test"
+        base_url: "https://api-staging.brex.com"
       }
     }
 
@@ -55,7 +55,22 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     assert_equal existing_token, @existing_item.reload.token
     assert_equal "Renamed Business Brex", @second_item.reload.name
     assert_equal "updated_second_token", @second_item.token
-    assert_equal "https://staging.example.test", @second_item.base_url
+    assert_equal "https://api-staging.brex.com", @second_item.base_url
+  end
+
+  test "update rejects arbitrary brex base url" do
+    patch brex_item_url(@second_item), params: {
+      brex_item: {
+        name: "Renamed Business Brex",
+        token: "updated_second_token",
+        base_url: "https://evil.example.test"
+      }
+    }
+
+    assert_redirected_to settings_providers_path
+    assert_includes flash[:alert], "https://api.brex.com"
+    assert_equal "https://api.brex.com", @second_item.reload.base_url
+    assert_equal "second_brex_token", @second_item.token
   end
 
   test "blank token update preserves the selected brex token" do
@@ -82,7 +97,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
       brex_item: {
         name: "Renamed Business Brex",
         token: "updated_second_token",
-        base_url: "https://staging.example.test"
+        base_url: "https://api-staging.brex.com"
       }
     }
 
@@ -145,6 +160,19 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes @response.body, %(name="brex_item_id")
     assert_includes @response.body, %(value="#{@second_item.id}")
+  end
+
+  test "select accounts rejects protocol relative return paths" do
+    Rails.cache.expects(:read).with(brex_cache_key(@second_item)).returns(brex_accounts_payload)
+
+    get select_accounts_brex_items_url, params: {
+      brex_item_id: @second_item.id,
+      accountable_type: "Depository",
+      return_to: "//evil.example/accounts"
+    }
+
+    assert_response :success
+    refute_includes @response.body, "//evil.example/accounts"
   end
 
   test "select existing account renders the selected brex item id" do

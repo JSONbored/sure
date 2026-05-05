@@ -28,12 +28,43 @@ class BrexItemTest < ActiveSupport::TestCase
   end
 
   test "effective_base_url returns custom url when set" do
-    assert_equal "https://staging.example.test", @brex_item.effective_base_url
+    assert_equal "https://api-staging.brex.com", @brex_item.effective_base_url
   end
 
   test "effective_base_url returns default when base_url blank" do
     @brex_item.base_url = nil
     assert_equal "https://api.brex.com", @brex_item.effective_base_url
+  end
+
+  test "base_url accepts official Brex API roots" do
+    assert BrexItem.new(family: families(:empty), name: "Production", token: "token", base_url: "https://api.brex.com").valid?
+    assert BrexItem.new(family: families(:empty), name: "Staging", token: "token", base_url: "https://api-staging.brex.com").valid?
+  end
+
+  test "base_url normalizes official URL case and trailing slash" do
+    item = BrexItem.create!(
+      family: families(:empty),
+      name: "Normalized Brex",
+      token: "token",
+      base_url: " HTTPS://API.BREX.COM/ "
+    )
+
+    assert_equal "https://api.brex.com", item.base_url
+  end
+
+  test "base_url rejects non-Brex hosts and endpoint paths" do
+    [
+      "http://api.brex.com",
+      "https://evil.example.test",
+      "https://api.brex.com/v2",
+      "https://api.brex.com?token=leak",
+      "//api.brex.com"
+    ].each do |base_url|
+      item = BrexItem.new(family: families(:empty), name: "Invalid Brex", token: "token", base_url: base_url)
+
+      refute item.valid?, "Expected #{base_url.inspect} to be invalid"
+      assert_includes item.errors[:base_url], I18n.t("activerecord.errors.models.brex_item.attributes.base_url.official_hosts_only")
+    end
   end
 
   test "brex_provider returns Provider::Brex instance" do
@@ -47,13 +78,19 @@ class BrexItemTest < ActiveSupport::TestCase
     assert_nil @brex_item.brex_provider
   end
 
+  test "brex_provider returns nil when persisted base_url is not allowed" do
+    @brex_item.update_column(:base_url, "https://evil.example.test")
+
+    assert_nil @brex_item.reload.brex_provider
+  end
+
   test "family credential check ignores blank and scheduled for deletion items" do
     family = families(:empty)
     blank_item = BrexItem.create!(
       family: family,
       name: "Blank Brex",
       token: "temporary_token",
-      base_url: "https://staging.example.test"
+      base_url: "https://api-staging.brex.com"
     )
     blank_item.update_column(:token, "")
 
@@ -61,7 +98,7 @@ class BrexItemTest < ActiveSupport::TestCase
       family: family,
       name: "Whitespace Brex",
       token: "temporary_token",
-      base_url: "https://staging.example.test"
+      base_url: "https://api-staging.brex.com"
     )
     whitespace_item.update_column(:token, "   ")
 
@@ -69,7 +106,7 @@ class BrexItemTest < ActiveSupport::TestCase
       family: family,
       name: "Deleted Brex",
       token: "deleted_token",
-      base_url: "https://staging.example.test",
+      base_url: "https://api-staging.brex.com",
       scheduled_for_deletion: true
     )
 

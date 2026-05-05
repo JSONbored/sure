@@ -16,28 +16,21 @@
 
           <div class="space-y-2">
             <% @available_accounts.each do |account| %>
-              <% account_data = account.with_indifferent_access %>
-              <% account_kind = account_data[:account_kind].presence || account_data[:kind].presence || "cash" %>
-              <% account_name = account_kind.to_s == "card" ? account_data[:name].presence || "Brex Card" : account_data[:name].presence || "Brex Cash #{account_data[:id]}" %>
-              <% account_currency = BrexAccount.currency_code_from_money(account_data[:current_balance] || account_data[:available_balance] || account_data[:account_limit]) %>
-              <% has_blank_name = account_name.blank? %>
-              <label class="flex items-start gap-3 p-3 border <%= has_blank_name ? "border-error bg-error/5" : "border-primary" %> rounded-lg <%= has_blank_name ? "cursor-not-allowed opacity-60" : "hover:bg-subtle cursor-pointer" %> transition-colors">
-                <%= check_box_tag "account_ids[]", account_data[:id], false, disabled: has_blank_name, class: "mt-1" %>
+              <% account_display = brex_account_display(account) %>
+              <label class="flex items-start gap-3 p-3 border <%= account_display.blank_name? ? "border-error bg-error/5" : "border-primary" %> rounded-lg <%= account_display.blank_name? ? "cursor-not-allowed opacity-60" : "hover:bg-subtle cursor-pointer" %> transition-colors">
+                <%= check_box_tag "account_ids[]", account_display.id, false, disabled: account_display.blank_name?, class: "mt-1" %>
                 <div class="flex-1">
-                  <div class="font-medium text-sm <%= has_blank_name ? "text-error" : "text-primary" %>">
-                    <% if has_blank_name %>
+                  <div class="font-medium text-sm <%= account_display.blank_name? ? "text-error" : "text-primary" %>">
+                    <% if account_display.blank_name? %>
                       <%= t(".no_name_placeholder") %>
                     <% else %>
-                      <%= account_name %>
+                      <%= account_display.name %>
                     <% end %>
                   </div>
                   <div class="text-xs text-secondary mt-1">
-                    Brex • <%= account_currency %> • <%= account_kind.to_s.titleize %>
-                    <% if account_data[:status].present? %>
-                      • <%= account_data[:status].to_s.titleize %>
-                    <% end %>
+                    <%= brex_account_metadata(account_display) %>
                   </div>
-                  <% if has_blank_name %>
+                  <% if account_display.blank_name? %>
                     <div class="text-xs text-error mt-1">
                       <%= t(".configure_name_in_brex") %>
                     </div>
@@ -50,7 +43,7 @@
           <div class="flex gap-2 justify-end pt-4">
             <%= link_to t(".cancel"), @return_to || new_account_path,
                 class: "inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg text-primary button-bg-secondary hover:button-bg-secondary-hover",
-                data: { turbo_frame: "_top", action: "DS--dialog#close" } %>
+                data: { turbo_frame: "_top" } %>
             <%= submit_tag t(".link_accounts"),
                 class: "inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg text-inverse bg-inverse hover:bg-inverse-hover disabled:button-bg-disabled" %>
           </div>

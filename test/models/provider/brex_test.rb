@@ -2,7 +2,7 @@ require "test_helper"
 
 class Provider::BrexTest < ActiveSupport::TestCase
   def setup
-    @provider = Provider::Brex.new("test_token", base_url: "https://staging.example.test")
+    @provider = Provider::Brex.new("test_token", base_url: "https://api-staging.brex.com")
   end
 
   test "initializes with token and default base_url" do
@@ -13,7 +13,7 @@ class Provider::BrexTest < ActiveSupport::TestCase
 
   test "initializes with custom base_url" do
     assert_equal "test_token", @provider.token
-    assert_equal "https://staging.example.test", @provider.base_url
+    assert_equal "https://api-staging.brex.com", @provider.base_url
   end
 
   test "initializes with stripped token and removes trailing base url slash" do
@@ -21,6 +21,26 @@ class Provider::BrexTest < ActiveSupport::TestCase
 
     assert_equal "test_token", provider.token
     assert_equal "https://api.brex.com", provider.base_url
+  end
+
+  test "initializes with official staging base url" do
+    provider = Provider::Brex.new("test_token", base_url: "https://api-staging.brex.com/")
+
+    assert_equal "https://api-staging.brex.com", provider.base_url
+  end
+
+  test "rejects arbitrary base urls" do
+    [
+      "http://api.brex.com",
+      "https://evil.example.test",
+      "https://api.brex.com/v1",
+      "https://api.brex.com?host=evil.example.test",
+      "//api.brex.com"
+    ].each do |base_url|
+      assert_raises ArgumentError do
+        Provider::Brex.new("test_token", base_url: base_url)
+      end
+    end
   end
 
   test "BrexError includes error_type" do
@@ -115,6 +135,34 @@ class Provider::BrexTest < ActiveSupport::TestCase
     assert_equal 1, accounts_data[:accounts].first[:card_accounts_count]
   end
 
+  test "does not aggregate mixed currency card balances" do
+    cash_response = OpenStruct.new(
+      code: 200,
+      body: { items: [] }.to_json,
+      headers: {}
+    )
+    card_response = OpenStruct.new(
+      code: 200,
+      body: [
+        {
+          id: "card_account_1",
+          current_balance: { amount: 12_345, currency: "USD" }
+        },
+        {
+          id: "card_account_2",
+          current_balance: { amount: 6_789, currency: "EUR" }
+        }
+      ].to_json,
+      headers: {}
+    )
+
+    Provider::Brex.stubs(:get).returns(cash_response, card_response)
+
+    accounts_data = Provider::Brex.new("test_token").get_accounts
+
+    assert_nil accounts_data[:accounts].first[:current_balance]
+  end
+
   test "guards repeated pagination cursors" do
     first_response = OpenStruct.new(
       code: 200,
@@ -174,6 +222,14 @@ class Provider::BrexTest < ActiveSupport::TestCase
       .returns(response)
 
     Provider::Brex.new("test_token").get_primary_card_transactions(start_date: Date.new(2026, 1, 2))
+  end
+
+  test "raises clear error for invalid start date" do
+    error = assert_raises ArgumentError do
+      Provider::Brex.new("test_token").get_primary_card_transactions(start_date: "not-a-date")
+    end
+
+    assert_includes error.message, "Invalid start_date"
   end
 
   test "maps rate limits and exposes trace id without leaking body" do

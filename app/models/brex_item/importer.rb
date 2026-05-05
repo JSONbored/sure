@@ -48,7 +48,7 @@ class BrexItem::Importer
       nil
     rescue => e
       Rails.logger.error "BrexItem::Importer - Unexpected error fetching accounts: #{e.class} - #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      Rails.logger.error Array(e.backtrace).join("\n")
       nil
     end
 
@@ -144,9 +144,9 @@ class BrexItem::Importer
       end
 
       transactions = transactions_data[:transactions].to_a
-      store_new_transactions(brex_account, transactions)
+      created_count = store_new_transactions(brex_account, transactions)
 
-      { success: true, transactions_count: transactions.count }
+      { success: true, transactions_count: created_count }
     rescue Provider::Brex::BrexError => e
       mark_requires_update_if_credentials_error(e)
       Rails.logger.error "BrexItem::Importer - Brex API error for account #{brex_account.id}: #{e.message} trace_id=#{e.trace_id}"
@@ -156,12 +156,12 @@ class BrexItem::Importer
       { success: false, transactions_count: 0, error: "Failed to parse response" }
     rescue => e
       Rails.logger.error "BrexItem::Importer - Unexpected error fetching transactions for account #{brex_account.id}: #{e.class} - #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
+      Rails.logger.error Array(e.backtrace).join("\n")
       { success: false, transactions_count: 0, error: "Unexpected error: #{e.message}" }
     end
 
     def store_new_transactions(brex_account, transactions)
-      return if transactions.empty?
+      return 0 if transactions.empty?
 
       existing_transactions = brex_account.raw_transactions_payload.to_a
       existing_ids = existing_transactions.map { |tx| tx.with_indifferent_access[:id] }.to_set
@@ -171,9 +171,10 @@ class BrexItem::Importer
         tx_id.present? && !existing_ids.include?(tx_id)
       end
 
-      return if new_transactions.empty?
+      return 0 if new_transactions.empty?
 
       brex_account.upsert_brex_transactions_snapshot!(existing_transactions + new_transactions)
+      new_transactions.count
     end
 
     def determine_sync_start_date(brex_account)

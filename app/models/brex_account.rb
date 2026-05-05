@@ -116,7 +116,7 @@ class BrexAccount < ApplicationRecord
       account_status: snapshot[:status],
       account_type: snapshot[:type],
       provider: "brex",
-      institution_metadata: institution_metadata(snapshot, kind),
+      institution_metadata: build_institution_metadata(snapshot, kind),
       raw_payload: self.class.sanitize_payload(account_snapshot)
     )
   end
@@ -140,6 +140,7 @@ class BrexAccount < ApplicationRecord
         normalized_key.include?("secret") ||
         normalized_key.in?(%w[api_key access_key authorization cvc cvv security_code])
     end
+    private_class_method :sensitive_number_key?, :sensitive_secret_key?
 
     def brex_account_name(snapshot, kind)
       return snapshot[:name].presence || "Brex Card" if kind == "card"
@@ -147,7 +148,7 @@ class BrexAccount < ApplicationRecord
       snapshot[:name].presence || snapshot[:display_name].presence || "Brex Cash #{snapshot[:id]}"
     end
 
-    def institution_metadata(snapshot, kind)
+    def build_institution_metadata(snapshot, kind)
       {
         name: "Brex",
         domain: "brex.com",

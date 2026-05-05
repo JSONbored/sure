@@ -5,6 +5,8 @@ class Provider::Brex
   extend SslConfigurable
 
   DEFAULT_BASE_URL = "https://api.brex.com"
+  STAGING_BASE_URL = "https://api-staging.brex.com"
+  ALLOWED_BASE_URLS = [ DEFAULT_BASE_URL, STAGING_BASE_URL ].freeze
   DEFAULT_LIMIT = 1000
   MAX_PAGES = 250
 
@@ -15,8 +17,28 @@ class Provider::Brex
 
   def initialize(token, base_url: DEFAULT_BASE_URL)
     @token = token.to_s.strip
-    @base_url = base_url.to_s.presence || DEFAULT_BASE_URL
-    @base_url = @base_url.chomp("/")
+    @base_url = self.class.normalize_base_url(base_url)
+    raise ArgumentError, "Brex base URL must be blank or one of: #{ALLOWED_BASE_URLS.join(', ')}" unless @base_url.present?
+  end
+
+  def self.normalize_base_url(value)
+    stripped = value.to_s.strip
+    return DEFAULT_BASE_URL if stripped.blank?
+
+    uri = URI.parse(stripped)
+    return nil unless uri.is_a?(URI::HTTPS)
+    return nil if uri.userinfo.present?
+    return nil if uri.query.present? || uri.fragment.present?
+    return nil unless uri.path.blank? || uri.path == "/"
+
+    normalized = "#{uri.scheme.downcase}://#{uri.host.to_s.downcase}"
+    ALLOWED_BASE_URLS.include?(normalized) ? normalized : nil
+  rescue URI::InvalidURIError
+    nil
+  end
+
+  def self.allowed_base_url?(value)
+    normalize_base_url(value).present?
   end
 
   def get_accounts
@@ -80,7 +102,13 @@ class Provider::Brex
       normalized = money_values.compact
       return nil if normalized.empty?
 
-      currency = BrexAccount.currency_code_from_money(normalized.first)
+      currencies = normalized.map { |money| BrexAccount.currency_code_from_money(money) }.uniq
+      if currencies.many?
+        Rails.logger.warn "Brex API: Cannot aggregate card balances with mixed currencies: #{currencies.join(', ')}"
+        return nil
+      end
+
+      currency = currencies.first
       total = normalized.sum do |money|
         money.with_indifferent_access[:amount].to_i
       end
@@ -217,6 +245,8 @@ class Provider::Brex
         else
           Time.zone.parse(start_date.to_s)
         end
+
+      raise ArgumentError, "Invalid start_date: #{start_date.inspect}" if time.nil?
 
       time.utc.iso8601
     end

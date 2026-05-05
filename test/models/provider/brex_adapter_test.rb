@@ -150,4 +150,38 @@ class Provider::BrexAdapterTest < ActiveSupport::TestCase
 
     assert_nil Provider::BrexAdapter.build_provider(family: family, brex_item_id: blank_item.id)
   end
+
+  test "build_provider refuses explicit brex item with invalid persisted base_url" do
+    family = families(:dylan_family)
+    item = BrexItem.create!(
+      family: family,
+      name: "Invalid URL Brex",
+      token: "token",
+      base_url: "https://api.brex.com"
+    )
+    item.update_column(:base_url, "https://evil.example.test")
+
+    assert_nil Provider::BrexAdapter.build_provider(family: family, brex_item_id: item.id)
+  end
+
+  test "reads institution metadata from brex account column" do
+    brex_account = brex_items(:one).brex_accounts.create!(
+      account_id: "metadata_cash",
+      account_kind: "cash",
+      name: "Metadata Cash",
+      currency: "USD",
+      institution_metadata: {
+        "name" => "Brex",
+        "domain" => "brex.com",
+        "url" => "https://brex.com"
+      }
+    )
+
+    adapter = Provider::BrexAdapter.new(brex_account)
+
+    assert_equal "brex.com", brex_account.institution_metadata["domain"]
+    assert_equal "brex.com", adapter.institution_domain
+    assert_equal "Brex", adapter.institution_name
+    assert_equal "https://brex.com", adapter.institution_url
+  end
 end

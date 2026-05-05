@@ -27,8 +27,18 @@ class BrexAccount::Processor
 
     def process_account!
       account = brex_account.current_account
-      balance = brex_account.current_balance || 0
-      currency = parse_currency(brex_account.currency) || "USD"
+      balance = brex_account.current_balance
+      currency = parse_currency(brex_account.currency)
+
+      if balance.nil?
+        Rails.logger.warn "BrexAccount::Processor - current_balance is nil for brex_account #{brex_account.id}, defaulting to 0"
+        balance = 0
+      end
+
+      if currency.nil?
+        Rails.logger.warn "BrexAccount::Processor - currency parse failed for brex_account #{brex_account.id}: #{brex_account.currency.inspect}, defaulting to USD"
+        currency = "USD"
+      end
 
       account.update!(
         balance: balance,

@@ -1,8 +1,13 @@
 ---
 en:
   brex_items:
+    account_metadata:
+      provider: Brex
+      separator: " • "
     create:
       success: Brex connection created successfully
+    default_card_name: Brex Card
+    default_cash_name: "Brex Cash %{id}"
     destroy:
       success: Brex connection removed
     index:
@@ -64,7 +69,7 @@ en:
       accounts_link: Accounts
       add_connection: Add Brex connection
       base_url_label: Base URL (optional)
-      base_url_placeholder: https://api.brex.com (default)
+      base_url_placeholder: https://api.brex.com
       configured_html: "Configured and ready to use. Visit the %{accounts_link} tab to manage and set up accounts."
       connection_name_label: Connection name
       connection_name_placeholder: Business checking
@@ -77,7 +82,7 @@ en:
         sign_in_html: "Visit %{link} and log in to the account you want to connect"
       keep_token_placeholder: Leave blank to keep the current token
       not_configured: Not configured
-      sandbox_note_html: "Use a separate named connection for each Brex company/API token you want to sync. Leave Base URL blank for production, or enter a Brex-provided staging base URL if Brex grants one."
+      sandbox_note_html: "Use a separate named connection for each Brex company/API token you want to sync. Leave Base URL blank for production. Staging is limited to Brex-approved testing and does not work with customer tokens."
       setup_accounts: Set up accounts
       setup_title: "Setup instructions:"
       sync: Sync
@@ -130,6 +135,10 @@ en:
         open_settings_html: "Go to <strong>Settings > Providers</strong>"
         return_to_link: Return here to link your accounts
       title: Brex Setup Required
+    subtype_select:
+      placeholder:
+        subtype: Select subtype
+        type: Select type
     link_existing_account:
       account_already_linked: This account is already linked to a provider
       api_error: "API error: %{message}"

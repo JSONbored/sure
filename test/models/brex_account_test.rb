@@ -9,7 +9,7 @@ class BrexAccountTest < ActiveSupport::TestCase
       family: @family_a,
       name: "Family A Brex",
       token: "token_a",
-      base_url: "https://staging.example.test",
+      base_url: "https://api-staging.brex.com",
       status: "good"
     )
 
@@ -17,7 +17,7 @@ class BrexAccountTest < ActiveSupport::TestCase
       family: @family_b,
       name: "Family B Brex",
       token: "token_b",
-      base_url: "https://staging.example.test",
+      base_url: "https://api-staging.brex.com",
       status: "good"
     )
   end
@@ -49,7 +49,7 @@ class BrexAccountTest < ActiveSupport::TestCase
       family: @family_a,
       name: "Family A Second Brex",
       token: "token_a_2",
-      base_url: "https://staging.example.test",
+      base_url: "https://api-staging.brex.com",
       status: "good"
     )
 

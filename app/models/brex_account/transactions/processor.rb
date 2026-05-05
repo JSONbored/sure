@@ -30,24 +30,24 @@ class BrexAccount::Transactions::Processor
         if result.nil?
           # Transaction was skipped (e.g., no linked account)
           failed_count += 1
-          errors << { index: index, transaction_id: transaction_data[:id], error: "No linked account" }
+          errors << { index: index, transaction_id: transaction_id_for(transaction_data), error: "No linked account" }
         else
           imported_count += 1
         end
       rescue ArgumentError => e
         # Validation error - log and continue
         failed_count += 1
-        transaction_id = transaction_data.try(:[], :id) || transaction_data.try(:[], "id") || "unknown"
+        transaction_id = transaction_id_for(transaction_data)
         error_message = "Validation error: #{e.message}"
         Rails.logger.error "BrexAccount::Transactions::Processor - #{error_message} (transaction #{transaction_id})"
         errors << { index: index, transaction_id: transaction_id, error: error_message }
       rescue => e
         # Unexpected error - log with full context and continue
         failed_count += 1
-        transaction_id = transaction_data.try(:[], :id) || transaction_data.try(:[], "id") || "unknown"
+        transaction_id = transaction_id_for(transaction_data)
         error_message = "#{e.class}: #{e.message}"
         Rails.logger.error "BrexAccount::Transactions::Processor - Error processing transaction #{transaction_id}: #{error_message}"
-        Rails.logger.error e.backtrace.join("\n")
+        Rails.logger.error Array(e.backtrace).join("\n")
         errors << { index: index, transaction_id: transaction_id, error: error_message }
       end
     end
@@ -68,4 +68,10 @@ class BrexAccount::Transactions::Processor
 
     result
   end
+
+  private
+
+    def transaction_id_for(transaction_data)
+      transaction_data.try(:[], :id) || transaction_data.try(:[], "id") || "unknown"
+    end
 end

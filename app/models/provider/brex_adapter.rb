@@ -33,9 +33,12 @@ class Provider::BrexAdapter < Provider::Base
     brex_item = resolve_brex_item(family, brex_item_id)
     return nil unless brex_item&.credentials_configured?
 
+    base_url = brex_item.effective_base_url
+    return nil unless base_url.present?
+
     Provider::Brex.new(
       brex_item.token.to_s.strip,
-      base_url: brex_item.effective_base_url
+      base_url: base_url
     )
   end
 
