@@ -838,10 +838,10 @@ RSpec.configure do |config|
                 type: :object,
                 nullable: true,
                 description: "Sanitized latest sync error summary. Null when the latest sync is not failed or stale.",
-                required: %w[present message],
+                required: %w[present],
                 properties: {
                   present: { type: :boolean, description: "Always true when this object is present." },
-                  message: { type: :string, description: "Stable sanitized error category message; raw provider error text is never exposed." }
+                  message: { type: :string, nullable: true, description: "Stable sanitized error category message; raw provider error text is never exposed." }
                 }
               }
             }
@@ -868,10 +868,10 @@ RSpec.configure do |config|
               provider_type: { type: :string },
               name: { type: :string },
               status: { type: :string, nullable: true },
-              requires_update: { type: :boolean, description: "False when the provider item does not expose this status." },
-              credentials_configured: { type: :boolean, description: "False when credential readiness is unknown." },
-              scheduled_for_deletion: { type: :boolean, description: "False when the provider item does not expose this status." },
-              pending_account_setup: { type: :boolean, description: "False when account setup state is unknown." },
+              requires_update: { type: :boolean, nullable: true, description: "False when the provider item does not expose this status." },
+              credentials_configured: { type: :boolean, nullable: true, description: "False when credential readiness is unknown." },
+              scheduled_for_deletion: { type: :boolean, nullable: true, description: "False when the provider item does not expose this status." },
+              pending_account_setup: { type: :boolean, nullable: true, description: "False when account setup state is unknown." },
               institution: { '$ref' => '#/components/schemas/ProviderConnectionInstitution' },
               accounts: { '$ref' => '#/components/schemas/ProviderConnectionAccounts' },
               sync: { '$ref' => '#/components/schemas/ProviderConnectionSync' },

@@ -114,14 +114,16 @@ class ProviderConnectionStatus
     end
 
     def accounts_payload
-      total = provider_account_count
-      linked = linked_account_count
+      @accounts_payload ||= begin
+        total = provider_account_count
+        linked = linked_account_count
 
-      {
-        total_count: total,
-        linked_count: linked,
-        unlinked_count: [ total - linked, 0 ].max
-      }
+        {
+          total_count: total,
+          linked_count: linked,
+          unlinked_count: [ total - linked, 0 ].max
+        }
+      end
     end
 
     def provider_account_count
@@ -143,10 +145,26 @@ class ProviderConnectionStatus
     def sync_payload
       {
         syncing: syncing?,
-        status_summary: item_value(:sync_status_summary),
+        status_summary: sync_status_summary,
         last_synced_at: latest_completed_sync&.completed_at,
         latest: latest_sync_payload(latest_sync)
       }
+    end
+
+    def sync_status_summary
+      stats = latest_sync_stats
+      counts = accounts_payload
+      total = stats.fetch("total_accounts", counts[:total_count]).to_i
+      linked = stats.fetch("linked_accounts", counts[:linked_count]).to_i
+      unlinked = stats.fetch("unlinked_accounts", [ total - linked, 0 ].max).to_i
+
+      if total.zero?
+        "No accounts found"
+      elsif unlinked.zero?
+        "#{linked} #{'account'.pluralize(linked)} synced"
+      else
+        "#{linked} synced, #{unlinked} need setup"
+      end
     end
 
     def syncing?
@@ -161,6 +179,17 @@ class ProviderConnectionStatus
 
     def latest_completed_sync
       sync_context[:latest_completed_sync]
+    end
+
+    def latest_sync_stats
+      stats = latest_sync&.sync_stats
+      return stats.stringify_keys if stats.is_a?(Hash)
+      return {} unless stats.is_a?(String)
+
+      parsed = JSON.parse(stats)
+      parsed.is_a?(Hash) ? parsed.stringify_keys : {}
+    rescue JSON::ParserError
+      {}
     end
 
     def latest_sync_payload(sync)
