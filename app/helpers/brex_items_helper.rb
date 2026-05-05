@@ -15,8 +15,8 @@ module BrexItemsHelper
 
   def brex_account_display(account)
     data = account.with_indifferent_access
-    kind = normalized_brex_account_kind(data)
-    name = brex_account_display_name(data, kind)
+    kind = BrexAccount.kind_for(data)
+    name = BrexAccount.name_for(data)
 
     BrexAccountDisplay.new(
       id: data[:id],
@@ -52,17 +52,4 @@ module BrexItemsHelper
       "checking"
     end
   end
-
-  private
-
-    def normalized_brex_account_kind(data)
-      kind = data[:account_kind].presence || data[:kind].presence || "cash"
-      kind.to_s == "credit_card" ? "card" : kind.to_s
-    end
-
-    def brex_account_display_name(data, kind)
-      return data[:name].presence || t("brex_items.default_card_name") if kind == "card"
-
-      data[:name].presence || data[:display_name].presence || t("brex_items.default_cash_name", id: data[:id])
-    end
 end

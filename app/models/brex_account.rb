@@ -24,6 +24,45 @@ class BrexAccount < ApplicationRecord
     CARD_PRIMARY_ACCOUNT_ID
   end
 
+  def self.kind_for(account_data)
+    return account_data.account_kind if account_data.respond_to?(:account_kind)
+
+    data = account_data.with_indifferent_access
+    kind = data[:account_kind].presence || data[:kind].presence || "cash"
+    kind.to_s == "credit_card" ? "card" : kind.to_s
+  end
+
+  def self.name_for(account_data)
+    data = account_data.with_indifferent_access
+    kind = kind_for(data)
+
+    if kind == "card"
+      data[:name].presence || I18n.t("brex_items.default_card_name", default: "Brex Card")
+    else
+      data[:name].presence || data[:display_name].presence || I18n.t("brex_items.default_cash_name", id: data[:id], default: "Brex Cash #{data[:id]}")
+    end
+  end
+
+  def self.currency_for(account_data)
+    data = account_data.with_indifferent_access
+    currency_code_from_money(data[:current_balance] || data[:available_balance] || data[:account_limit])
+  end
+
+  def self.default_account_type_for(account_data)
+    kind_for(account_data) == "card" ? "CreditCard" : "Depository"
+  end
+
+  def self.default_accountable_attributes(accountable_type)
+    case accountable_type
+    when "CreditCard"
+      { subtype: "credit_card" }
+    when "Depository"
+      { subtype: "checking" }
+    else
+      {}
+    end
+  end
+
   def self.money_to_decimal(money_payload)
     return nil if money_payload.blank?
 
@@ -110,7 +149,7 @@ class BrexAccount < ApplicationRecord
       available_balance: self.class.money_to_decimal(snapshot[:available_balance]),
       account_limit: self.class.money_to_decimal(snapshot[:account_limit]),
       currency: self.class.currency_code_from_money(snapshot[:current_balance] || snapshot[:available_balance] || snapshot[:account_limit]),
-      name: brex_account_name(snapshot, kind),
+      name: self.class.name_for(snapshot.merge(account_kind: kind)),
       account_id: snapshot[:id]&.to_s,
       account_kind: kind,
       account_status: snapshot[:status],
@@ -141,12 +180,6 @@ class BrexAccount < ApplicationRecord
         normalized_key.in?(%w[api_key access_key authorization cvc cvv security_code])
     end
     private_class_method :sensitive_number_key?, :sensitive_secret_key?
-
-    def brex_account_name(snapshot, kind)
-      return snapshot[:name].presence || "Brex Card" if kind == "card"
-
-      snapshot[:name].presence || snapshot[:display_name].presence || "Brex Cash #{snapshot[:id]}"
-    end
 
     def build_institution_metadata(snapshot, kind)
       {

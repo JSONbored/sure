@@ -72,7 +72,7 @@ class BrexItem::Importer
       accounts.each do |account_data|
         snapshot = account_data.with_indifferent_access
         account_id = snapshot[:id].to_s
-        account_name = brex_account_name(snapshot)
+        account_name = BrexAccount.name_for(snapshot)
         next if account_id.blank? || account_name.blank?
 
         if linked_account_ids.include?(account_id)
@@ -100,7 +100,7 @@ class BrexItem::Importer
       raise ArgumentError, "Account ID is required" if account_id.blank?
 
       brex_account = brex_item.brex_accounts.find_or_initialize_by(account_id: account_id)
-      brex_account.name ||= brex_account_name(account_data)
+      brex_account.name ||= BrexAccount.name_for(account_data)
       brex_account.currency ||= BrexAccount.currency_code_from_money(account_data[:current_balance] || account_data[:available_balance] || account_data[:account_limit])
       brex_account.upsert_brex_snapshot!(account_data)
       brex_account
@@ -184,12 +184,6 @@ class BrexItem::Importer
         account_baseline = brex_account.created_at || Time.current
         [ account_baseline - 7.days, 90.days.ago ].max
       end
-    end
-
-    def brex_account_name(account_data)
-      return "Brex Card" if account_data[:account_kind].to_s == "card"
-
-      account_data[:name].presence || "Brex Cash #{account_data[:id]}"
     end
 
     def mark_requires_update_if_credentials_error(error)
