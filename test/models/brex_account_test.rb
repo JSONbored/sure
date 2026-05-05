@@ -138,15 +138,15 @@ class BrexAccountTest < ActiveSupport::TestCase
         name: "Operating",
         account_kind: "cash",
         current_balance: { amount: 100, currency: "USD" },
-        account_number: "123456789012",
-        routing_number: "021000021",
-        token: "secret"
+        account_number: "account-last4-9012",
+        routing_number: "routing-last4-0021",
+        token: "test-token-placeholder"
       }
     )
 
     payload = brex_account.raw_payload
-    refute_includes payload.values.compact.map(&:to_s).join(" "), "123456789012"
-    refute_includes payload.values.compact.map(&:to_s).join(" "), "021000021"
+    refute_includes payload.values.compact.map(&:to_s).join(" "), "account-last4-9012"
+    refute_includes payload.values.compact.map(&:to_s).join(" "), "routing-last4-0021"
     assert_equal "9012", payload["account_number_last4"]
     assert_equal "0021", payload["routing_number_last4"]
     assert_equal "[FILTERED]", payload["token"]
@@ -158,15 +158,15 @@ class BrexAccountTest < ActiveSupport::TestCase
         id: "tx_1",
         card_metadata: {
           card_id: "card_1",
-          pan: "4111111111111111",
-          secret_note: "private",
+          pan: "test-pan-placeholder",
+          private_note: "private",
           last_four: "1111"
         }
       }
     )
 
     assert_equal({ "card_id" => "card_1", "last_four" => "1111" }, sanitized["card_metadata"])
-    refute_includes sanitized.to_s, "4111111111111111"
+    refute_includes sanitized.to_s, "test-pan-placeholder"
     refute_includes sanitized.to_s, "private"
   end
 end

@@ -106,8 +106,8 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
         status: "ACTIVE",
         current_balance: { amount: 120_000, currency: "USD" },
         available_balance: { amount: 110_000, currency: "USD" },
-        account_number: "123456789012",
-        routing_number: "021000021"
+        account_number: "account-last4-9012",
+        routing_number: "routing-last4-0021"
       }
     end
 
@@ -124,7 +124,7 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
           {
             id: "card_account_1",
             card_metadata: {
-              pan: "4111111111111111"
+              pan: "test-pan-placeholder"
             }
           }
         ]

@@ -57,7 +57,7 @@ class BrexItemTest < ActiveSupport::TestCase
       "http://api.brex.com",
       "https://evil.example.test",
       "https://api.brex.com/v2",
-      "https://api.brex.com?token=leak",
+      "https://api.brex.com?debug=true",
       "//api.brex.com"
     ].each do |base_url|
       item = BrexItem.new(family: families(:empty), name: "Invalid Brex", token: "token", base_url: base_url)

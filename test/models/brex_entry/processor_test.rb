@@ -80,7 +80,7 @@ class BrexEntry::ProcessorTest < ActiveSupport::TestCase
         merchant: {
           raw_descriptor: "STAPLES",
           card_metadata: {
-            pan: "4111111111111111"
+            pan: "test-pan-placeholder"
           }
         }
       }
