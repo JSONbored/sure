@@ -50,6 +50,20 @@ class Api::V1::BudgetsControllerTest < ActionDispatch::IntegrationTest
     assert response_data.key?("pagination")
     assert_includes response_data["budgets"].map { |budget| budget["id"] }, @budget.id
     assert_not_includes response_data["budgets"].map { |budget| budget["id"] }, @other_budget.id
+
+    budget_response = response_data["budgets"].find { |budget| budget["id"] == @budget.id }
+    %w[
+      actual_spending
+      actual_spending_cents
+      actual_income
+      actual_income_cents
+      available_to_spend
+      available_to_spend_cents
+      available_to_allocate
+      available_to_allocate_cents
+    ].each do |derived_field|
+      assert_not budget_response.key?(derived_field), "Expected budget index to omit #{derived_field}"
+    end
   end
 
   test "shows a budget" do
@@ -62,7 +76,10 @@ class Api::V1::BudgetsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "USD", response_data["currency"]
     assert_equal true, response_data["initialized"]
     assert_kind_of Integer, response_data["budgeted_spending_cents"]
+    assert_kind_of Integer, response_data["actual_spending_cents"]
+    assert_kind_of Integer, response_data["actual_income_cents"]
     assert_kind_of Integer, response_data["available_to_spend_cents"]
+    assert_kind_of Integer, response_data["available_to_allocate_cents"]
   end
 
   test "returns not found for another family's budget" do

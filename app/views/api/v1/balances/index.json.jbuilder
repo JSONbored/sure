@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-json.budgets @budgets do |budget|
-  json.partial! "budget", budget: budget, include_derived_amounts: false
+json.balances @balances do |balance|
+  json.partial! "balance", balance: balance
 end
 
 json.pagination do
