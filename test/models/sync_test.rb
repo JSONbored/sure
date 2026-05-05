@@ -237,7 +237,7 @@ class SyncTest < ActiveSupport::TestCase
   test "api error payload is present for failed syncs without raw error text" do
     sync = Sync.create!(syncable: accounts(:depository), status: :failed)
 
-    assert_equal({ present: true, message: "Sync failed" }, sync.api_error_payload)
+    assert_equal({ message: "Sync failed" }, sync.api_error_payload)
   end
 
   test "expand_window_if_needed widens start and end dates on a pending sync" do

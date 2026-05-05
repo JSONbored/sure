@@ -26,9 +26,21 @@ RSpec.describe "Api::V1::Syncs", type: :request do
       user: user,
       name: "API Docs Key",
       key: key,
+      display_key: key,
       scopes: %w[read_write],
       source: "web"
     )
+  end
+  let(:api_key_without_read_scope) do
+    key = ApiKey.generate_secure_key
+    ApiKey.new(
+      user: user,
+      name: "No Read Docs Key",
+      key: key,
+      display_key: key,
+      scopes: %w[write],
+      source: "web"
+    ).tap { |api_key| api_key.save!(validate: false) }
   end
   let(:'X-Api-Key') { api_key.plain_key }
   let(:sync) { Sync.create!(syncable: family, status: "completed", completed_at: 1.minute.ago) }
@@ -56,7 +68,7 @@ RSpec.describe "Api::V1::Syncs", type: :request do
       end
 
       response "403", "forbidden" do
-        before { api_key.update_column(:scopes, [ "write" ]) }
+        let(:'X-Api-Key') { api_key_without_read_scope.plain_key }
 
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
@@ -84,7 +96,7 @@ RSpec.describe "Api::V1::Syncs", type: :request do
       end
 
       response "403", "forbidden" do
-        before { api_key.update_column(:scopes, [ "write" ]) }
+        let(:'X-Api-Key') { api_key_without_read_scope.plain_key }
 
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!
@@ -113,7 +125,7 @@ RSpec.describe "Api::V1::Syncs", type: :request do
       end
 
       response "403", "forbidden" do
-        before { api_key.update_column(:scopes, [ "write" ]) }
+        let(:'X-Api-Key') { api_key_without_read_scope.plain_key }
 
         schema "$ref" => "#/components/schemas/ErrorResponse"
         run_test!

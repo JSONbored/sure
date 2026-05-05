@@ -121,7 +121,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     data = JSON.parse(response.body)["data"]
-    assert_equal true, data["error"]["present"]
+    assert data["error"].present?
     assert_equal "Sync failed", data["error"]["message"]
     refute_includes response.body, "provider token secret leaked"
   end
@@ -137,7 +137,7 @@ class Api::V1::SyncsControllerTest < ActionDispatch::IntegrationTest
     get api_v1_sync_url(sync), headers: api_headers(@read_only_api_key)
     assert_response :success
 
-    assert_equal true, JSON.parse(response.body).dig("data", "error", "present")
+    assert JSON.parse(response.body).dig("data", "error").present?
     assert_equal "Sync failed", JSON.parse(response.body).dig("data", "error", "message")
   end
 

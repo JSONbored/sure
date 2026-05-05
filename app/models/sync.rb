@@ -101,7 +101,6 @@ class Sync < ApplicationRecord
     return if stale? && error.blank?
 
     {
-      present: true,
       message: stale? ? "Sync became stale before completion" : "Sync failed"
     }
   end

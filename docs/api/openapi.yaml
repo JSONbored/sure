@@ -1634,11 +1634,8 @@ components:
     SyncErrorSummary:
       type: object
       required:
-      - present
       - message
       properties:
-        present:
-          type: boolean
         message:
           type: string
     SyncResource:
@@ -1702,8 +1699,9 @@ components:
           format: date-time
           nullable: true
         error:
-          "$ref": "#/components/schemas/SyncErrorSummary"
           nullable: true
+          allOf:
+          - "$ref": "#/components/schemas/SyncErrorSummary"
         created_at:
           type: string
           format: date-time
@@ -1716,8 +1714,9 @@ components:
       - data
       properties:
         data:
-          "$ref": "#/components/schemas/SyncResource"
           nullable: true
+          allOf:
+          - "$ref": "#/components/schemas/SyncResource"
     SyncCollection:
       type: object
       required:
