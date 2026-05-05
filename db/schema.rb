@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_05_03_180000) do
+ActiveRecord::Schema[7.2].define(version: 2026_05_05_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pgcrypto"
   enable_extension "plpgsql"
@@ -41,6 +41,43 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_03_180000) do
     t.index ["user_id", "include_in_finances"], name: "index_account_shares_on_user_id_and_include_in_finances"
     t.index ["user_id"], name: "index_account_shares_on_user_id"
     t.check_constraint "permission::text = ANY (ARRAY['full_control'::character varying::text, 'read_write'::character varying::text, 'read_only'::character varying::text])", name: "chk_account_shares_permission"
+  end
+
+  create_table "account_statements", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "family_id", null: false
+    t.uuid "account_id"
+    t.uuid "suggested_account_id"
+    t.string "filename", null: false
+    t.string "content_type", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum", null: false
+    t.string "source", default: "manual_upload", null: false
+    t.string "upload_status", default: "stored", null: false
+    t.string "institution_name_hint"
+    t.string "account_name_hint"
+    t.string "account_last4_hint"
+    t.date "period_start_on"
+    t.date "period_end_on"
+    t.decimal "opening_balance", precision: 19, scale: 4
+    t.decimal "closing_balance", precision: 19, scale: 4
+    t.string "currency"
+    t.decimal "parser_confidence", precision: 5, scale: 4
+    t.decimal "match_confidence", precision: 5, scale: 4
+    t.string "review_status", default: "unmatched", null: false
+    t.jsonb "sanitized_parser_output", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "period_start_on", "period_end_on"], name: "index_account_statements_on_account_period"
+    t.index ["account_id"], name: "index_account_statements_on_account_id"
+    t.index ["family_id", "checksum"], name: "index_account_statements_on_family_checksum", unique: true
+    t.index ["family_id", "review_status"], name: "index_account_statements_on_family_review_status"
+    t.index ["family_id"], name: "index_account_statements_on_family_id"
+    t.index ["suggested_account_id", "review_status"], name: "index_account_statements_on_suggested_account_review"
+    t.index ["suggested_account_id"], name: "index_account_statements_on_suggested_account_id"
+    t.check_constraint "byte_size >= 0", name: "chk_account_statements_byte_size_positive"
+    t.check_constraint "match_confidence IS NULL OR match_confidence >= 0::numeric AND match_confidence <= 1::numeric", name: "chk_account_statements_match_confidence"
+    t.check_constraint "parser_confidence IS NULL OR parser_confidence >= 0::numeric AND parser_confidence <= 1::numeric", name: "chk_account_statements_parser_confidence"
+    t.check_constraint "period_start_on IS NULL OR period_end_on IS NULL OR period_start_on <= period_end_on", name: "chk_account_statements_period_order"
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1656,6 +1693,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_03_180000) do
   add_foreign_key "account_providers", "accounts", on_delete: :cascade
   add_foreign_key "account_shares", "accounts"
   add_foreign_key "account_shares", "users"
+  add_foreign_key "account_statements", "accounts", column: "suggested_account_id", on_delete: :nullify
+  add_foreign_key "account_statements", "accounts", on_delete: :nullify
+  add_foreign_key "account_statements", "families"
   add_foreign_key "accounts", "families"
   add_foreign_key "accounts", "imports"
   add_foreign_key "accounts", "plaid_accounts"
