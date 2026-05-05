@@ -17,6 +17,7 @@ class AccountsController < ApplicationController
     @enable_banking_items = visible_provider_items(family.enable_banking_items.ordered.includes(:syncs))
     @coinstats_items = visible_provider_items(family.coinstats_items.ordered.includes(:coinstats_accounts, :accounts, :syncs))
     @mercury_items = visible_provider_items(family.mercury_items.ordered.includes(:syncs, :mercury_accounts))
+    @brex_items = visible_provider_items(family.brex_items.ordered.includes(:syncs, :brex_accounts))
     @coinbase_items = visible_provider_items(family.coinbase_items.ordered.includes(:coinbase_accounts, :accounts, :syncs))
     @snaptrade_items = visible_provider_items(family.snaptrade_items.ordered.includes(:syncs, :snaptrade_accounts))
     @indexa_capital_items = visible_provider_items(family.indexa_capital_items.ordered.includes(:syncs, :indexa_capital_accounts))
@@ -312,6 +313,13 @@ class AccountsController < ApplicationController
       @mercury_items.each do |item|
         latest_sync = item.syncs.ordered.first
         @mercury_sync_stats_map[item.id] = latest_sync&.sync_stats || {}
+      end
+
+      # Brex sync stats
+      @brex_sync_stats_map = {}
+      @brex_items.each do |item|
+        latest_sync = item.syncs.ordered.first
+        @brex_sync_stats_map[item.id] = latest_sync&.sync_stats || {}
       end
 
       # Coinbase sync stats
