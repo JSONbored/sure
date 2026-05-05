@@ -56,7 +56,7 @@ class BrexItemsController < ApplicationController
     rescue StandardError => e
       Rails.logger.error("Unexpected error preloading Brex accounts: #{e.class}: #{e.message}")
       # Unexpected error - keep button visible, show error when clicked
-      render json: { success: false, error: "unexpected_error", error_message: e.message, has_accounts: nil }
+      render json: { success: false, error: "unexpected_error", error_message: t("brex_items.errors.unexpected_error"), has_accounts: nil }
     end
   end
 
@@ -737,7 +737,7 @@ class BrexItemsController < ApplicationController
         t("brex_items.setup_accounts.api_error", message: e.message)
       rescue StandardError => e
         Rails.logger.error("Unexpected error fetching Brex accounts: #{e.class}: #{e.message}")
-        t("brex_items.setup_accounts.api_error", message: e.message)
+        t("brex_items.setup_accounts.api_error", message: t("brex_items.errors.unexpected_error"))
       end
     end
 

@@ -38,7 +38,9 @@ class Provider::Brex
   end
 
   def get_card_accounts
-    get_paginated("/v2/accounts/card").map { |account| account.with_indifferent_access.merge(account_kind: "card") }
+    response_payload = get_json("/v2/accounts/card")
+
+    extract_records(response_payload).map { |account| account.with_indifferent_access.merge(account_kind: "card") }
   end
 
   def get_cash_transactions(account_id, start_date: nil)
@@ -89,7 +91,7 @@ class Provider::Brex
     def posted_at_start_params(start_date)
       return {} if start_date.blank?
 
-      { posted_at_start: start_date.to_date.to_s }
+      { posted_at_start: rfc3339_start_date(start_date) }
     end
 
     def get_paginated(path, params: {})
@@ -152,6 +154,8 @@ class Provider::Brex
     end
 
     def extract_records(response_payload)
+      return response_payload if response_payload.is_a?(Array)
+
       payload = response_payload.with_indifferent_access
       payload[:items] ||
         payload[:data] ||
@@ -176,10 +180,10 @@ class Provider::Brex
         parse_json(response.body)
       when 400
         Rails.logger.error "Brex API: bad request for #{path} trace_id=#{trace_id}"
-        raise BrexError.new(safe_error_message(response.body, fallback: "Bad request to Brex API"), :bad_request, http_status: 400, trace_id: trace_id)
+        raise BrexError.new("Bad request to Brex API", :bad_request, http_status: 400, trace_id: trace_id)
       when 401
         Rails.logger.warn "Brex API: unauthorized for #{path} trace_id=#{trace_id}"
-        raise BrexError.new(safe_error_message(response.body, fallback: "Invalid Brex API token"), :unauthorized, http_status: 401, trace_id: trace_id)
+        raise BrexError.new("Invalid Brex API token or account permissions", :unauthorized, http_status: 401, trace_id: trace_id)
       when 403
         Rails.logger.warn "Brex API: access forbidden for #{path} trace_id=#{trace_id}"
         raise BrexError.new("Access forbidden - check Brex API token scopes", :access_forbidden, http_status: 403, trace_id: trace_id)
@@ -201,15 +205,20 @@ class Provider::Brex
       JSON.parse(body, symbolize_names: true)
     end
 
-    def safe_error_message(body, fallback:)
-      payload = parse_json(body)
-      payload = payload.with_indifferent_access
-      message = payload[:message].presence ||
-                payload.dig(:error, :message).presence ||
-                payload.dig(:errors, 0, :message).presence
-      message.presence || fallback
-    rescue JSON::ParserError
-      fallback
+    def rfc3339_start_date(start_date)
+      time =
+        case start_date
+        when Time
+          start_date
+        when DateTime
+          start_date.to_time
+        when Date
+          start_date.to_time(:utc)
+        else
+          Time.zone.parse(start_date.to_s)
+        end
+
+      time.utc.iso8601
     end
 
     def brex_trace_id(response)

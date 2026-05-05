@@ -22,6 +22,8 @@ en:
       service_label: "Service down:"
       settings_link: Check Provider Settings
       title: Brex Connection Error
+    errors:
+      unexpected_error: An unexpected error occurred. Please try again later.
     loading:
       loading_message: Loading Brex accounts...
       loading_title: Loading

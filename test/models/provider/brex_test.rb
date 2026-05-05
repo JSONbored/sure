@@ -59,6 +59,31 @@ class Provider::BrexTest < ActiveSupport::TestCase
     assert_equal "cash", accounts.first[:account_kind]
   end
 
+  test "fetches card accounts without pagination params because endpoint returns an array" do
+    response = OpenStruct.new(
+      code: 200,
+      body: [ { id: "card_account_1", status: "ACTIVE" } ].to_json,
+      headers: {}
+    )
+
+    Provider::Brex.expects(:get)
+      .with(
+        "https://api.brex.com/v2/accounts/card",
+        headers: {
+          "Authorization" => "Bearer test_token",
+          "Content-Type" => "application/json",
+          "Accept" => "application/json"
+        }
+      )
+      .returns(response)
+
+    accounts = Provider::Brex.new("test_token").get_card_accounts
+
+    assert_equal 1, accounts.length
+    assert_equal "card_account_1", accounts.first[:id]
+    assert_equal "card", accounts.first[:account_kind]
+  end
+
   test "aggregates card accounts into one provider account" do
     cash_response = OpenStruct.new(
       code: 200,
@@ -111,6 +136,46 @@ class Provider::BrexTest < ActiveSupport::TestCase
     assert_equal :pagination_error, error.error_type
   end
 
+  test "guards pagination page cap" do
+    responses = (1..251).map do |page|
+      OpenStruct.new(
+        code: 200,
+        body: { items: [ { id: "tx_#{page}" } ], next_cursor: "cursor_#{page}" }.to_json,
+        headers: {}
+      )
+    end
+
+    Provider::Brex.stubs(:get).returns(*responses)
+
+    error = assert_raises Provider::Brex::BrexError do
+      Provider::Brex.new("test_token").get_primary_card_transactions
+    end
+
+    assert_equal :pagination_error, error.error_type
+    assert_includes error.message, "exceeded"
+  end
+
+  test "sends posted_at_start as RFC3339 date time" do
+    response = OpenStruct.new(
+      code: 200,
+      body: { items: [] }.to_json,
+      headers: {}
+    )
+
+    Provider::Brex.expects(:get)
+      .with(
+        "https://api.brex.com/v2/transactions/card/primary?posted_at_start=2026-01-02T00%3A00%3A00Z&limit=1000",
+        headers: {
+          "Authorization" => "Bearer test_token",
+          "Content-Type" => "application/json",
+          "Accept" => "application/json"
+        }
+      )
+      .returns(response)
+
+    Provider::Brex.new("test_token").get_primary_card_transactions(start_date: Date.new(2026, 1, 2))
+  end
+
   test "maps rate limits and exposes trace id without leaking body" do
     response = OpenStruct.new(
       code: 429,
@@ -128,5 +193,35 @@ class Provider::BrexTest < ActiveSupport::TestCase
     assert_equal 429, error.http_status
     assert_equal "trace_123", error.trace_id
     refute_includes error.message, "secret raw provider body"
+  end
+
+  test "maps non-success responses without exposing provider body" do
+    expectations = {
+      400 => [ :bad_request, "Bad request to Brex API" ],
+      401 => [ :unauthorized, "Invalid Brex API token or account permissions" ],
+      403 => [ :access_forbidden, "Access forbidden - check Brex API token scopes" ],
+      404 => [ :not_found, "Brex resource not found" ],
+      500 => [ :fetch_failed, "Failed to fetch data from Brex API: HTTP 500" ]
+    }
+
+    expectations.each do |status, (error_type, message)|
+      response = OpenStruct.new(
+        code: status,
+        body: { message: "secret provider body #{status}" }.to_json,
+        headers: { "X-Brex-Trace-Id" => "trace_#{status}" }
+      )
+
+      Provider::Brex.stubs(:get).returns(response)
+
+      error = assert_raises Provider::Brex::BrexError do
+        Provider::Brex.new("test_token").get_cash_accounts
+      end
+
+      assert_equal error_type, error.error_type
+      assert_equal status, error.http_status
+      assert_equal "trace_#{status}", error.trace_id
+      assert_equal message, error.message
+      refute_includes error.message, "secret provider body"
+    end
   end
 end
