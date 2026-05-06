@@ -100,11 +100,11 @@ class BrexItem < ApplicationRecord
     unlinked_count = unlinked_accounts_count
 
     if total_accounts == 0
-      "No accounts found"
+      I18n.t("brex_items.sync_status.no_accounts")
     elsif unlinked_count == 0
-      "#{linked_count} #{'account'.pluralize(linked_count)} synced"
+      I18n.t("brex_items.sync_status.all_synced", count: linked_count)
     else
-      "#{linked_count} synced, #{unlinked_count} need setup"
+      I18n.t("brex_items.sync_status.partial_setup", synced: linked_count, pending: unlinked_count)
     end
   end
 
@@ -135,11 +135,14 @@ class BrexItem < ApplicationRecord
     institutions = connected_institutions
     case institutions.count
     when 0
-      "No institutions connected"
+      I18n.t("brex_items.institution_summary.none")
     when 1
-      institutions.first["name"] || institutions.first["institution_name"] || "1 institution"
+      name = institutions.first["name"] ||
+             institutions.first["institution_name"] ||
+             I18n.t("brex_items.institution_summary.count", count: 1)
+      I18n.t("brex_items.institution_summary.one", name: name)
     else
-      "#{institutions.count} institutions"
+      I18n.t("brex_items.institution_summary.count", count: institutions.count)
     end
   end
 

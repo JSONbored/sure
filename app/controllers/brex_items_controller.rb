@@ -52,7 +52,9 @@ class BrexItemsController < ApplicationController
   end
 
   def link_existing_account
-    account = Current.family.accounts.find(params[:account_id]) if params[:account_id].present?
+    return redirect_to accounts_path, alert: t(".no_account_specified") if params[:account_id].blank?
+
+    account = Current.family.accounts.find(params[:account_id])
     result = brex_account_flow.link_existing_account_result(
       account: account,
       brex_account_id: params[:brex_account_id]

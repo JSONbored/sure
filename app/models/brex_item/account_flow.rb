@@ -69,7 +69,7 @@ class BrexItem::AccountFlow
     return { success: false, error: "no_credentials", has_accounts: false } unless brex_item&.credentials_configured?
 
     cached_accounts = Rails.cache.read(cache_key)
-    return { success: true, has_accounts: cached_accounts.any?, cached: true } if cached_accounts.present?
+    return { success: true, has_accounts: cached_accounts.any?, cached: true } unless cached_accounts.nil?
 
     available_accounts = fetch_accounts
     Rails.cache.write(cache_key, available_accounts, expires_in: CACHE_TTL)
@@ -221,39 +221,41 @@ class BrexItem::AccountFlow
     invalid_account_ids = []
     accounts_by_id = indexed_accounts
 
-    account_ids.each do |account_id|
-      account_data = accounts_by_id[account_id.to_s]
-      next unless account_data
+    ActiveRecord::Base.transaction do
+      account_ids.each do |account_id|
+        account_data = accounts_by_id[account_id.to_s]
+        next unless account_data
 
-      account_name = BrexAccount.name_for(account_data)
+        account_name = BrexAccount.name_for(account_data)
 
-      if account_name.blank?
-        invalid_account_ids << account_id
-        Rails.logger.warn "BrexItem::AccountFlow - Skipping account #{account_id} with blank name"
-        next
+        if account_name.blank?
+          invalid_account_ids << account_id
+          Rails.logger.warn "BrexItem::AccountFlow - Skipping account #{account_id} with blank name"
+          next
+        end
+
+        brex_account = upsert_brex_account!(account_id, account_data)
+
+        if brex_account.account_provider.present?
+          already_linked_names << account_name
+          next
+        end
+
+        account = Account.create_and_sync(
+          {
+            family: family,
+            name: account_name,
+            balance: 0,
+            currency: BrexAccount.currency_for(account_data),
+            accountable_type: accountable_type,
+            accountable_attributes: BrexAccount.default_accountable_attributes(accountable_type)
+          },
+          skip_initial_sync: true
+        )
+
+        AccountProvider.create!(account: account, provider: brex_account)
+        created_accounts << account
       end
-
-      brex_account = upsert_brex_account!(account_id, account_data)
-
-      if brex_account.account_provider.present?
-        already_linked_names << account_name
-        next
-      end
-
-      account = Account.create_and_sync(
-        {
-          family: family,
-          name: account_name,
-          balance: 0,
-          currency: BrexAccount.currency_for(account_data),
-          accountable_type: accountable_type,
-          accountable_attributes: BrexAccount.default_accountable_attributes(accountable_type)
-        },
-        skip_initial_sync: true
-      )
-
-      AccountProvider.create!(account: account, provider: brex_account)
-      created_accounts << account
     end
 
     brex_item.sync_later if created_accounts.any?
@@ -575,7 +577,10 @@ class BrexItem::AccountFlow
     end
 
     def unlinked_available_accounts
-      linked_account_ids = brex_item.brex_accounts.joins(:account_provider).pluck(:account_id).map(&:to_s)
+      linked_account_ids = brex_item.brex_accounts
+                                   .joins(:account_provider)
+                                   .pluck("#{BrexAccount.table_name}.account_id")
+                                   .map(&:to_s)
       accounts.reject { |account| linked_account_ids.include?(account.with_indifferent_access[:id].to_s) }
     end
 

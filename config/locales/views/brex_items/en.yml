@@ -12,6 +12,18 @@ en:
       success: Brex connection removed
     index:
       title: Brex Connections
+    institution_summary:
+      none: No institutions connected
+      one: "%{name}"
+      count:
+        one: "%{count} institution"
+        other: "%{count} institutions"
+    sync_status:
+      no_accounts: No accounts found
+      all_synced:
+        one: "%{count} account synced"
+        other: "%{count} accounts synced"
+      partial_setup: "%{synced} synced, %{pending} need setup"
     api_error:
       common_issues: "Common issues:"
       expired_credentials: Generate a new API token from Brex.
@@ -149,6 +161,7 @@ en:
       brex_account_already_linked: This Brex account is already linked to another account
       brex_account_not_found: Brex account not found
       missing_parameters: Missing required parameters
+      no_account_specified: No account specified
       no_api_token: Brex API token not found. Please configure it in Provider Settings.
       select_connection: Choose a Brex connection before linking accounts.
       success: "Successfully linked %{account_name} with Brex"

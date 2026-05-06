@@ -12,8 +12,7 @@ module BrexItem::Unlinking
     results = []
 
     brex_accounts.find_each do |provider_account|
-      links = AccountProvider.where(provider_type: "BrexAccount", provider_id: provider_account.id).to_a
-      link_ids = links.map(&:id)
+      link_ids = AccountProvider.where(provider_type: "BrexAccount", provider_id: provider_account.id).ids
       result = {
         provider_account_id: provider_account.id,
         name: provider_account.name,
@@ -25,6 +24,10 @@ module BrexItem::Unlinking
 
       begin
         ActiveRecord::Base.transaction do
+          links = AccountProvider.where(provider_type: "BrexAccount", provider_id: provider_account.id).to_a
+          link_ids = links.map(&:id)
+          result[:provider_link_ids] = link_ids
+
           # Detach holdings for any provider links found
           if link_ids.any?
             Holding.where(account_provider_id: link_ids).update_all(account_provider_id: nil)

@@ -38,6 +38,19 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
     assert_nil payload[:has_accounts]
   end
 
+  test "preload payload treats cached empty accounts as a cache hit" do
+    cache_key = BrexItem::AccountFlow.cache_key(@family, @brex_item)
+    Rails.cache.expects(:read).with(cache_key).returns([])
+    Rails.cache.expects(:write).never
+    @brex_item.expects(:brex_provider).never
+
+    payload = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item).preload_payload
+
+    assert payload[:success]
+    assert_equal false, payload[:has_accounts]
+    assert_equal true, payload[:cached]
+  end
+
   test "link result returns navigation instead of raising expected selection errors" do
     BrexItem.create!(
       family: @family,
@@ -114,6 +127,30 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
     account = brex_account.reload.account
     assert_equal "Setup Cash", account.name
     assert_equal "checking", account.accountable.subtype
+  end
+
+  test "link new accounts rolls back account creation when provider link fails" do
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(
+      accounts: [
+        {
+          id: "rollback_cash_1",
+          name: "Rollback Cash",
+          account_kind: "cash",
+          current_balance: { amount: 12_345, currency: "USD" }
+        }
+      ]
+    )
+    @brex_item.expects(:brex_provider).returns(provider)
+    AccountProvider.expects(:create!).raises(ActiveRecord::RecordInvalid.new(AccountProvider.new))
+
+    flow = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item)
+
+    assert_no_difference [ "Account.count", "BrexAccount.count", "AccountProvider.count" ] do
+      assert_raises(ActiveRecord::RecordInvalid) do
+        flow.link_new_accounts!(account_ids: [ "rollback_cash_1" ], accountable_type: "Depository")
+      end
+    end
   end
 
   test "complete setup result returns localized notice" do

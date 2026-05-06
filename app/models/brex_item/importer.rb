@@ -150,13 +150,13 @@ class BrexItem::Importer
       { success: true, transactions_count: created_count }
     rescue Provider::Brex::BrexError => e
       mark_requires_update_if_credentials_error(e)
-      Rails.logger.error "BrexItem::Importer - Brex API error for account #{brex_account.id}: #{e.message} trace_id=#{e.trace_id}"
+      Rails.logger.error "BrexItem::Importer - Brex API error for account #{brex_account.account_id}: #{e.message} trace_id=#{e.trace_id}"
       { success: false, transactions_count: 0, error: e.message }
     rescue JSON::ParserError => e
-      Rails.logger.error "BrexItem::Importer - Failed to parse transaction response for account #{brex_account.id}: #{e.message}"
+      Rails.logger.error "BrexItem::Importer - Failed to parse transaction response for account #{brex_account.account_id}: #{e.message}"
       { success: false, transactions_count: 0, error: "Failed to parse response" }
     rescue => e
-      Rails.logger.error "BrexItem::Importer - Unexpected error fetching transactions for account #{brex_account.id}: #{e.class} - #{e.message}"
+      Rails.logger.error "BrexItem::Importer - Unexpected error fetching transactions for account #{brex_account.account_id}: #{e.class} - #{e.message}"
       Rails.logger.error Array(e.backtrace).join("\n")
       { success: false, transactions_count: 0, error: "Unexpected error: #{e.message}" }
     end

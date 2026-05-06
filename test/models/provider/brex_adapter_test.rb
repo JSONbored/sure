@@ -184,4 +184,25 @@ class Provider::BrexAdapterTest < ActiveSupport::TestCase
     assert_equal "Brex", adapter.institution_name
     assert_equal "https://brex.com", adapter.institution_url
   end
+
+  test "falls back to brex item institution metadata" do
+    brex_item = brex_items(:one)
+    brex_item.update!(
+      institution_name: "Brex Item Name",
+      institution_url: "https://brex.com/item",
+      institution_color: "#123456"
+    )
+    brex_account = brex_item.brex_accounts.create!(
+      account_id: "metadata_fallback_cash",
+      account_kind: "cash",
+      name: "Metadata Fallback Cash",
+      currency: "USD"
+    )
+
+    adapter = Provider::BrexAdapter.new(brex_account)
+
+    assert_equal "Brex Item Name", adapter.institution_name
+    assert_equal "https://brex.com/item", adapter.institution_url
+    assert_equal "#123456", adapter.institution_color
+  end
 end

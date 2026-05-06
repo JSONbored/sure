@@ -51,9 +51,12 @@ class BrexAccount::Processor
       end
     end
 
+    # Transaction import errors are logged and swallowed so balance sync can continue.
     def process_transactions
       BrexAccount::Transactions::Processor.new(brex_account).process
-    rescue => e
+    rescue StandardError => e
+      Rails.logger.error "BrexAccount::Processor - Failed to process transactions for brex_account #{brex_account.id}: #{e.message}"
+      Rails.logger.error Array(e.backtrace).first(10).join("\n")
       report_exception(e, "transactions")
     end
 

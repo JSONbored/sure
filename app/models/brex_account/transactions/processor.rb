@@ -72,6 +72,6 @@ class BrexAccount::Transactions::Processor
   private
 
     def transaction_id_for(transaction_data)
-      transaction_data.try(:[], :id) || transaction_data.try(:[], "id") || "unknown"
+      transaction_data&.dig(:id) || transaction_data&.dig("id") || "unknown"
     end
 end

@@ -265,6 +265,18 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Choose a Brex connection before linking accounts.", flash[:alert]
   end
 
+  test "link existing account requires account id" do
+    assert_no_difference "AccountProvider.count" do
+      post link_existing_account_brex_items_url, params: {
+        brex_item_id: @second_item.id,
+        brex_account_id: "shared_brex_account"
+      }
+    end
+
+    assert_redirected_to accounts_path
+    assert_equal "No account specified", flash[:alert]
+  end
+
   test "sync only queues a sync for the selected brex item" do
     assert_difference -> { Sync.where(syncable: @second_item).count }, 1 do
       assert_no_difference -> { Sync.where(syncable: @existing_item).count } do
