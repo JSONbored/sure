@@ -22,10 +22,10 @@ class SettingsTest < ApplicationSystemTestCase
 
     # Add admin settings if user is admin
     if @user.admin?
+      @settings_links.insert(1, [ "Statement Vault", account_statements_path ])
       @settings_links += [
         [ "AI Prompts", settings_ai_prompts_path ],
-        [ "API Key", settings_api_key_path ],
-        [ "Statement Vault", account_statements_path ]
+        [ "API Key", settings_api_key_path ]
       ]
     end
   end
@@ -89,6 +89,7 @@ class SettingsTest < ApplicationSystemTestCase
       # Assert that admin-only settings are not present in the navigation
       assert_no_selector "li", text: "AI Prompts"
       assert_no_selector "li", text: "API Key"
+      assert_no_selector "li", text: "Statement Vault"
     end
   end
 
