@@ -94,7 +94,7 @@ class Category::Merger
 
         if target_budget_category
           target_budget_category.update!(
-            budgeted_spending: target_budget_category.budgeted_spending + source_budget_category.budgeted_spending
+            budgeted_spending: budgeted_spending_total(target_budget_category, source_budget_category)
           )
           source_budget_category.destroy!
         else
@@ -105,5 +105,9 @@ class Category::Merger
 
     def reparent_subcategories(source)
       family.categories.where(parent_id: source.id).where.not(id: target_category.id).update_all(parent_id: target_category.id)
+    end
+
+    def budgeted_spending_total(target_budget_category, source_budget_category)
+      (target_budget_category.budgeted_spending || 0).to_d + (source_budget_category.budgeted_spending || 0).to_d
     end
 end
