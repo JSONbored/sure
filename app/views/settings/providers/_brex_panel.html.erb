@@ -63,6 +63,7 @@
               <%= button_to brex_item_path(item),
                             method: :delete,
                             class: "inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg",
+                            aria: { label: t("brex_items.provider_panel.disconnect_label", name: item.name) },
                             data: { turbo_confirm: t("brex_items.provider_panel.disconnect_confirm", name: item.name) } do %>
                 <%= icon "trash-2", size: "sm" %>
               <% end %>

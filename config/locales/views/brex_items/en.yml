@@ -86,6 +86,7 @@ en:
       connection_name_label: Connection name
       connection_name_placeholder: Business checking
       default_connection_name: Brex Connection
+      disconnect_label: "Disconnect %{name}"
       disconnect_confirm: "Disconnect %{name}?"
       encryption_warning:
         title: Brex tokens require database encryption
@@ -227,7 +228,9 @@ en:
     complete_account_setup:
       all_skipped: "All accounts were skipped. No accounts were created."
       creation_failed: "Failed to create accounts: %{error}"
+      creation_failed_count: "Failed to create %{count} account(s)."
       no_accounts: "No accounts to set up."
+      partial_success: "Successfully created %{created_count} account(s), but %{failed_count} account(s) failed."
       success: "Successfully created %{count} account(s)."
       unexpected_error: An unexpected error occurred.
     sync:

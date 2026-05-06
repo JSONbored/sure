@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 
 class BrexAccount < ApplicationRecord
-  include CurrencyNormalizable, Encryptable
+  include CurrencyNormalizable
 
   CARD_PRIMARY_ACCOUNT_ID = "card_primary"
 
-  if encryption_ready?
-    encrypts :raw_payload
-    encrypts :raw_transactions_payload
-  end
+  encrypts :raw_payload
+  encrypts :raw_transactions_payload
 
   belongs_to :brex_item
 
@@ -55,9 +53,9 @@ class BrexAccount < ApplicationRecord
   def self.default_accountable_attributes(accountable_type)
     case accountable_type
     when "CreditCard"
-      { subtype: "credit_card" }
+      { subtype: CreditCard::DEFAULT_SUBTYPE }
     when "Depository"
-      { subtype: "checking" }
+      { subtype: Depository::DEFAULT_SUBTYPE }
     else
       {}
     end

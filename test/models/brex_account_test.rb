@@ -44,6 +44,13 @@ class BrexAccountTest < ActiveSupport::TestCase
     end
   end
 
+  test "declares raw Brex payloads as encrypted" do
+    encrypted_attributes = BrexAccount.encrypted_attributes.map(&:to_s)
+
+    assert_includes encrypted_attributes, "raw_payload"
+    assert_includes encrypted_attributes, "raw_transactions_payload"
+  end
+
   test "same account_id can be linked under different brex_items in the same family" do
     item_a_2 = BrexItem.create!(
       family: @family_a,

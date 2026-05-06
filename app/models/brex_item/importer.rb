@@ -57,6 +57,14 @@ class BrexItem::Importer
       brex_item.upsert_brex_snapshot!(accounts_data)
     rescue => e
       Rails.logger.error "BrexItem::Importer - Failed to store accounts snapshot: #{e.message}"
+      Sentry.capture_exception(e) do |scope|
+        scope.set_tags(brex_item_id: brex_item.id)
+        scope.set_context("brex_item_snapshot", {
+          brex_item_id: brex_item.id,
+          accounts_data: BrexAccount.sanitize_payload(accounts_data)
+        })
+      end
+      raise
     end
 
     def import_accounts(accounts)
@@ -66,9 +74,9 @@ class BrexItem::Importer
 
       linked_account_ids = brex_item.brex_accounts
                                    .joins(:account_provider)
-                                   .pluck(:account_id)
+                                   .pluck("#{BrexAccount.table_name}.account_id")
                                    .map(&:to_s)
-      all_existing_ids = brex_item.brex_accounts.pluck(:account_id).map(&:to_s)
+      all_existing_ids = brex_item.brex_accounts.pluck("#{BrexAccount.table_name}.account_id").map(&:to_s)
 
       accounts.each do |account_data|
         snapshot = account_data.with_indifferent_access
@@ -145,7 +153,7 @@ class BrexItem::Importer
       end
 
       transactions = transactions_data[:transactions].to_a
-      created_count = store_new_transactions(brex_account, transactions)
+      created_count = store_new_transactions(brex_account, transactions, window_start_date: start_date)
 
       { success: true, transactions_count: created_count }
     rescue Provider::Brex::BrexError => e
@@ -161,21 +169,51 @@ class BrexItem::Importer
       { success: false, transactions_count: 0, error: "Unexpected error: #{e.message}" }
     end
 
-    def store_new_transactions(brex_account, transactions)
-      return 0 if transactions.empty?
-
-      existing_transactions = brex_account.raw_transactions_payload.to_a
+    def store_new_transactions(brex_account, transactions, window_start_date:)
+      existing_payload = brex_account.raw_transactions_payload.to_a
+      existing_transactions = transactions_in_window(existing_payload, window_start_date)
       existing_ids = existing_transactions.map { |tx| tx.with_indifferent_access[:id] }.to_set
 
       new_transactions = transactions.select do |tx|
         tx_id = tx.with_indifferent_access[:id]
-        tx_id.present? && !existing_ids.include?(tx_id)
+        tx_id.present? && !existing_ids.include?(tx_id) && transaction_in_window?(tx, window_start_date)
       end
 
-      return 0 if new_transactions.empty?
+      return 0 if new_transactions.empty? && existing_transactions.count == existing_payload.count
 
       brex_account.upsert_brex_transactions_snapshot!(existing_transactions + new_transactions)
       new_transactions.count
+    end
+
+    def transactions_in_window(transactions, window_start_date)
+      transactions.select { |transaction| transaction_in_window?(transaction, window_start_date) }
+    end
+
+    def transaction_in_window?(transaction, window_start_date)
+      return true if window_start_date.blank?
+
+      transaction_date = transaction_date_for(transaction)
+      return true if transaction_date.blank?
+
+      transaction_date >= window_start_date.to_date
+    end
+
+    def transaction_date_for(transaction)
+      data = transaction.with_indifferent_access
+      date_value = data[:posted_at_date].presence || data[:initiated_at_date].presence || data[:posted_at].presence || data[:created_at].presence
+
+      case date_value
+      when Date
+        date_value
+      when Time, DateTime
+        date_value.to_date
+      when String
+        Date.parse(date_value)
+      else
+        nil
+      end
+    rescue ArgumentError, TypeError
+      nil
     end
 
     def determine_sync_start_date(brex_account)

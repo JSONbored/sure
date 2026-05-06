@@ -31,6 +31,9 @@ class BrexEntry::ProcessorTest < ActiveSupport::TestCase
     assert_equal Date.new(2026, 1, 2), entry.date
     assert_equal "STAPLES", entry.transaction.merchant.name
     assert_equal "card_1", entry.transaction.extra.dig("brex", "card_id")
+    assert_equal "STAPLES", entry.transaction.extra.dig("brex", "merchant", "raw_descriptor")
+    refute_includes entry.transaction.extra.dig("brex", "merchant").to_s, "test-pan-placeholder"
+    refute_includes entry.transaction.extra.dig("brex", "merchant").to_s, "pan"
   end
 
   test "imports card payment as negative amount" do
@@ -64,6 +67,17 @@ class BrexEntry::ProcessorTest < ActiveSupport::TestCase
     assert_equal BigDecimal("0"), entry.amount
     assert_equal "Cash movement", entry.name
     assert_equal "NEW_BREX_TYPE", entry.transaction.extra.dig("brex", "type")
+  end
+
+  test "logs missing transaction currency before using account fallback" do
+    Rails.logger.expects(:warn).with(regexp_matches(/Invalid Brex currency nil for transaction tx_missing_currency/)).once
+
+    entry = BrexEntry::Processor.new(
+      card_transaction(id: "tx_missing_currency", amount: 12_34).tap { |transaction| transaction[:amount].delete(:currency) },
+      brex_account: @brex_account
+    ).process
+
+    assert_equal "USD", entry.currency
   end
 
   private

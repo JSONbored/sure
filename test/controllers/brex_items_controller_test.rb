@@ -5,10 +5,10 @@ require "test_helper"
 class BrexItemsControllerTest < ActionDispatch::IntegrationTest
   setup do
     sign_in users(:family_admin)
-    Rails.cache.clear
     SyncJob.stubs(:perform_later)
 
     @family = families(:dylan_family)
+    clear_brex_cache_entries
     @existing_item = brex_items(:one)
     @second_item = BrexItem.create!(
       family: @family,
@@ -19,7 +19,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    Rails.cache.clear
+    clear_brex_cache_entries
   end
 
   test "create adds a new brex connection without overwriting existing credentials" do
@@ -118,6 +118,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "preload accounts uses selected brex item cache key" do
+    Rails.cache.expects(:exist?).with(brex_cache_key(@second_item)).returns(false)
     Rails.cache.expects(:read).with(brex_cache_key(@second_item)).returns(nil)
     Rails.cache.expects(:write).with(brex_cache_key(@second_item), brex_accounts_payload, expires_in: 5.minutes)
 
@@ -173,6 +174,28 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     refute_includes @response.body, "//evil.example/accounts"
+  end
+
+  test "select accounts rejects backslash and unsafe local return paths" do
+    [
+      "/\\evil.example/accounts",
+      "/\naccounts",
+      "/ accounts",
+      "/"
+    ].each do |return_to|
+      Rails.cache.expects(:read).with(brex_cache_key(@second_item)).returns(brex_accounts_payload)
+
+      get select_accounts_brex_items_url, params: {
+        brex_item_id: @second_item.id,
+        accountable_type: "Depository",
+        return_to: return_to
+      }
+
+      assert_response :success
+      assert_select %(input[name="return_to"]) do |fields|
+        assert fields.first["value"].blank?
+      end
+    end
   end
 
   test "select existing account renders the selected brex item id" do
@@ -287,6 +310,42 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
+  test "complete account setup ignores unsupported account type and subtype params" do
+    valid_brex_account = @second_item.brex_accounts.create!(
+      account_id: "setup_valid",
+      account_kind: "cash",
+      name: "Setup Valid",
+      currency: "USD",
+      current_balance: 100
+    )
+    unsupported_brex_account = @second_item.brex_accounts.create!(
+      account_id: "setup_unsupported",
+      account_kind: "cash",
+      name: "Setup Unsupported",
+      currency: "USD",
+      current_balance: 100
+    )
+
+    assert_difference "AccountProvider.count", 1 do
+      post complete_account_setup_brex_item_url(@second_item), params: {
+        account_types: {
+          valid_brex_account.id => "Depository",
+          unsupported_brex_account.id => "Investment",
+          "not-a-brex-account" => "Depository"
+        },
+        account_subtypes: {
+          valid_brex_account.id => "savings",
+          unsupported_brex_account.id => "brokerage",
+          "not-a-brex-account" => "checking"
+        }
+      }
+    end
+
+    assert_redirected_to accounts_path
+    assert_equal "savings", valid_brex_account.reload.account.accountable.subtype
+    assert_nil unsupported_brex_account.reload.account_provider
+  end
+
   private
 
     def brex_accounts_payload
@@ -304,5 +363,15 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
 
     def brex_cache_key(brex_item)
       "brex_accounts_#{@family.id}_#{brex_item.id}"
+    end
+
+    def clear_brex_cache_entries
+      return unless defined?(@family) && @family.present?
+      return unless Rails.cache.respond_to?(:delete_matched)
+
+      Rails.cache.delete_matched("brex_accounts_#{@family.id}_*")
+    rescue NotImplementedError
+      # Some test cache stores do not implement delete_matched; tests that depend
+      # on cache state stub exact Brex cache keys instead of relying on globals.
     end
 end

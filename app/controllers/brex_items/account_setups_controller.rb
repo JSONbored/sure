@@ -14,8 +14,8 @@ class BrexItems::AccountSetupsController < ApplicationController
 
   def complete_account_setup
     result = brex_account_flow.complete_setup_result(
-      account_types: params[:account_types] || {},
-      account_subtypes: params[:account_subtypes] || {}
+      account_types: sanitized_account_types,
+      account_subtypes: sanitized_account_subtypes
     )
 
     unless result.success?
@@ -61,8 +61,40 @@ class BrexItems::AccountSetupsController < ApplicationController
         turbo_stream.replace(
           ActionView::RecordIdentifier.dom_id(@brex_item),
           partial: "brex_items/brex_item",
-          locals: { brex_item: @brex_item }
+          locals: view_context.brex_item_render_locals(@brex_item)
         )
       ] + Array(flash_notification_stream_items)
+    end
+
+    def sanitized_account_types
+      allowed_account_ids = @brex_item.brex_accounts.pluck(:id).map(&:to_s)
+      allowed_types = Provider::BrexAdapter.supported_account_types + [ "skip" ]
+
+      setup_param_hash(:account_types).each_with_object({}) do |(account_id, selected_type), sanitized|
+        next unless allowed_account_ids.include?(account_id.to_s)
+        next unless allowed_types.include?(selected_type.to_s)
+
+        sanitized[account_id.to_s] = selected_type.to_s
+      end
+    end
+
+    def sanitized_account_subtypes
+      allowed_account_ids = @brex_item.brex_accounts.pluck(:id).map(&:to_s)
+      allowed_subtypes = (Depository::SUBTYPES.keys + CreditCard::SUBTYPES.keys).map(&:to_s)
+
+      setup_param_hash(:account_subtypes).each_with_object({}) do |(account_id, selected_subtype), sanitized|
+        next unless allowed_account_ids.include?(account_id.to_s)
+        next if selected_subtype.blank?
+        next unless allowed_subtypes.include?(selected_subtype.to_s)
+
+        sanitized[account_id.to_s] = selected_subtype.to_s
+      end
+    end
+
+    def setup_param_hash(key)
+      raw_params = params.fetch(key, {})
+      return {} if raw_params.blank?
+
+      raw_params.respond_to?(:to_unsafe_h) ? raw_params.to_unsafe_h : raw_params.to_h
     end
 end

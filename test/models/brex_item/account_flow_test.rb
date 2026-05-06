@@ -40,6 +40,7 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
 
   test "preload payload treats cached empty accounts as a cache hit" do
     cache_key = BrexItem::AccountFlow.cache_key(@family, @brex_item)
+    Rails.cache.expects(:exist?).with(cache_key).returns(true)
     Rails.cache.expects(:read).with(cache_key).returns([])
     Rails.cache.expects(:write).never
     @brex_item.expects(:brex_provider).never
@@ -103,6 +104,45 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
     refute_includes brex_account.raw_payload.to_s, "account-last4-3456"
   end
 
+  test "refreshes existing provider accounts during setup discovery" do
+    brex_item = BrexItem.create!(
+      family: @family,
+      name: "Refresh Brex",
+      token: "refresh_brex_token",
+      base_url: "https://api.brex.com"
+    )
+    brex_item.brex_accounts.create!(
+      account_id: "cash_import_1",
+      name: "Old Cash",
+      currency: "USD",
+      account_kind: "cash",
+      current_balance: 1
+    )
+
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(
+      accounts: [
+        {
+          id: "cash_import_1",
+          name: "Updated Cash",
+          account_kind: "cash",
+          current_balance: { amount: 12_345, currency: "USD" }
+        }
+      ]
+    )
+    brex_item.expects(:brex_provider).returns(provider)
+
+    flow = BrexItem::AccountFlow.new(family: @family, brex_item: brex_item)
+
+    assert_no_difference -> { brex_item.brex_accounts.count } do
+      assert_nil flow.import_accounts_from_api_if_needed
+    end
+
+    brex_account = brex_item.brex_accounts.find_by!(account_id: "cash_import_1")
+    assert_equal "Updated Cash", brex_account.name
+    assert_equal BigDecimal("123.45"), brex_account.current_balance
+  end
+
   test "complete setup creates account links with default subtype" do
     brex_account = @brex_item.brex_accounts.create!(
       account_id: "setup_cash_1",
@@ -126,7 +166,38 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
 
     account = brex_account.reload.account
     assert_equal "Setup Cash", account.name
-    assert_equal "checking", account.accountable.subtype
+    assert_equal Depository::DEFAULT_SUBTYPE, account.accountable.subtype
+  end
+
+  test "complete setup keeps prior accounts when one account creation fails" do
+    first_brex_account = @brex_item.brex_accounts.create!(
+      account_id: "setup_partial_1",
+      account_kind: "cash",
+      name: "Setup Partial One",
+      currency: "USD",
+      current_balance: 100
+    )
+    second_brex_account = @brex_item.brex_accounts.create!(
+      account_id: "setup_partial_2",
+      account_kind: "cash",
+      name: "Setup Partial Two",
+      currency: "USD",
+      current_balance: 100
+    )
+    second_brex_account.update_column(:name, nil)
+
+    result = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item).complete_setup!(
+      account_types: {
+        first_brex_account.id => "Depository",
+        second_brex_account.id => "Depository"
+      },
+      account_subtypes: {}
+    )
+
+    assert_equal 1, result.created_count
+    assert_equal 1, result.failed_count
+    assert first_brex_account.reload.account_provider.present?
+    assert_nil second_brex_account.reload.account_provider
   end
 
   test "link new accounts rolls back account creation when provider link fails" do

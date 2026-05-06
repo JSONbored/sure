@@ -98,12 +98,17 @@ class BrexItems::AccountFlowsController < ApplicationController
     def safe_return_to_path
       return nil if params[:return_to].blank?
 
-      return_to = params[:return_to].to_s
+      return_to = params[:return_to].to_s.strip
+      return nil unless return_to.start_with?("/")
+
+      second_character = return_to[1]
+      return nil if second_character.blank?
+      return nil if second_character == "/" || second_character == "\\"
+      return nil if second_character.match?(/[[:space:][:cntrl:]]/)
+
       uri = URI.parse(return_to)
 
       return nil if uri.scheme.present? || uri.host.present?
-      return nil if return_to.start_with?("//")
-      return nil unless return_to.start_with?("/")
 
       return_to
     rescue URI::InvalidURIError

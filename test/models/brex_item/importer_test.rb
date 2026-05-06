@@ -37,7 +37,7 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
     )
     provider.expects(:get_primary_card_transactions).never
 
-    result = BrexItem::Importer.new(@brex_item, brex_provider: provider).import
+    result = BrexItem::Importer.new(@brex_item, brex_provider: provider, sync_start_date: Date.new(2026, 1, 1)).import
 
     assert result[:success]
     assert_equal 1, result[:accounts_updated]
@@ -77,11 +77,56 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
       ]
     )
 
-    result = BrexItem::Importer.new(@brex_item, brex_provider: provider).import
+    result = BrexItem::Importer.new(@brex_item, brex_provider: provider, sync_start_date: Date.new(2026, 1, 1)).import
 
     assert result[:success]
     assert_equal 1, result[:transactions_imported]
     assert_equal [ "cash_tx_1", "cash_tx_2" ], @brex_account.reload.raw_transactions_payload.map { |tx| tx["id"] }
+  end
+
+  test "keeps raw transaction snapshots bounded to the sync window" do
+    @brex_account.update!(
+      raw_transactions_payload: [
+        {
+          id: "old_cash_tx",
+          amount: { amount: 12_34, currency: "USD" },
+          description: "Old wire fee",
+          posted_at_date: "2025-12-01"
+        },
+        {
+          id: "recent_cash_tx",
+          amount: { amount: 56_78, currency: "USD" },
+          description: "Recent wire fee",
+          posted_at_date: "2026-01-02"
+        }
+      ]
+    )
+
+    sync_start_date = Date.new(2026, 1, 1)
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(accounts: [ cash_account_payload ])
+    provider.expects(:get_cash_transactions).with("cash_1", start_date: sync_start_date).returns(
+      transactions: [
+        {
+          id: "ignored_before_window",
+          amount: { amount: 1_00, currency: "USD" },
+          description: "Ignored old transaction",
+          posted_at_date: "2025-12-31"
+        },
+        {
+          id: "new_cash_tx",
+          amount: { amount: 2_00, currency: "USD" },
+          description: "New transaction",
+          posted_at_date: "2026-01-03"
+        }
+      ]
+    )
+
+    result = BrexItem::Importer.new(@brex_item, brex_provider: provider, sync_start_date: sync_start_date).import
+
+    assert result[:success]
+    assert_equal 1, result[:transactions_imported]
+    assert_equal [ "recent_cash_tx", "new_cash_tx" ], @brex_account.reload.raw_transactions_payload.map { |tx| tx["id"] }
   end
 
   test "uses explicit sync start date for cash and card transaction fetches" do
@@ -115,6 +160,18 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
     assert result[:success]
   end
 
+  test "raises and reports snapshot persistence failures" do
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(accounts: [ cash_account_payload ])
+    @brex_item.expects(:upsert_brex_snapshot!).raises(StandardError.new("snapshot failed"))
+
+    error = assert_raises StandardError do
+      BrexItem::Importer.new(@brex_item, brex_provider: provider).import
+    end
+
+    assert_equal "snapshot failed", error.message
+  end
+
   test "marks item as requiring update on authorization errors" do
     provider = mock("brex_provider")
     provider.expects(:get_accounts).raises(
@@ -125,6 +182,19 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
 
     refute result[:success]
     assert @brex_item.reload.requires_update?
+  end
+
+  test "clears requires update after a clean import" do
+    @brex_item.update!(status: :requires_update)
+
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(accounts: [ cash_account_payload ])
+    provider.expects(:get_cash_transactions).with("cash_1", start_date: anything).returns(transactions: [])
+
+    result = BrexItem::Importer.new(@brex_item, brex_provider: provider).import
+
+    assert result[:success]
+    assert @brex_item.reload.good?
   end
 
   private

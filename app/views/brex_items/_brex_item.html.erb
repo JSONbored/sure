@@ -1,4 +1,4 @@
-<%# locals: (brex_item:) %>
+<%# locals: (brex_item:, stats:, unlinked_count:, linked_count:, total_count:, institutions_count:) %>
 
 <%= tag.div id: dom_id(brex_item) do %>
   <details open class="group bg-container p-4 shadow-border-xs rounded-xl">
@@ -84,22 +84,11 @@
           <%= render "accounts/index/account_groups", accounts: brex_item.accounts %>
         <% end %>
 
-        <%# Sync summary (collapsible) - using shared ProviderSyncSummary component %>
-        <% stats = if defined?(@brex_sync_stats_map) && @brex_sync_stats_map
-             @brex_sync_stats_map[brex_item.id] || {}
-           else
-             brex_item.syncs.ordered.first&.sync_stats || {}
-           end %>
         <%= render ProviderSyncSummary.new(
           stats: stats,
           provider_item: brex_item,
-          institutions_count: brex_item.connected_institutions.size
+          institutions_count: institutions_count
         ) %>
-
-        <%# Use model methods for consistent counts %>
-        <% unlinked_count = brex_item.unlinked_accounts_count %>
-        <% linked_count = brex_item.linked_accounts_count %>
-        <% total_count = brex_item.total_accounts_count %>
 
         <% if unlinked_count > 0 %>
           <div class="p-4 flex flex-col gap-3 items-center justify-center">

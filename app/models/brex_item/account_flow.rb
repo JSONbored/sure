@@ -22,7 +22,7 @@ class BrexItem::AccountFlow
     def invalid_count = invalid_account_ids.count
   end
 
-  SetupResult = Data.define(:created_accounts, :skipped_count) do
+  SetupResult = Data.define(:created_accounts, :skipped_count, :failed_count) do
     def created_count = created_accounts.count
   end
 
@@ -35,7 +35,7 @@ class BrexItem::AccountFlow
   def initialize(family:, brex_item_id: nil, brex_item: nil)
     @family = family
     @brex_item_id = brex_item_id
-    @credentialed_items = family.brex_items.active.ordered.select(&:credentials_configured?)
+    @credentialed_items = family.brex_items.active.with_credentials.ordered.select(&:credentials_configured?)
     @brex_item = brex_item || resolve_brex_item
   end
 
@@ -68,13 +68,10 @@ class BrexItem::AccountFlow
     return selection_error_payload if !selected?
     return { success: false, error: "no_credentials", has_accounts: false } unless brex_item&.credentials_configured?
 
-    cached_accounts = Rails.cache.read(cache_key)
-    return { success: true, has_accounts: cached_accounts.any?, cached: true } unless cached_accounts.nil?
+    cached = Rails.cache.exist?(cache_key)
+    available_accounts = accounts
 
-    available_accounts = fetch_accounts
-    Rails.cache.write(cache_key, available_accounts, expires_in: CACHE_TTL)
-
-    { success: true, has_accounts: available_accounts.any?, cached: false }
+    { success: true, has_accounts: available_accounts.any?, cached: cached }
   rescue NoApiTokenError
     { success: false, error: "no_api_token", has_accounts: false }
   rescue Provider::Brex::BrexError => e
@@ -86,101 +83,22 @@ class BrexItem::AccountFlow
   end
 
   def select_accounts_result(accountable_type:)
-    return selection_failure_result("brex_items.select_accounts") unless selected?
-
-    accounts = filter_accounts(unlinked_available_accounts, accountable_type)
-    if accounts.empty?
-      return SelectionResult.new(
-        status: :empty,
-        brex_item: brex_item,
-        available_accounts: [],
-        accountable_type: accountable_type,
-        message: I18n.t("brex_items.select_accounts.no_accounts_found")
-      )
-    end
-
-    SelectionResult.new(
-      status: :success,
-      brex_item: brex_item,
-      available_accounts: accounts,
+    selection_result_for(
+      scope: "brex_items.select_accounts",
       accountable_type: accountable_type,
-      message: nil
-    )
-  rescue NoApiTokenError
-    SelectionResult.new(
-      status: :no_api_token,
-      brex_item: brex_item,
-      available_accounts: [],
-      accountable_type: accountable_type,
-      message: I18n.t("brex_items.select_accounts.no_api_token")
-    )
-  rescue Provider::Brex::BrexError => e
-    Rails.logger.error("Brex API error in select_accounts: #{e.message}")
-    SelectionResult.new(
-      status: :api_error,
-      brex_item: brex_item,
-      available_accounts: [],
-      accountable_type: accountable_type,
-      message: e.message
-    )
-  rescue StandardError => e
-    Rails.logger.error("Unexpected error in select_accounts: #{e.class}: #{e.message}")
-    SelectionResult.new(
-      status: :unexpected_error,
-      brex_item: brex_item,
-      available_accounts: [],
-      accountable_type: accountable_type,
-      message: I18n.t("brex_items.select_accounts.unexpected_error")
+      empty_message_key: "no_accounts_found",
+      log_context: "select_accounts"
     )
   end
 
   def select_existing_account_result(account:)
     return linked_account_result if account.account_providers.exists?
-    return selection_failure_result("brex_items.select_existing_account", accountable_type: account.accountable_type) unless selected?
 
-    accounts = filter_accounts(unlinked_available_accounts, account.accountable_type)
-    if accounts.empty?
-      return SelectionResult.new(
-        status: :empty,
-        brex_item: brex_item,
-        available_accounts: [],
-        accountable_type: account.accountable_type,
-        message: I18n.t("brex_items.select_existing_account.all_accounts_already_linked")
-      )
-    end
-
-    SelectionResult.new(
-      status: :success,
-      brex_item: brex_item,
-      available_accounts: accounts,
+    selection_result_for(
+      scope: "brex_items.select_existing_account",
       accountable_type: account.accountable_type,
-      message: nil
-    )
-  rescue NoApiTokenError
-    SelectionResult.new(
-      status: :no_api_token,
-      brex_item: brex_item,
-      available_accounts: [],
-      accountable_type: account.accountable_type,
-      message: I18n.t("brex_items.select_existing_account.no_api_token")
-    )
-  rescue Provider::Brex::BrexError => e
-    Rails.logger.error("Brex API error in select_existing_account: #{e.message}")
-    SelectionResult.new(
-      status: :api_error,
-      brex_item: brex_item,
-      available_accounts: [],
-      accountable_type: account.accountable_type,
-      message: e.message
-    )
-  rescue StandardError => e
-    Rails.logger.error("Unexpected error in select_existing_account: #{e.class}: #{e.message}")
-    SelectionResult.new(
-      status: :unexpected_error,
-      brex_item: brex_item,
-      available_accounts: [],
-      accountable_type: account.accountable_type,
-      message: I18n.t("brex_items.select_existing_account.unexpected_error")
+      empty_message_key: "all_accounts_already_linked",
+      log_context: "select_existing_account"
     )
   end
 
@@ -284,17 +202,22 @@ class BrexItem::AccountFlow
   end
 
   def import_accounts_from_api_if_needed
-    return nil unless brex_item.brex_accounts.empty?
     raise NoApiTokenError unless brex_item.credentials_configured?
 
     available_accounts = fetch_accounts
     return nil if available_accounts.empty?
 
-    available_accounts.each do |account_data|
-      account_name = BrexAccount.name_for(account_data)
-      next if account_name.blank?
+    existing_accounts = brex_item.brex_accounts.index_by(&:account_id)
 
-      upsert_brex_account!(account_data.with_indifferent_access[:id], account_data)
+    available_accounts.each do |account_data|
+      account_id = account_data.with_indifferent_access[:id].to_s
+      account_name = BrexAccount.name_for(account_data)
+      next if account_id.blank? || account_name.blank?
+
+      brex_account = existing_accounts[account_id]
+      next if brex_account.present? && !brex_account_snapshot_changed?(brex_account, account_data)
+
+      upsert_brex_account!(account_id, account_data)
     end
 
     nil
@@ -360,54 +283,62 @@ class BrexItem::AccountFlow
     skipped_count = 0
     valid_types = Provider::BrexAdapter.supported_account_types
 
-    ActiveRecord::Base.transaction do
-      account_types.each do |brex_account_id, selected_type|
-        if selected_type == "skip" || selected_type.blank?
-          skipped_count += 1
-          next
+    failed_count = 0
+
+    account_types.each do |brex_account_id, selected_type|
+      if selected_type == "skip" || selected_type.blank?
+        skipped_count += 1
+        next
+      end
+
+      unless valid_types.include?(selected_type)
+        Rails.logger.warn("Invalid account type '#{selected_type}' submitted for Brex account #{brex_account_id}")
+        next
+      end
+
+      brex_account = brex_item.brex_accounts.find_by(id: brex_account_id)
+      unless brex_account
+        Rails.logger.warn("Brex account #{brex_account_id} not found for item #{brex_item.id}")
+        next
+      end
+
+      if brex_account.account_provider.present?
+        Rails.logger.info("Brex account #{brex_account_id} already linked, skipping")
+        next
+      end
+
+      selected_subtype = selected_subtype_for(
+        selected_type: selected_type,
+        submitted_subtype: account_subtypes[brex_account_id]
+      )
+
+      begin
+        ActiveRecord::Base.transaction do
+          account = Account.create_and_sync(
+            {
+              family: family,
+              name: brex_account.name,
+              balance: brex_account.current_balance || 0,
+              currency: brex_account.currency.presence || family.currency,
+              accountable_type: selected_type,
+              accountable_attributes: selected_subtype.present? ? { subtype: selected_subtype } : {}
+            },
+            skip_initial_sync: true
+          )
+
+          AccountProvider.create!(account: account, provider: brex_account)
+          created_accounts << account
         end
-
-        unless valid_types.include?(selected_type)
-          Rails.logger.warn("Invalid account type '#{selected_type}' submitted for Brex account #{brex_account_id}")
-          next
-        end
-
-        brex_account = brex_item.brex_accounts.find_by(id: brex_account_id)
-        unless brex_account
-          Rails.logger.warn("Brex account #{brex_account_id} not found for item #{brex_item.id}")
-          next
-        end
-
-        if brex_account.account_provider.present?
-          Rails.logger.info("Brex account #{brex_account_id} already linked, skipping")
-          next
-        end
-
-        selected_subtype = selected_subtype_for(
-          selected_type: selected_type,
-          submitted_subtype: account_subtypes[brex_account_id]
-        )
-
-        account = Account.create_and_sync(
-          {
-            family: family,
-            name: brex_account.name,
-            balance: brex_account.current_balance || 0,
-            currency: brex_account.currency.presence || family.currency,
-            accountable_type: selected_type,
-            accountable_attributes: selected_subtype.present? ? { subtype: selected_subtype } : {}
-          },
-          skip_initial_sync: true
-        )
-
-        AccountProvider.create!(account: account, provider: brex_account)
-        created_accounts << account
+      rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
+        failed_count += 1
+        Rails.logger.error("Brex account setup failed for #{brex_account_id}: #{e.class} - #{e.message}")
+        Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
       end
     end
 
     brex_item.sync_later if created_accounts.any?
 
-    SetupResult.new(created_accounts: created_accounts, skipped_count: skipped_count)
+    SetupResult.new(created_accounts: created_accounts, skipped_count: skipped_count, failed_count: failed_count)
   end
 
   def import_accounts_error_message
@@ -425,7 +356,7 @@ class BrexItem::AccountFlow
   def complete_setup_result(account_types:, account_subtypes:)
     result = complete_setup!(account_types: account_types, account_subtypes: account_subtypes)
 
-    SetupCompletion.new(success: true, message: setup_notice(result))
+    SetupCompletion.new(success: result.failed_count.zero? || result.created_count.positive?, message: setup_notice(result))
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
     Rails.logger.error("Brex account setup failed: #{e.class} - #{e.message}")
     Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
@@ -476,6 +407,47 @@ class BrexItem::AccountFlow
           message: I18n.t("#{scope}.no_credentials_configured")
         )
       end
+    end
+
+    def selection_result_for(scope:, accountable_type:, empty_message_key:, log_context:)
+      return selection_failure_result(scope, accountable_type: accountable_type) unless selected?
+
+      available_accounts = filter_accounts(unlinked_available_accounts, accountable_type)
+      if available_accounts.empty?
+        return selection_result(
+          status: :empty,
+          accountable_type: accountable_type,
+          message: I18n.t("#{scope}.#{empty_message_key}")
+        )
+      end
+
+      selection_result(status: :success, accountable_type: accountable_type, available_accounts: available_accounts)
+    rescue NoApiTokenError
+      selection_result(
+        status: :no_api_token,
+        accountable_type: accountable_type,
+        message: I18n.t("#{scope}.no_api_token")
+      )
+    rescue Provider::Brex::BrexError => e
+      Rails.logger.error("Brex API error in #{log_context}: #{e.message}")
+      selection_result(status: :api_error, accountable_type: accountable_type, message: e.message)
+    rescue StandardError => e
+      Rails.logger.error("Unexpected error in #{log_context}: #{e.class}: #{e.message}")
+      selection_result(
+        status: :unexpected_error,
+        accountable_type: accountable_type,
+        message: I18n.t("#{scope}.unexpected_error")
+      )
+    end
+
+    def selection_result(status:, accountable_type:, available_accounts: [], message: nil)
+      SelectionResult.new(
+        status: status,
+        brex_item: brex_item,
+        available_accounts: available_accounts,
+        accountable_type: accountable_type,
+        message: message
+      )
     end
 
     def linked_account_result
@@ -535,7 +507,11 @@ class BrexItem::AccountFlow
     end
 
     def setup_notice(result)
-      if result.created_count.positive?
+      if result.failed_count.positive? && result.created_count.positive?
+        I18n.t("brex_items.complete_account_setup.partial_success", created_count: result.created_count, failed_count: result.failed_count)
+      elsif result.failed_count.positive?
+        I18n.t("brex_items.complete_account_setup.creation_failed_count", count: result.failed_count)
+      elsif result.created_count.positive?
         I18n.t("brex_items.complete_account_setup.success", count: result.created_count)
       elsif result.skipped_count.positive?
         I18n.t("brex_items.complete_account_setup.all_skipped")
@@ -610,6 +586,25 @@ class BrexItem::AccountFlow
       brex_account
     end
 
+    def brex_account_snapshot_changed?(brex_account, account_data)
+      snapshot = account_data.with_indifferent_access
+      balances = snapshot.slice(:current_balance, :available_balance, :account_limit)
+
+      expected = {
+        account_kind: BrexAccount.kind_for(snapshot),
+        account_status: snapshot[:status],
+        account_type: snapshot[:type],
+        available_balance: BrexAccount.money_to_decimal(balances[:available_balance]),
+        current_balance: BrexAccount.money_to_decimal(balances[:current_balance]),
+        account_limit: BrexAccount.money_to_decimal(balances[:account_limit]),
+        currency: BrexAccount.currency_code_from_money(balances[:current_balance] || balances[:available_balance] || balances[:account_limit]),
+        name: BrexAccount.name_for(snapshot),
+        raw_payload: BrexAccount.sanitize_payload(account_data)
+      }
+
+      expected.any? { |attribute, value| brex_account.public_send(attribute) != value }
+    end
+
     def translate_subtypes(type_key, subtypes_hash)
       subtypes_hash.map do |key, value|
         [
@@ -620,8 +615,8 @@ class BrexItem::AccountFlow
     end
 
     def selected_subtype_for(selected_type:, submitted_subtype:)
-      return "credit_card" if selected_type == "CreditCard" && submitted_subtype.blank?
-      return "checking" if selected_type == "Depository" && submitted_subtype.blank?
+      return CreditCard::DEFAULT_SUBTYPE if selected_type == "CreditCard" && submitted_subtype.blank?
+      return Depository::DEFAULT_SUBTYPE if selected_type == "Depository" && submitted_subtype.blank?
 
       submitted_subtype
     end

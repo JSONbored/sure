@@ -62,9 +62,7 @@ class Provider::Brex
   end
 
   def get_card_accounts
-    response_payload = get_json("/v2/accounts/card")
-
-    extract_records(response_payload).map { |account| account.with_indifferent_access.merge(account_kind: "card") }
+    get_paginated("/v2/accounts/card").map { |account| account.with_indifferent_access.merge(account_kind: "card") }
   end
 
   def get_cash_transactions(account_id, start_date: nil)

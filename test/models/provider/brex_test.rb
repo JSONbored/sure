@@ -85,7 +85,7 @@ class Provider::BrexTest < ActiveSupport::TestCase
     assert_equal "cash", accounts.first[:account_kind]
   end
 
-  test "fetches card accounts without pagination params because endpoint returns an array" do
+  test "fetches card accounts from the paginated v2 endpoint" do
     response = OpenStruct.new(
       code: 200,
       body: [ { id: "card_account_1", status: "ACTIVE" } ].to_json,
@@ -94,7 +94,7 @@ class Provider::BrexTest < ActiveSupport::TestCase
 
     Provider::Brex.expects(:get)
       .with(
-        "https://api.brex.com/v2/accounts/card",
+        "https://api.brex.com/v2/accounts/card?limit=1000",
         headers: {
           "Authorization" => "Bearer test_token",
           "Content-Type" => "application/json",

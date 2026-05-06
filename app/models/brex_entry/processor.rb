@@ -13,7 +13,7 @@ class BrexEntry::Processor
   def process
     unless account.present?
       Rails.logger.warn "BrexEntry::Processor - No linked account for brex_account #{brex_account.id}, skipping transaction #{external_id}"
-      return nil
+      return :skipped
     end
 
     import_adapter.import_transaction(
@@ -110,9 +110,26 @@ class BrexEntry::Processor
     end
 
     def currency
-      parse_currency(BrexAccount.currency_code_from_money(data[:amount])) ||
+      amount_currency = transaction_amount_currency
+      log_invalid_currency(amount_currency) if amount_currency.blank? && data[:amount].present?
+
+      parse_currency(amount_currency) ||
         parse_currency(brex_account.currency) ||
         "USD"
+    end
+
+    def transaction_amount_currency
+      amount_payload = data[:amount]
+      return nil unless amount_payload.is_a?(Hash)
+
+      amount_payload.with_indifferent_access[:currency]
+    end
+
+    def log_invalid_currency(currency_value)
+      Rails.logger.warn(
+        "Invalid Brex currency #{currency_value.inspect} for transaction #{data[:id].presence || 'unknown'} " \
+        "on brex_account #{brex_account.id} amount=#{data[:amount].inspect} account_currency=#{brex_account.currency.inspect}; defaulting to fallback"
+      )
     end
 
     def date

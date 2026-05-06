@@ -8,8 +8,10 @@
           <%= t(".description", product_name: product_name) %>
         </p>
 
-        <form action="<%= link_accounts_brex_items_path %>" method="post" class="space-y-4" data-turbo-frame="_top">
-          <%= hidden_field_tag :authenticity_token, form_authenticity_token %>
+        <%= form_with url: link_accounts_brex_items_path,
+                      method: :post,
+                      data: { turbo_frame: "_top" },
+                      class: "space-y-4" do %>
           <%= hidden_field_tag :brex_item_id, @brex_item.id %>
           <%= hidden_field_tag :accountable_type, @accountable_type %>
           <%= hidden_field_tag :return_to, @return_to %>
@@ -47,7 +49,7 @@
             <%= submit_tag t(".link_accounts"),
                 class: "inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-lg text-inverse bg-inverse hover:bg-inverse-hover disabled:button-bg-disabled" %>
           </div>
-        </form>
+        <% end %>
       </div>
     <% end %>
   <% end %>

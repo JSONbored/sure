@@ -36,7 +36,7 @@ class CreateBrexItemsAndAccounts < ActiveRecord::Migration[7.2]
       t.string :account_id, null: false
       t.string :account_kind, null: false, default: "cash"
 
-      t.string :currency
+      t.string :currency, null: false, default: "USD"
       t.decimal :current_balance, precision: 19, scale: 4
       t.decimal :available_balance, precision: 19, scale: 4
       t.decimal :account_limit, precision: 19, scale: 4

@@ -13,7 +13,7 @@ class Provider::BrexAdapter < Provider::Base
   def self.connection_configs(family:)
     return [] unless family.can_connect_brex?
 
-    brex_items = family.brex_items.active.ordered.select(&:credentials_configured?)
+    brex_items = family.brex_items.active.with_credentials.ordered.select(&:credentials_configured?)
 
     return [ connection_config_for(nil) ] if brex_items.empty?
 
@@ -74,7 +74,7 @@ class Provider::BrexAdapter < Provider::Base
       return nil
     end
 
-    credentialed_items = family.brex_items.active.ordered.select(&:credentials_configured?)
+    credentialed_items = family.brex_items.active.with_credentials.ordered.select(&:credentials_configured?)
     return credentialed_items.first if credentialed_items.one?
 
     nil

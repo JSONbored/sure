@@ -24,6 +24,7 @@ class BrexItem < ApplicationRecord
   scope :syncable, -> { active }
   scope :ordered, -> { order(created_at: :desc) }
   scope :needs_update, -> { where(status: :requires_update) }
+  scope :with_credentials, -> { where.not(token: [ nil, "" ]) }
 
   def destroy_later
     update!(scheduled_for_deletion: true)
@@ -34,7 +35,7 @@ class BrexItem < ApplicationRecord
     provider = brex_provider
     unless provider
       Rails.logger.error "BrexItem #{id} - Cannot import: provider is not configured"
-      raise StandardError.new("Brex provider is not configured")
+      raise Provider::Brex::BrexError.new("Brex provider is not configured", :not_configured)
     end
 
     BrexItem::Importer.new(self, brex_provider: provider, sync_start_date: sync_start_date).import
@@ -47,7 +48,7 @@ class BrexItem < ApplicationRecord
     return [] if brex_accounts.empty?
 
     results = []
-    brex_accounts.joins(:account).merge(Account.visible).each do |brex_account|
+    brex_accounts.joins(:account).includes(:account).merge(Account.visible).each do |brex_account|
       begin
         result = BrexAccount::Processor.new(brex_account).process
         results << { brex_account_id: brex_account.id, success: true, result: result }

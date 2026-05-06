@@ -219,7 +219,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_05_010000) do
     t.string "name"
     t.string "account_id", null: false
     t.string "account_kind", default: "cash", null: false
-    t.string "currency"
+    t.string "currency", default: "USD", null: false
     t.decimal "current_balance", precision: 19, scale: 4
     t.decimal "available_balance", precision: 19, scale: 4
     t.decimal "account_limit", precision: 19, scale: 4

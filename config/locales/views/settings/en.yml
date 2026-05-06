@@ -187,6 +187,7 @@ en:
       change: Change photo
     providers:
       show:
+        brex_title: Brex (beta)
         coinbase_title: Coinbase
       encryption_error:
         title: Encryption Configuration Required

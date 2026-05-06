@@ -8,7 +8,7 @@ class BrexAccount::Transactions::Processor
   def process
     unless brex_account.raw_transactions_payload.present?
       Rails.logger.info "BrexAccount::Transactions::Processor - No transactions in raw_transactions_payload for brex_account #{brex_account.id}"
-      return { success: true, total: 0, imported: 0, failed: 0, errors: [] }
+      return { success: true, total: 0, imported: 0, skipped: 0, failed: 0, errors: [], skipped_transactions: [] }
     end
 
     total_count = brex_account.raw_transactions_payload.count
@@ -16,7 +16,9 @@ class BrexAccount::Transactions::Processor
 
     imported_count = 0
     failed_count = 0
+    skipped_count = 0
     errors = []
+    skipped = []
 
     # Each entry is processed inside a transaction, but to avoid locking up the DB when
     # there are hundreds or thousands of transactions, we process them individually.
@@ -27,10 +29,12 @@ class BrexAccount::Transactions::Processor
           brex_account: brex_account
         ).process
 
-        if result.nil?
-          # Transaction was skipped (e.g., no linked account)
+        if result == :skipped
+          skipped_count += 1
+          skipped << { index: index, transaction_id: transaction_id_for(transaction_data), reason: "No linked account" }
+        elsif result.nil?
           failed_count += 1
-          errors << { index: index, transaction_id: transaction_id_for(transaction_data), error: "No linked account" }
+          errors << { index: index, transaction_id: transaction_id_for(transaction_data), error: "No transaction imported" }
         else
           imported_count += 1
         end
@@ -47,7 +51,7 @@ class BrexAccount::Transactions::Processor
         transaction_id = transaction_id_for(transaction_data)
         error_message = "#{e.class}: #{e.message}"
         Rails.logger.error "BrexAccount::Transactions::Processor - Error processing transaction #{transaction_id}: #{error_message}"
-        Rails.logger.error Array(e.backtrace).join("\n")
+        Rails.logger.error Array(e.backtrace).first(10).join("\n")
         errors << { index: index, transaction_id: transaction_id, error: error_message }
       end
     end
@@ -56,8 +60,10 @@ class BrexAccount::Transactions::Processor
       success: failed_count == 0,
       total: total_count,
       imported: imported_count,
+      skipped: skipped_count,
       failed: failed_count,
-      errors: errors
+      errors: errors,
+      skipped_transactions: skipped
     }
 
     if failed_count > 0
