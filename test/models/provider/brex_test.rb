@@ -33,6 +33,12 @@ class Provider::BrexTest < ActiveSupport::TestCase
     [
       "http://api.brex.com",
       "https://evil.example.test",
+      "https://localhost",
+      "https://127.0.0.1",
+      "https://10.0.0.1",
+      "https://api.brex.com.evil.example",
+      "https://api.brex.com@127.0.0.1",
+      "https://api.brex.com:444",
       "https://api.brex.com/v1",
       "https://api.brex.com?host=evil.example.test",
       "//api.brex.com"

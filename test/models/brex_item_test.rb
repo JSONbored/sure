@@ -56,6 +56,12 @@ class BrexItemTest < ActiveSupport::TestCase
     [
       "http://api.brex.com",
       "https://evil.example.test",
+      "https://localhost",
+      "https://127.0.0.1",
+      "https://10.0.0.1",
+      "https://api.brex.com.evil.example",
+      "https://api.brex.com@127.0.0.1",
+      "https://api.brex.com:444",
       "https://api.brex.com/v2",
       "https://api.brex.com?debug=true",
       "//api.brex.com"
@@ -71,6 +77,10 @@ class BrexItemTest < ActiveSupport::TestCase
     provider = @brex_item.brex_provider
     assert_instance_of Provider::Brex, provider
     assert_equal @brex_item.token, provider.token
+  end
+
+  test "declares brex token as encrypted" do
+    assert_includes BrexItem.encrypted_attributes.map(&:to_s), "token"
   end
 
   test "brex_provider returns nil when credentials not configured" do

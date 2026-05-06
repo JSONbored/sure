@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
 class BrexItem::Importer
-  attr_reader :brex_item, :brex_provider
+  attr_reader :brex_item, :brex_provider, :sync_start_date
 
-  def initialize(brex_item, brex_provider:)
+  def initialize(brex_item, brex_provider:, sync_start_date: nil)
     @brex_item = brex_item
     @brex_provider = brex_provider
+    @sync_start_date = sync_start_date
   end
 
   def import
@@ -178,6 +179,8 @@ class BrexItem::Importer
     end
 
     def determine_sync_start_date(brex_account)
+      return sync_start_date if sync_start_date.present?
+
       if brex_account.raw_transactions_payload.to_a.any?
         brex_item.last_synced_at ? brex_item.last_synced_at - 7.days : 90.days.ago
       else

@@ -3,18 +3,10 @@ class BrexItem < ApplicationRecord
 
   enum :status, { good: "good", requires_update: "requires_update" }, default: :good
 
-  # Helper to detect if ActiveRecord Encryption is configured for this app
-  def self.encryption_ready?
-    creds_ready = Rails.application.credentials.active_record_encryption.present?
-    env_ready = ENV["ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY"].present? &&
-                ENV["ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY"].present? &&
-                ENV["ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT"].present?
-    creds_ready || env_ready
-  end
+  encrypts :token, deterministic: true
 
-  # Encrypt sensitive credentials if ActiveRecord encryption is configured
-  if encryption_ready?
-    encrypts :token, deterministic: true
+  def self.encryption_ready?
+    ActiveRecordEncryptionConfig.ready?
   end
 
   validates :name, presence: true
@@ -38,14 +30,14 @@ class BrexItem < ApplicationRecord
     DestroyJob.perform_later(self)
   end
 
-  def import_latest_brex_data
+  def import_latest_brex_data(sync_start_date: nil)
     provider = brex_provider
     unless provider
       Rails.logger.error "BrexItem #{id} - Cannot import: provider is not configured"
       raise StandardError.new("Brex provider is not configured")
     end
 
-    BrexItem::Importer.new(self, brex_provider: provider).import
+    BrexItem::Importer.new(self, brex_provider: provider, sync_start_date: sync_start_date).import
   rescue => e
     Rails.logger.error "BrexItem #{id} - Failed to import data: #{e.message}"
     raise

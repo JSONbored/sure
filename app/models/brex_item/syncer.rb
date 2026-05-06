@@ -10,7 +10,7 @@ class BrexItem::Syncer
   def perform_sync(sync)
     # Phase 1: Import data from Brex API
     sync.update!(status_text: "Importing accounts from Brex...") if sync.respond_to?(:status_text)
-    brex_item.import_latest_brex_data
+    brex_item.import_latest_brex_data(sync_start_date: sync.window_start_date)
 
     # Phase 2: Collect setup statistics using shared concern
     sync.update!(status_text: "Checking account configuration...") if sync.respond_to?(:status_text)

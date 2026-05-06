@@ -30,7 +30,9 @@ class Provider::Brex
     return nil if uri.userinfo.present?
     return nil if uri.query.present? || uri.fragment.present?
     return nil unless uri.path.blank? || uri.path == "/"
+    return nil unless uri.port == 443
 
+    # This exact allowlist is the SSRF boundary; arbitrary Brex-like hosts are never accepted.
     normalized = "#{uri.scheme.downcase}://#{uri.host.to_s.downcase}"
     ALLOWED_BASE_URLS.include?(normalized) ? normalized : nil
   rescue URI::InvalidURIError

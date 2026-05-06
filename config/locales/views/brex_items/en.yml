@@ -76,8 +76,8 @@ en:
       default_connection_name: Brex Connection
       disconnect_confirm: "Disconnect %{name}?"
       encryption_warning:
-        title: Brex tokens are stored without database encryption
-        message: Configure Active Record encryption keys before adding Brex tokens in a self-hosted install. Without those keys, Sure stores provider credentials in plaintext in the database.
+        title: Brex tokens require database encryption
+        message: Configure Active Record encryption keys before adding Brex tokens. Sure will not store Brex provider credentials unless encryption is configured.
       instructions:
         copy_token_html: "Copy the token and add it as a named connection below. Sure stores the token only for syncing this family."
         create_token: "Create an API token with these read-only scopes: accounts.cash.readonly, accounts.card.readonly, transactions.cash.readonly, transactions.card.readonly"

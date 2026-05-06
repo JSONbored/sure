@@ -11,157 +11,54 @@ class BrexItemsController < ApplicationController
   end
 
   def preload_accounts
-    flow = brex_account_flow
-    unless flow.selected?
-      render json: brex_item_selection_error_payload(flow)
-      return
-    end
-
-    render json: flow.preload_payload
-  rescue BrexItem::AccountFlow::NoApiTokenError
-    render json: { success: false, error: "no_api_token", has_accounts: false }
-  rescue Provider::Brex::BrexError => e
-    Rails.logger.error("Brex preload error: #{e.message}")
-    render json: { success: false, error: "api_error", error_message: e.message, has_accounts: nil }
-  rescue StandardError => e
-    Rails.logger.error("Unexpected error preloading Brex accounts: #{e.class}: #{e.message}")
-    render json: { success: false, error: "unexpected_error", error_message: t("brex_items.errors.unexpected_error"), has_accounts: nil }
+    render json: brex_account_flow.preload_payload
   end
 
   def select_accounts
-    flow = brex_account_flow
-    unless flow.selected?
-      render_brex_item_selection_failure(flow)
-      return
-    end
-
-    @brex_item = flow.brex_item
     @accountable_type = params[:accountable_type] || "Depository"
-    @available_accounts = flow.available_accounts(accountable_type: @accountable_type)
     @return_to = safe_return_to_path
+    result = brex_account_flow.select_accounts_result(accountable_type: @accountable_type)
 
-    if @available_accounts.empty?
-      redirect_to new_account_path, alert: t(".no_accounts_found")
-      return
-    end
+    return handle_brex_selection_result(result, empty_path: new_account_path, api_return_path: @return_to) unless result.success?
+
+    @brex_item = result.brex_item
+    @available_accounts = result.available_accounts
 
     render layout: false
-  rescue BrexItem::AccountFlow::NoApiTokenError
-    redirect_to settings_providers_path, alert: t(".no_api_token")
-  rescue Provider::Brex::BrexError => e
-    Rails.logger.error("Brex API error in select_accounts: #{e.message}")
-    render_api_error_partial(e.message, safe_return_to_path)
-  rescue StandardError => e
-    Rails.logger.error("Unexpected error in select_accounts: #{e.class}: #{e.message}")
-    render_api_error_partial(t(".unexpected_error"), safe_return_to_path)
   end
 
   def link_accounts
-    selected_account_ids = params[:account_ids] || []
-    accountable_type = params[:accountable_type] || "Depository"
-    return_to = safe_return_to_path
-
-    if selected_account_ids.empty?
-      redirect_to new_account_path, alert: t(".no_accounts_selected")
-      return
-    end
-
-    flow = brex_account_flow
-    unless flow.selected?
-      redirect_to settings_providers_path, alert: t(".select_connection")
-      return
-    end
-
-    result = flow.link_new_accounts!(
-      account_ids: selected_account_ids,
-      accountable_type: accountable_type
+    result = brex_account_flow.link_new_accounts_result(
+      account_ids: params[:account_ids] || [],
+      accountable_type: params[:accountable_type] || "Depository"
     )
 
-    redirect_after_link_accounts(result, return_to: return_to)
-  rescue BrexItem::AccountFlow::NoApiTokenError
-    redirect_to new_account_path, alert: t(".no_api_token")
-  rescue Provider::Brex::BrexError => e
-    redirect_to new_account_path, alert: t(".api_error", message: e.message)
+    redirect_with_navigation(result, return_to: safe_return_to_path)
   end
 
   def select_existing_account
-    account_id = params[:account_id]
+    return redirect_to accounts_path, alert: t(".no_account_specified") if params[:account_id].blank?
 
-    unless account_id.present?
-      redirect_to accounts_path, alert: t(".no_account_specified")
-      return
-    end
+    @account = Current.family.accounts.find(params[:account_id])
+    result = brex_account_flow.select_existing_account_result(account: @account)
 
-    @account = Current.family.accounts.find(account_id)
+    return handle_brex_selection_result(result, empty_path: accounts_path, api_return_path: accounts_path) unless result.success?
 
-    if @account.account_providers.exists?
-      redirect_to accounts_path, alert: t(".account_already_linked")
-      return
-    end
-
-    flow = brex_account_flow
-    unless flow.selected?
-      render_brex_item_selection_failure(flow)
-      return
-    end
-
-    @brex_item = flow.brex_item
-    @available_accounts = flow.available_accounts_for_existing(account: @account)
-
-    if @available_accounts.empty?
-      redirect_to accounts_path, alert: t(".all_accounts_already_linked")
-      return
-    end
-
+    @brex_item = result.brex_item
+    @available_accounts = result.available_accounts
     @return_to = safe_return_to_path
+
     render layout: false
-  rescue BrexItem::AccountFlow::NoApiTokenError
-    redirect_to settings_providers_path, alert: t(".no_api_token")
-  rescue Provider::Brex::BrexError => e
-    Rails.logger.error("Brex API error in select_existing_account: #{e.message}")
-    render_api_error_partial(e.message, accounts_path)
-  rescue StandardError => e
-    Rails.logger.error("Unexpected error in select_existing_account: #{e.class}: #{e.message}")
-    render_api_error_partial(t(".unexpected_error"), accounts_path)
   end
 
   def link_existing_account
-    account_id = params[:account_id]
-    brex_account_id = params[:brex_account_id]
-    return_to = safe_return_to_path
+    account = Current.family.accounts.find(params[:account_id]) if params[:account_id].present?
+    result = brex_account_flow.link_existing_account_result(
+      account: account,
+      brex_account_id: params[:brex_account_id]
+    )
 
-    unless account_id.present? && brex_account_id.present?
-      redirect_to accounts_path, alert: t(".missing_parameters")
-      return
-    end
-
-    @account = Current.family.accounts.find(account_id)
-
-    if @account.account_providers.exists?
-      redirect_to accounts_path, alert: t(".account_already_linked")
-      return
-    end
-
-    flow = brex_account_flow
-    unless flow.selected?
-      redirect_to settings_providers_path, alert: t(".select_connection")
-      return
-    end
-
-    flow.link_existing_account!(account: @account, brex_account_id: brex_account_id)
-
-    redirect_to return_to || accounts_path,
-                notice: t(".success", account_name: @account.name)
-  rescue BrexItem::AccountFlow::NoApiTokenError
-    redirect_to accounts_path, alert: t(".no_api_token")
-  rescue BrexItem::AccountFlow::AccountNotFoundError
-    redirect_to accounts_path, alert: t(".brex_account_not_found")
-  rescue BrexItem::AccountFlow::InvalidAccountNameError
-    redirect_to accounts_path, alert: t(".invalid_account_name")
-  rescue BrexItem::AccountFlow::AccountAlreadyLinkedError
-    redirect_to accounts_path, alert: t(".brex_account_already_linked")
-  rescue Provider::Brex::BrexError => e
-    redirect_to accounts_path, alert: t(".api_error", message: e.message)
+    redirect_with_navigation(result, return_to: safe_return_to_path)
   end
 
   def new
@@ -184,11 +81,7 @@ class BrexItemsController < ApplicationController
   end
 
   def update
-    permitted_params = brex_item_params
-    expire_accounts_cache = BrexItem::AccountFlow.cache_sensitive_update?(permitted_params)
-
-    if @brex_item.update(permitted_params)
-      Rails.cache.delete(BrexItem::AccountFlow.cache_key(Current.family, @brex_item)) if expire_accounts_cache
+    if BrexItem::AccountFlow.update_item_with_cache_expiration(@brex_item, family: Current.family, attributes: brex_item_params)
       render_provider_panel_success(t(".success"))
     else
       render_provider_panel_error
@@ -212,7 +105,7 @@ class BrexItemsController < ApplicationController
 
   def setup_accounts
     flow = brex_account_flow_for_item
-    @api_error = import_accounts_for_setup(flow)
+    @api_error = flow.import_accounts_error_message
     @brex_accounts = flow.unlinked_brex_accounts
     @account_type_options = flow.account_type_options
     @subtype_options = flow.subtype_options
@@ -220,35 +113,29 @@ class BrexItemsController < ApplicationController
 
   def complete_account_setup
     flow = brex_account_flow_for_item
-    result = flow.complete_setup!(
+    result = flow.complete_setup_result(
       account_types: params[:account_types] || {},
       account_subtypes: params[:account_subtypes] || {}
     )
 
-    flash[:notice] = account_setup_notice(result)
+    unless result.success?
+      redirect_to accounts_path, alert: result.message, status: :see_other
+      return
+    end
+
+    flash[:notice] = result.message
 
     if turbo_frame_request?
       render_accounts_update_after_setup
     else
       redirect_to accounts_path, status: :see_other
     end
-  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
-    Rails.logger.error("Brex account setup failed: #{e.class} - #{e.message}")
-    Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
-    redirect_to accounts_path, alert: t(".creation_failed", error: e.message), status: :see_other
-  rescue StandardError => e
-    Rails.logger.error("Brex account setup failed unexpectedly: #{e.class} - #{e.message}")
-    Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
-    redirect_to accounts_path, alert: t(".creation_failed", error: t(".unexpected_error")), status: :see_other
   end
 
   private
 
     def brex_account_flow
-      @brex_account_flow ||= BrexItem::AccountFlow.new(
-        family: Current.family,
-        brex_item_id: params[:brex_item_id]
-      )
+      @brex_account_flow ||= BrexItem::AccountFlow.new(family: Current.family, brex_item_id: params[:brex_item_id])
     end
 
     def brex_account_flow_for_item
@@ -256,93 +143,34 @@ class BrexItemsController < ApplicationController
     end
 
     def render_provider_panel_success(message)
-      if turbo_frame_request?
-        flash.now[:notice] = message
-        @brex_items = Current.family.brex_items.active.ordered.includes(:syncs, :brex_accounts)
-        render turbo_stream: [
-          turbo_stream.replace(
-            "brex-providers-panel",
-            partial: "settings/providers/brex_panel",
-            locals: { brex_items: @brex_items }
-          ),
-          *flash_notification_stream_items
-        ]
-      else
-        redirect_to accounts_path, notice: message, status: :see_other
-      end
+      return redirect_to accounts_path, notice: message, status: :see_other unless turbo_frame_request?
+
+      flash.now[:notice] = message
+      @brex_items = Current.family.brex_items.active.ordered.includes(:syncs, :brex_accounts)
+      render_brex_provider_panel(locals: { brex_items: @brex_items }, include_flash: true)
     end
 
     def render_provider_panel_error
       @error_message = @brex_item.errors.full_messages.join(", ")
+      return redirect_to settings_providers_path, alert: @error_message, status: :see_other unless turbo_frame_request?
 
-      if turbo_frame_request?
-        render turbo_stream: turbo_stream.replace(
+      render_brex_provider_panel(locals: { error_message: @error_message }, status: :unprocessable_entity)
+    end
+
+    def render_brex_provider_panel(locals:, status: :ok, include_flash: false)
+      streams = [
+        turbo_stream.replace(
           "brex-providers-panel",
           partial: "settings/providers/brex_panel",
-          locals: { error_message: @error_message }
-        ), status: :unprocessable_entity
-      else
-        redirect_to settings_providers_path, alert: @error_message, status: :see_other
-      end
-    end
-
-    def redirect_after_link_accounts(result, return_to:)
-      if result.invalid_count.positive? && result.created_count.zero? && result.already_linked_count.zero?
-        redirect_to new_account_path, alert: t(".invalid_account_names", count: result.invalid_count)
-      elsif result.invalid_count.positive? && (result.created_count.positive? || result.already_linked_count.positive?)
-        redirect_to return_to || accounts_path,
-                    alert: t(".partial_invalid",
-                             created_count: result.created_count,
-                             already_linked_count: result.already_linked_count,
-                             invalid_count: result.invalid_count)
-      elsif result.created_count.positive? && result.already_linked_count.positive?
-        redirect_to return_to || accounts_path,
-                    notice: t(".partial_success",
-                              created_count: result.created_count,
-                              already_linked_count: result.already_linked_count,
-                              already_linked_names: result.already_linked_names.join(", "))
-      elsif result.created_count.positive?
-        redirect_to return_to || accounts_path,
-                    notice: t(".success", count: result.created_count)
-      elsif result.already_linked_count.positive?
-        redirect_to return_to || accounts_path,
-                    alert: t(".all_already_linked",
-                             count: result.already_linked_count,
-                             names: result.already_linked_names.join(", "))
-      else
-        redirect_to new_account_path, alert: t(".link_failed")
-      end
-    end
-
-    def import_accounts_for_setup(flow)
-      flow.import_accounts_from_api_if_needed
-    rescue BrexItem::AccountFlow::NoApiTokenError
-      t("brex_items.setup_accounts.no_api_token")
-    rescue Provider::Brex::BrexError => e
-      Rails.logger.error("Brex API error: #{e.message}")
-      t("brex_items.setup_accounts.api_error", message: e.message)
-    rescue StandardError => e
-      Rails.logger.error("Unexpected error fetching Brex accounts: #{e.class}: #{e.message}")
-      t("brex_items.setup_accounts.api_error", message: t("brex_items.errors.unexpected_error"))
-    end
-
-    def account_setup_notice(result)
-      if result.created_count.positive?
-        t(".success", count: result.created_count)
-      elsif result.skipped_count.positive?
-        t(".all_skipped")
-      else
-        t(".no_accounts")
-      end
+          locals: locals
+        )
+      ]
+      streams += flash_notification_stream_items if include_flash
+      render turbo_stream: streams, status: status
     end
 
     def render_accounts_update_after_setup
-      @manual_accounts = Account.uncached {
-        Current.family.accounts
-          .visible_manual
-          .order(:name)
-          .to_a
-      }
+      @manual_accounts = Account.uncached { Current.family.accounts.visible_manual.order(:name).to_a }
       @brex_items = Current.family.brex_items.ordered
 
       manual_accounts_stream = if @manual_accounts.any?
@@ -366,9 +194,7 @@ class BrexItemsController < ApplicationController
     end
 
     def render_api_error_partial(error_message, return_path)
-      render partial: "brex_items/api_error",
-             locals: { error_message: error_message, return_path: return_path },
-             layout: false
+      render partial: "brex_items/api_error", locals: { error_message: error_message, return_path: return_path }, layout: false
     end
 
     def safely_unlink_brex_item
@@ -392,30 +218,35 @@ class BrexItemsController < ApplicationController
       permitted
     end
 
-    def brex_item_selection_error_payload(flow)
-      if flow.selection_required?
-        {
-          success: false,
-          error: "select_connection",
-          error_message: t(".select_connection", default: "Choose a Brex connection before loading accounts."),
-          has_accounts: nil
-        }
+    def handle_brex_selection_result(result, empty_path:, api_return_path:)
+      case result.status
+      when :empty, :account_already_linked
+        redirect_to empty_path, alert: result.message
+      when :no_api_token, :select_connection
+        redirect_to settings_providers_path, alert: result.message
+      when :setup_required
+        if turbo_frame_request?
+          render partial: "brex_items/setup_required", layout: false
+        else
+          redirect_to settings_providers_path, alert: result.message
+        end
+      when :api_error, :unexpected_error
+        render_api_error_partial(result.message, api_return_path)
       else
-        { success: false, error: "no_credentials", has_accounts: false }
+        redirect_to settings_providers_path, alert: result.message
       end
     end
 
-    def render_brex_item_selection_failure(flow)
-      if flow.selection_required?
-        redirect_to settings_providers_path,
-                    alert: t(".select_connection", default: "Choose a Brex connection in Provider Settings.")
-      elsif turbo_frame_request?
-        render partial: "brex_items/setup_required", layout: false
-      else
-        redirect_to settings_providers_path,
-                    alert: t(".no_credentials_configured",
-                             default: "Please configure your Brex API token first in Provider Settings.")
-      end
+    def redirect_with_navigation(result, return_to:)
+      redirect_to navigation_path_for(result.target, return_to: return_to), result.flash_type => result.message
+    end
+
+    def navigation_path_for(target, return_to:)
+      {
+        new_account: new_account_path,
+        settings_providers: settings_providers_path,
+        return_to_or_accounts: return_to || accounts_path
+      }.fetch(target, accounts_path)
     end
 
     def safe_return_to_path

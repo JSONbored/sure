@@ -84,6 +84,37 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
     assert_equal [ "cash_tx_1", "cash_tx_2" ], @brex_account.reload.raw_transactions_payload.map { |tx| tx["id"] }
   end
 
+  test "uses explicit sync start date for cash and card transaction fetches" do
+    card_account = @family.accounts.create!(
+      name: "Brex Card",
+      balance: 0,
+      currency: "USD",
+      accountable: CreditCard.new
+    )
+    brex_card_account = @brex_item.brex_accounts.create!(
+      account_id: BrexAccount.card_account_id,
+      account_kind: "card",
+      name: "Brex Card",
+      currency: "USD",
+      current_balance: 0
+    )
+    AccountProvider.create!(account: card_account, provider: brex_card_account)
+
+    sync_start_date = Date.new(2026, 2, 1)
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(accounts: [ cash_account_payload, card_account_payload ])
+    provider.expects(:get_cash_transactions).with("cash_1", start_date: sync_start_date).returns(transactions: [])
+    provider.expects(:get_primary_card_transactions).with(start_date: sync_start_date).returns(transactions: [])
+
+    result = BrexItem::Importer.new(
+      @brex_item,
+      brex_provider: provider,
+      sync_start_date: sync_start_date
+    ).import
+
+    assert result[:success]
+  end
+
   test "marks item as requiring update on authorization errors" do
     provider = mock("brex_provider")
     provider.expects(:get_accounts).raises(
