@@ -131,6 +131,10 @@ class BrexAccountTest < ActiveSupport::TestCase
     assert_equal BigDecimal("1200.0"), brex_account.available_balance
   end
 
+  test "invalid Brex money amount falls back to zero" do
+    assert_equal BigDecimal("0"), BrexAccount.money_to_decimal(amount: "not-a-number", currency: "USD")
+  end
+
   test "snapshot sanitizes full account and routing numbers" do
     brex_account = @item_a.brex_accounts.create!(
       account_id: "cash_2",
@@ -175,5 +179,23 @@ class BrexAccountTest < ActiveSupport::TestCase
     assert_equal({ "card_id" => "card_1", "last_four" => "1111" }, sanitized["card_metadata"])
     refute_includes sanitized.to_s, "test-pan-placeholder"
     refute_includes sanitized.to_s, "private"
+  end
+
+  test "linked_account uses the cached account association" do
+    brex_account = @item_a.brex_accounts.create!(
+      account_id: "cash_linked_alias",
+      name: "Linked Alias",
+      currency: "USD",
+      account_kind: "cash"
+    )
+    account = @family_a.accounts.create!(
+      name: "Linked Alias",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+    AccountProvider.create!(account: account, provider: brex_account)
+
+    assert_equal brex_account.account, brex_account.linked_account
   end
 end

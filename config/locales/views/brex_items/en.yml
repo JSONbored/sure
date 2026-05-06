@@ -41,6 +41,8 @@ en:
       title: Brex Connection Error
     errors:
       unexpected_error: An unexpected error occurred. Please try again later.
+    entries:
+      default_name: Brex transaction
     loading:
       loading_message: Loading Brex accounts...
       loading_title: Loading
@@ -52,6 +54,7 @@ en:
       invalid_account_names:
         one: "Cannot link account with blank name"
         other: "Cannot link %{count} accounts with blank names"
+      invalid_account_type: Unsupported Brex account type
       link_failed: Failed to link accounts
       no_accounts_selected: Please select at least one account
       no_api_token: Brex API token not found. Please configure it in Provider Settings.
@@ -230,10 +233,14 @@ en:
       creation_failed: "Failed to create accounts: %{error}"
       creation_failed_count: "Failed to create %{count} account(s)."
       no_accounts: "No accounts to set up."
+      partial_skipped: "Successfully created %{created_count} account(s); %{skipped_count} account(s) were skipped."
       partial_success: "Successfully created %{created_count} account(s), but %{failed_count} account(s) failed."
       success: "Successfully created %{count} account(s)."
       unexpected_error: An unexpected error occurred.
     sync:
       success: Sync started
+    syncer:
+      credentials_invalid: Invalid Brex API token or account permissions
+      failed: Sync failed. Please try again or contact support.
     update:
       success: Brex connection updated

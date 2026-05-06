@@ -52,6 +52,17 @@ class BrexItemTest < ActiveSupport::TestCase
     assert_equal "https://api.brex.com", item.base_url
   end
 
+  test "token is stripped before validation and save" do
+    item = BrexItem.create!(
+      family: families(:empty),
+      name: "Token Normalized Brex",
+      token: "  normalized_token  ",
+      base_url: "https://api.brex.com"
+    )
+
+    assert_equal "normalized_token", item.token
+  end
+
   test "base_url rejects non-Brex hosts and endpoint paths" do
     [
       "http://api.brex.com",

@@ -12,7 +12,6 @@ class BrexAccount < ApplicationRecord
 
   has_one :account_provider, as: :provider, dependent: :destroy
   has_one :account, through: :account_provider, source: :account
-  has_one :linked_account, through: :account_provider, source: :account
 
   validates :name, :currency, presence: true
   validates :account_id, uniqueness: { scope: :brex_item_id }
@@ -73,7 +72,12 @@ class BrexAccount < ApplicationRecord
     BigDecimal(amount.to_s) / BigDecimal(divisor.to_s)
   rescue Money::Currency::UnknownCurrencyError, ArgumentError
     Rails.logger.warn("Invalid Brex money payload #{money_payload.inspect}, defaulting conversion to USD")
-    BigDecimal(payload[:amount].to_s) / BigDecimal(Money::Currency.new("USD").minor_unit_conversion.to_s)
+    begin
+      safe_amount = BigDecimal(payload[:amount].to_s)
+      safe_amount / BigDecimal(Money::Currency.new("USD").minor_unit_conversion.to_s)
+    rescue ArgumentError, TypeError
+      BigDecimal("0")
+    end
   end
 
   def self.currency_code_from_money(money_payload)
@@ -129,6 +133,10 @@ class BrexAccount < ApplicationRecord
     account
   end
 
+  def linked_account
+    account
+  end
+
   def cash?
     account_kind == "cash"
   end
@@ -159,11 +167,9 @@ class BrexAccount < ApplicationRecord
   end
 
   def upsert_brex_transactions_snapshot!(transactions_snapshot)
-    assign_attributes(
+    update!(
       raw_transactions_payload: self.class.sanitize_payload(transactions_snapshot)
     )
-
-    save!
   end
 
   private

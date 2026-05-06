@@ -30,7 +30,9 @@ class BrexItems::AccountFlowsController < ApplicationController
   def select_existing_account
     return redirect_to accounts_path, alert: t("brex_items.select_existing_account.no_account_specified") if params[:account_id].blank?
 
-    @account = Current.family.accounts.find(params[:account_id])
+    @account = Current.family.accounts.find_by(id: params[:account_id])
+    return redirect_to accounts_path, alert: t("brex_items.select_existing_account.no_account_specified") unless @account
+
     result = brex_account_flow.select_existing_account_result(account: @account)
 
     return handle_brex_selection_result(result, empty_path: accounts_path, api_return_path: accounts_path) unless result.success?
@@ -45,7 +47,9 @@ class BrexItems::AccountFlowsController < ApplicationController
   def link_existing_account
     return redirect_to accounts_path, alert: t("brex_items.link_existing_account.no_account_specified") if params[:account_id].blank?
 
-    account = Current.family.accounts.find(params[:account_id])
+    account = Current.family.accounts.find_by(id: params[:account_id])
+    return redirect_to accounts_path, alert: t("brex_items.link_existing_account.no_account_specified") unless account
+
     result = brex_account_flow.link_existing_account_result(
       account: account,
       brex_account_id: params[:brex_account_id]
@@ -105,6 +109,7 @@ class BrexItems::AccountFlowsController < ApplicationController
       return nil if second_character.blank?
       return nil if second_character == "/" || second_character == "\\"
       return nil if second_character.match?(/[[:space:][:cntrl:]]/)
+      return nil if encoded_path_separator?(return_to)
 
       uri = URI.parse(return_to)
 
@@ -113,5 +118,15 @@ class BrexItems::AccountFlowsController < ApplicationController
       return_to
     rescue URI::InvalidURIError
       nil
+    end
+
+    def encoded_path_separator?(return_to)
+      encoded_second_character = return_to[1, 3]
+      return false unless encoded_second_character&.start_with?("%")
+
+      decoded = URI.decode_www_form_component(encoded_second_character)
+      decoded == "/" || decoded == "\\"
+    rescue ArgumentError
+      false
     end
 end

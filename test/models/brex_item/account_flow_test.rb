@@ -70,6 +70,22 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
     assert_equal I18n.t("brex_items.link_accounts.select_connection"), result.message
   end
 
+  test "link new accounts rejects unsupported account type before creating accounts" do
+    flow = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item)
+    @brex_item.expects(:brex_provider).never
+
+    assert_no_difference [ "Account.count", "BrexAccount.count", "AccountProvider.count" ] do
+      result = flow.link_new_accounts_result(
+        account_ids: [ "cash_import_1" ],
+        accountable_type: "Investment"
+      )
+
+      assert_equal :new_account, result.target
+      assert_equal :alert, result.flash_type
+      assert_equal I18n.t("brex_items.link_accounts.invalid_account_type"), result.message
+    end
+  end
+
   test "imports provider accounts into the selected item" do
     brex_item = BrexItem.create!(
       family: @family,
@@ -220,6 +236,36 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
     assert_no_difference [ "Account.count", "BrexAccount.count", "AccountProvider.count" ] do
       assert_raises(ActiveRecord::RecordInvalid) do
         flow.link_new_accounts!(account_ids: [ "rollback_cash_1" ], accountable_type: "Depository")
+      end
+    end
+  end
+
+  test "link existing account rolls back provider account when link creation fails" do
+    account = @family.accounts.create!(
+      name: "Existing Cash",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+    provider = mock("brex_provider")
+    provider.expects(:get_accounts).returns(
+      accounts: [
+        {
+          id: "rollback_existing_cash_1",
+          name: "Rollback Existing Cash",
+          account_kind: "cash",
+          current_balance: { amount: 12_345, currency: "USD" }
+        }
+      ]
+    )
+    @brex_item.expects(:brex_provider).returns(provider)
+    AccountProvider.expects(:create!).raises(ActiveRecord::RecordInvalid.new(AccountProvider.new))
+
+    flow = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item)
+
+    assert_no_difference [ "BrexAccount.count", "AccountProvider.count" ] do
+      assert_raises(ActiveRecord::RecordInvalid) do
+        flow.link_existing_account!(account: account, brex_account_id: "rollback_existing_cash_1")
       end
     end
   end

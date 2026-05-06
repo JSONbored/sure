@@ -12,6 +12,7 @@ class BrexItem < ApplicationRecord
   validates :name, presence: true
   validates :token, presence: true, on: :create
   validate :base_url_must_be_official_brex_url
+  before_validation :normalize_token
   before_validation :normalize_base_url
 
   belongs_to :family
@@ -83,11 +84,7 @@ class BrexItem < ApplicationRecord
   end
 
   def upsert_brex_snapshot!(accounts_snapshot)
-    assign_attributes(
-      raw_payload: BrexAccount.sanitize_payload(accounts_snapshot)
-    )
-
-    save!
+    update!(raw_payload: BrexAccount.sanitize_payload(accounts_snapshot))
   end
 
   def has_completed_initial_setup?
@@ -126,10 +123,10 @@ class BrexItem < ApplicationRecord
   end
 
   def connected_institutions
-    brex_accounts.includes(:account)
-                  .where.not(institution_metadata: nil)
-                  .map { |acc| acc.institution_metadata }
-                  .uniq { |inst| inst["name"] || inst["institution_name"] }
+    brex_accounts.where.not(institution_metadata: nil)
+                 .pluck(:institution_metadata)
+                 .compact
+                 .uniq { |inst| inst["name"] || inst["institution_name"] }
   end
 
   def institution_summary
@@ -158,6 +155,10 @@ class BrexItem < ApplicationRecord
   end
 
   private
+    def normalize_token
+      self.token = token&.strip
+    end
+
     def normalize_base_url
       stripped = base_url.to_s.strip
       if stripped.blank?

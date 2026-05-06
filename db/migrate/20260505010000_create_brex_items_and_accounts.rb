@@ -12,9 +12,9 @@ class CreateBrexItemsAndAccounts < ActiveRecord::Migration[7.2]
       t.string :institution_url
       t.string :institution_color
 
-      t.string :status, default: "good"
-      t.boolean :scheduled_for_deletion, default: false
-      t.boolean :pending_account_setup, default: false
+      t.string :status, null: false, default: "good"
+      t.boolean :scheduled_for_deletion, null: false, default: false
+      t.boolean :pending_account_setup, null: false, default: false
 
       t.datetime :sync_start_date
 

@@ -115,18 +115,18 @@ class Provider::BrexAdapter < Provider::Base
   def institution_name
     metadata = provider_account.institution_metadata
 
-    metadata&.[]("name") || item&.institution_name
+    metadata&.dig("name") || item&.institution_name
   end
 
   def institution_url
     metadata = provider_account.institution_metadata
 
-    metadata&.[]("url") || item&.institution_url
+    metadata&.dig("url") || item&.institution_url
   end
 
   def institution_color
     metadata = provider_account.institution_metadata
 
-    metadata&.[]("color") || item&.institution_color
+    metadata&.dig("color") || item&.institution_color
   end
 end

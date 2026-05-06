@@ -1,10 +1,10 @@
 class BrexItems::AccountSetupsController < ApplicationController
-  before_action :set_brex_item
   before_action :require_admin!
+  before_action :set_brex_item
 
   def setup_accounts
     flow = brex_account_flow
-    @api_error = flow.import_accounts_error_message
+    @api_error = flow.import_accounts_with_user_facing_error
     @brex_accounts = flow.unlinked_brex_accounts
     @account_type_options = flow.account_type_options
     @subtype_options = flow.subtype_options
@@ -61,20 +61,20 @@ class BrexItems::AccountSetupsController < ApplicationController
         turbo_stream.replace(
           ActionView::RecordIdentifier.dom_id(@brex_item),
           partial: "brex_items/brex_item",
-          locals: view_context.brex_item_render_locals(@brex_item)
+          locals: { brex_item: @brex_item }
         )
       ] + Array(flash_notification_stream_items)
     end
 
     def sanitized_account_types
       allowed_account_ids = @brex_item.brex_accounts.pluck(:id).map(&:to_s)
-      allowed_types = Provider::BrexAdapter.supported_account_types + [ "skip" ]
+      supported_types = Provider::BrexAdapter.supported_account_types
 
       setup_param_hash(:account_types).each_with_object({}) do |(account_id, selected_type), sanitized|
         next unless allowed_account_ids.include?(account_id.to_s)
-        next unless allowed_types.include?(selected_type.to_s)
 
-        sanitized[account_id.to_s] = selected_type.to_s
+        normalized_type = selected_type.to_s
+        sanitized[account_id.to_s] = supported_types.include?(normalized_type) ? normalized_type : "skip"
       end
     end
 

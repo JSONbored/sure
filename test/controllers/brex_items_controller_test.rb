@@ -179,6 +179,10 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
   test "select accounts rejects backslash and unsafe local return paths" do
     [
       "/\\evil.example/accounts",
+      "/%2fevil.example/accounts",
+      "/%2Fevil.example/accounts",
+      "/%5cevil.example/accounts",
+      "/%5Cevil.example/accounts",
       "/\naccounts",
       "/ accounts",
       "/"
@@ -196,6 +200,16 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
         assert fields.first["value"].blank?
       end
     end
+  end
+
+  test "select existing account redirects when account id is invalid" do
+    get select_existing_account_brex_items_url, params: {
+      brex_item_id: @second_item.id,
+      account_id: SecureRandom.uuid
+    }
+
+    assert_redirected_to accounts_path
+    assert_equal "No account specified", flash[:alert]
   end
 
   test "select existing account renders the selected brex item id" do
@@ -300,6 +314,19 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "No account specified", flash[:alert]
   end
 
+  test "link existing account redirects when account id is invalid" do
+    assert_no_difference "AccountProvider.count" do
+      post link_existing_account_brex_items_url, params: {
+        brex_item_id: @second_item.id,
+        account_id: SecureRandom.uuid,
+        brex_account_id: "shared_brex_account"
+      }
+    end
+
+    assert_redirected_to accounts_path
+    assert_equal "No account specified", flash[:alert]
+  end
+
   test "sync only queues a sync for the selected brex item" do
     assert_difference -> { Sync.where(syncable: @second_item).count }, 1 do
       assert_no_difference -> { Sync.where(syncable: @existing_item).count } do
@@ -344,6 +371,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to accounts_path
     assert_equal "savings", valid_brex_account.reload.account.accountable.subtype
     assert_nil unsupported_brex_account.reload.account_provider
+    assert_match(/skipped/i, flash[:notice])
   end
 
   private

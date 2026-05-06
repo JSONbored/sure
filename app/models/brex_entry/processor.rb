@@ -11,13 +11,16 @@ class BrexEntry::Processor
   end
 
   def process
+    cached_external_id = nil
+    cached_external_id = external_id
+
     unless account.present?
-      Rails.logger.warn "BrexEntry::Processor - No linked account for brex_account #{brex_account.id}, skipping transaction #{external_id}"
+      Rails.logger.warn "BrexEntry::Processor - No linked account for brex_account #{brex_account.id}, skipping transaction #{cached_external_id}"
       return :skipped
     end
 
     import_adapter.import_transaction(
-      external_id: external_id,
+      external_id: cached_external_id,
       amount: amount,
       currency: currency,
       date: date,
@@ -28,13 +31,13 @@ class BrexEntry::Processor
       extra: extra
     )
   rescue ArgumentError => e
-    Rails.logger.error "BrexEntry::Processor - Validation error for transaction #{external_id}: #{e.message}"
+    Rails.logger.error "BrexEntry::Processor - Validation error for transaction #{cached_external_id || safe_external_id}: #{e.message}"
     raise
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved => e
-    Rails.logger.error "BrexEntry::Processor - Failed to save transaction #{external_id}: #{e.message}"
+    Rails.logger.error "BrexEntry::Processor - Failed to save transaction #{cached_external_id || safe_external_id}: #{e.message}"
     raise StandardError.new("Failed to import transaction: #{e.message}")
   rescue => e
-    Rails.logger.error "BrexEntry::Processor - Unexpected error processing transaction #{external_id}: #{e.class} - #{e.message}"
+    Rails.logger.error "BrexEntry::Processor - Unexpected error processing transaction #{cached_external_id || safe_external_id}: #{e.class} - #{e.message}"
     Rails.logger.error Array(e.backtrace).join("\n")
     raise StandardError.new("Unexpected error importing transaction: #{e.message}")
   end
@@ -61,11 +64,17 @@ class BrexEntry::Processor
       "brex_#{id}"
     end
 
+    def safe_external_id
+      external_id
+    rescue ArgumentError
+      "brex_unknown"
+    end
+
     def name
       data[:description].presence ||
         merchant_payload[:raw_descriptor].presence ||
         merchant_payload[:name].presence ||
-        "Brex transaction"
+        I18n.t("brex_items.entries.default_name")
     end
 
     def notes

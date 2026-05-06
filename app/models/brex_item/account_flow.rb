@@ -104,6 +104,7 @@ class BrexItem::AccountFlow
 
   def link_new_accounts_result(account_ids:, accountable_type:)
     return navigation(:new_account, :alert, I18n.t("brex_items.link_accounts.no_accounts_selected")) if account_ids.blank?
+    return navigation(:new_account, :alert, I18n.t("brex_items.link_accounts.invalid_account_type")) unless supported_account_type?(accountable_type)
     return navigation(:settings_providers, :alert, I18n.t("brex_items.link_accounts.select_connection")) unless selected?
 
     link_navigation_result(link_new_accounts!(account_ids: account_ids, accountable_type: accountable_type))
@@ -134,6 +135,8 @@ class BrexItem::AccountFlow
   end
 
   def link_new_accounts!(account_ids:, accountable_type:)
+    raise ArgumentError, "Unsupported Brex account type: #{accountable_type}" unless supported_account_type?(accountable_type)
+
     created_accounts = []
     already_linked_names = []
     invalid_account_ids = []
@@ -192,10 +195,15 @@ class BrexItem::AccountFlow
     account_name = BrexAccount.name_for(account_data)
     raise InvalidAccountNameError if account_name.blank?
 
-    brex_account = upsert_brex_account!(brex_account_id, account_data)
-    raise AccountAlreadyLinkedError if brex_account.account_provider.present?
+    brex_account = nil
 
-    AccountProvider.create!(account: account, provider: brex_account)
+    ActiveRecord::Base.transaction do
+      brex_account = upsert_brex_account!(brex_account_id, account_data)
+      raise AccountAlreadyLinkedError if brex_account.account_provider.present?
+
+      AccountProvider.create!(account: account, provider: brex_account)
+    end
+
     brex_item.sync_later
 
     brex_account
@@ -293,6 +301,7 @@ class BrexItem::AccountFlow
 
       unless valid_types.include?(selected_type)
         Rails.logger.warn("Invalid account type '#{selected_type}' submitted for Brex account #{brex_account_id}")
+        skipped_count += 1
         next
       end
 
@@ -341,7 +350,7 @@ class BrexItem::AccountFlow
     SetupResult.new(created_accounts: created_accounts, skipped_count: skipped_count, failed_count: failed_count)
   end
 
-  def import_accounts_error_message
+  def import_accounts_with_user_facing_error
     import_accounts_from_api_if_needed
   rescue NoApiTokenError
     I18n.t("brex_items.setup_accounts.no_api_token")
@@ -509,6 +518,8 @@ class BrexItem::AccountFlow
     def setup_notice(result)
       if result.failed_count.positive? && result.created_count.positive?
         I18n.t("brex_items.complete_account_setup.partial_success", created_count: result.created_count, failed_count: result.failed_count)
+      elsif result.skipped_count.positive? && result.created_count.positive?
+        I18n.t("brex_items.complete_account_setup.partial_skipped", created_count: result.created_count, skipped_count: result.skipped_count)
       elsif result.failed_count.positive?
         I18n.t("brex_items.complete_account_setup.creation_failed_count", count: result.failed_count)
       elsif result.created_count.positive?
@@ -582,8 +593,11 @@ class BrexItem::AccountFlow
     def upsert_brex_account!(account_id, account_data)
       brex_account = brex_item.brex_accounts.find_or_initialize_by(account_id: account_id.to_s)
       brex_account.upsert_brex_snapshot!(account_data)
-      brex_account.save!
       brex_account
+    end
+
+    def supported_account_type?(accountable_type)
+      Provider::BrexAdapter.supported_account_types.include?(accountable_type)
     end
 
     def brex_account_snapshot_changed?(brex_account, account_data)

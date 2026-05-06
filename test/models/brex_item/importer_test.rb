@@ -25,7 +25,7 @@ class BrexItem::ImporterTest < ActiveSupport::TestCase
   test "imports account discovery and fetches transactions only for linked accounts" do
     provider = mock("brex_provider")
     provider.expects(:get_accounts).returns(accounts: [ cash_account_payload, card_account_payload ])
-    provider.expects(:get_cash_transactions).with("cash_1", start_date: anything).returns(
+    provider.expects(:get_cash_transactions).with("cash_1", start_date: Date.new(2026, 1, 1)).returns(
       transactions: [
         {
           id: "cash_tx_1",

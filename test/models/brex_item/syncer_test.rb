@@ -17,6 +17,19 @@ class BrexItem::SyncerTest < ActiveSupport::TestCase
     @syncer.perform_sync(sync)
   end
 
+  test "raises user safe credential error for Brex auth failures" do
+    sync = mock_sync(window_start_date: Date.new(2026, 2, 1))
+    @brex_item.expects(:import_latest_brex_data)
+              .raises(Provider::Brex::BrexError.new("raw upstream auth body", :unauthorized, http_status: 401))
+    Sentry.expects(:capture_exception)
+
+    error = assert_raises(BrexItem::Syncer::SafeSyncError) do
+      @syncer.perform_sync(sync)
+    end
+
+    assert_equal I18n.t("brex_items.syncer.credentials_invalid"), error.message
+  end
+
   private
 
     def mock_sync(window_start_date:)

@@ -1,6 +1,8 @@
 class BrexItem::Syncer
   include SyncStats::Collector
 
+  SafeSyncError = Class.new(StandardError)
+
   attr_reader :brex_item
 
   def initialize(brex_item)
@@ -54,11 +56,27 @@ class BrexItem::Syncer
     # Mark sync health
     collect_health_stats(sync, errors: nil)
   rescue => e
-    collect_health_stats(sync, errors: [ { message: e.message, category: "sync_error" } ])
-    raise
+    safe_message = user_safe_error_message(e)
+    Rails.logger.error "BrexItem::Syncer - sync failed for Brex item #{brex_item.id}: #{e.class} - #{e.message}"
+    Rails.logger.error Array(e.backtrace).first(10).join("\n")
+    Sentry.capture_exception(e) do |scope|
+      scope.set_tags(brex_item_id: brex_item.id)
+    end
+    collect_health_stats(sync, errors: [ { message: safe_message, category: "sync_error" } ])
+    raise SafeSyncError, safe_message
   end
 
   def perform_post_sync
     # no-op
   end
+
+  private
+
+    def user_safe_error_message(error)
+      if error.is_a?(Provider::Brex::BrexError) && error.error_type.in?([ :unauthorized, :access_forbidden ])
+        I18n.t("brex_items.syncer.credentials_invalid")
+      else
+        I18n.t("brex_items.syncer.failed")
+      end
+    end
 end

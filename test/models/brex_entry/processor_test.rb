@@ -69,6 +69,35 @@ class BrexEntry::ProcessorTest < ActiveSupport::TestCase
     assert_equal "NEW_BREX_TYPE", entry.transaction.extra.dig("brex", "type")
   end
 
+  test "uses localized default transaction name" do
+    transaction = card_transaction(id: "tx_default_name", amount: 12_34)
+    transaction.delete(:description)
+    transaction.delete(:merchant)
+
+    entry = BrexEntry::Processor.new(transaction, brex_account: @brex_account).process
+
+    assert_equal I18n.t("brex_items.entries.default_name"), entry.name
+  end
+
+  test "logs validation failure without re-reading missing external id" do
+    Rails.logger.expects(:error).with(regexp_matches(/Validation error for transaction brex_unknown/)).once
+
+    assert_raises(ArgumentError) do
+      BrexEntry::Processor.new(card_transaction(id: nil, amount: 12_34), brex_account: @brex_account).process
+    end
+  end
+
+  test "logs save failure with cached external id" do
+    Account::ProviderImportAdapter.any_instance
+                                  .expects(:import_transaction)
+                                  .raises(ActiveRecord::RecordInvalid.new(Entry.new))
+    Rails.logger.expects(:error).with(regexp_matches(/Failed to save transaction brex_tx_save_failure/)).once
+
+    assert_raises(StandardError) do
+      BrexEntry::Processor.new(card_transaction(id: "tx_save_failure", amount: 12_34), brex_account: @brex_account).process
+    end
+  end
+
   test "logs missing transaction currency before using account fallback" do
     Rails.logger.expects(:warn).with(regexp_matches(/Invalid Brex currency nil for transaction tx_missing_currency/)).once
 
