@@ -23,12 +23,11 @@ class Merchant < ApplicationRecord
       sanitized_domain_from(url)
     end
 
-    def brandfetch_logo_url_for(url)
+    def brandfetch_logo_url_for(url, logo_size: Setting.brand_fetch_logo_size, client_id: Setting.brand_fetch_client_id)
       domain = extract_domain(url)
-      client_id = Setting.brand_fetch_client_id
       return nil unless domain.present? && client_id.present?
 
-      size = Setting.brand_fetch_logo_size.presence || Setting::BRAND_FETCH_LOGO_SIZE_STANDARD
+      size = logo_size.presence || Setting::BRAND_FETCH_LOGO_SIZE_STANDARD
       encoded_domain = URI.encode_www_form_component(domain)
       "https://cdn.brandfetch.io/#{encoded_domain}/icon/fallback/lettermark/" \
         "w/#{size}/h/#{size}?c=#{client_id}"

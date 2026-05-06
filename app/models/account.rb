@@ -305,11 +305,16 @@ class Account < ApplicationRecord
   def logo_url
     domain = institution_domain
 
-    if domain.present? && Setting.brand_fetch_client_id.present?
-      logo_size = Setting.brand_fetch_logo_size
+    if domain.present?
+      brandfetch_logo_url = Merchant.brandfetch_logo_url_for(
+        domain,
+        logo_size: Setting.brand_fetch_logo_size,
+        client_id: Setting.brand_fetch_client_id
+      )
+      return brandfetch_logo_url if brandfetch_logo_url.present?
+    end
 
-      "https://cdn.brandfetch.io/#{domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
-    elsif provider&.logo_url.present?
+    if provider&.logo_url.present?
       provider.logo_url
     elsif logo.attached?
       Rails.application.routes.url_helpers.rails_blob_path(logo, only_path: true)

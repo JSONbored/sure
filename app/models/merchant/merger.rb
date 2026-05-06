@@ -37,12 +37,7 @@ class Merchant::Merger
   def merge!
     return false if source_merchants.empty?
 
-    if Merchant.connection.transaction_open?
-      merge_sources!
-    else
-      Merchant.transaction { merge_sources! }
-    end
-
+    Merchant.transaction { merge_sources! }
     true
   end
 
