@@ -2,6 +2,7 @@ module SettingsHelper
   SETTINGS_ORDER = [
     # General section
     { name: "Accounts", path: :accounts_path },
+    { name: "Statement Vault", path: :account_statements_path, condition: :admin_user? },
     { name: "Bank Sync", path: :settings_bank_sync_path },
     { name: "Preferences", path: :settings_preferences_path },
     { name: "Appearance", path: :settings_appearance_path },
@@ -21,7 +22,6 @@ module SettingsHelper
     { name: "Self-Hosting", path: :settings_hosting_path, condition: :self_hosted_and_admin? },
     { name: "Providers", path: :settings_providers_path, condition: :admin_user? },
     { name: "Imports", path: :imports_path, condition: :admin_user? },
-    { name: "Statement Vault", path: :account_statements_path, condition: :admin_user? },
     { name: "Exports", path: :family_exports_path, condition: :admin_user? },
     # More section
     { name: "Guides", path: :settings_guides_path },
