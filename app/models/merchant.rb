@@ -28,7 +28,7 @@ class Merchant < ApplicationRecord
       client_id = Setting.brand_fetch_client_id
       return nil unless domain.present? && client_id.present?
 
-      size = Setting.brand_fetch_logo_size
+      size = Setting.brand_fetch_logo_size.presence || Setting::BRAND_FETCH_LOGO_SIZE_STANDARD
       encoded_domain = URI.encode_www_form_component(domain)
       "https://cdn.brandfetch.io/#{encoded_domain}/icon/fallback/lettermark/" \
         "w/#{size}/h/#{size}?c=#{client_id}"

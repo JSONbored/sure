@@ -37,16 +37,26 @@ class Merchant::Merger
   def merge!
     return false if source_merchants.empty?
 
-    source_merchants.each do |source|
-      # Reassign family's transactions to target
-      family.transactions.where(merchant_id: source.id).update_all(merchant_id: target_merchant.id)
-
-      # Delete FamilyMerchant, keep ProviderMerchant (it may be used by other families)
-      source.destroy! if source.is_a?(FamilyMerchant)
-
-      @merged_count += 1
+    if Merchant.connection.transaction_open?
+      merge_sources!
+    else
+      Merchant.transaction { merge_sources! }
     end
 
     true
   end
+
+  private
+
+    def merge_sources!
+      source_merchants.each do |source|
+        # Reassign family's transactions to target
+        family.transactions.where(merchant_id: source.id).update_all(merchant_id: target_merchant.id)
+
+        # Delete FamilyMerchant, keep ProviderMerchant (it may be used by other families)
+        source.destroy! if source.is_a?(FamilyMerchant)
+
+        @merged_count += 1
+      end
+    end
 end

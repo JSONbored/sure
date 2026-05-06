@@ -21,18 +21,26 @@ class Category::Merger
   def merge!
     return false if source_categories.empty?
 
-    source_categories.each do |source|
-      merge_transactions(source)
-      merge_budget_categories(source)
-      reparent_subcategories(source)
-      source.destroy!
-      @merged_count += 1
+    if Category.connection.transaction_open?
+      merge_sources!
+    else
+      Category.transaction { merge_sources! }
     end
 
     true
   end
 
   private
+    def merge_sources!
+      source_categories.each do |source|
+        merge_transactions(source)
+        merge_budget_categories(source)
+        reparent_subcategories(source)
+        source.destroy!
+        @merged_count += 1
+      end
+    end
+
     def validate_category_belongs_to_family!(category, label)
       return if category&.family_id == family.id
 

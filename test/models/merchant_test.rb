@@ -24,4 +24,13 @@ class MerchantTest < ActiveSupport::TestCase
 
     assert_includes logo_url, "cdn.brandfetch.io/example.com%2Fpath/icon"
   end
+
+  test "brandfetch_logo_url_for falls back to standard size" do
+    Setting.stubs(:brand_fetch_client_id).returns("test-client")
+    Setting.stubs(:brand_fetch_logo_size).returns(nil)
+
+    logo_url = Merchant.brandfetch_logo_url_for("https://example.com")
+
+    assert_includes logo_url, "w/#{Setting::BRAND_FETCH_LOGO_SIZE_STANDARD}/h/#{Setting::BRAND_FETCH_LOGO_SIZE_STANDARD}"
+  end
 end
