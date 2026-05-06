@@ -446,7 +446,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     end
 
     def brex_cache_key(brex_item)
-      "brex_accounts_#{@family.id}_#{brex_item.id}"
+      BrexItem::AccountFlow.cache_key(@family, brex_item)
     end
 
     def clear_brex_cache_entries

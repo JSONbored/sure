@@ -96,7 +96,7 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
 
     assert_equal :new_account, result.target
     assert_equal :alert, result.flash_type
-    assert_equal I18n.t("brex_items.link_accounts.api_error", message: "link failure"), result.message
+    assert_equal I18n.t("brex_items.errors.unexpected_error"), result.message
   end
 
   test "link existing account converts unexpected errors into navigation alerts" do
@@ -113,7 +113,7 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
 
     assert_equal :accounts, result.target
     assert_equal :alert, result.flash_type
-    assert_equal I18n.t("brex_items.link_existing_account.api_error", message: "link existing failure"), result.message
+    assert_equal I18n.t("brex_items.errors.unexpected_error"), result.message
   end
 
   test "imports provider accounts into the selected item" do

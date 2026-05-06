@@ -116,7 +116,7 @@ class BrexItem::AccountFlow
   rescue StandardError => e
     Rails.logger.error("Brex account linking failed: #{e.class} - #{e.message}")
     Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
-    navigation(:new_account, :alert, I18n.t("brex_items.link_accounts.api_error", message: e.message))
+    navigation(:new_account, :alert, I18n.t("brex_items.errors.unexpected_error"))
   end
 
   def link_existing_account_result(account:, brex_account_id:)
@@ -130,17 +130,17 @@ class BrexItem::AccountFlow
   rescue NoApiTokenError
     navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.no_api_token"))
   rescue AccountNotFoundError
-    navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.brex_account_not_found"))
+    navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.provider_account_not_found"))
   rescue InvalidAccountNameError
     navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.invalid_account_name"))
   rescue AccountAlreadyLinkedError
-    navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.brex_account_already_linked"))
+    navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.provider_account_already_linked"))
   rescue Provider::Brex::BrexError => e
     navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.api_error", message: e.message))
   rescue StandardError => e
     Rails.logger.error("Brex existing account linking failed: #{e.class} - #{e.message}")
     Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
-    navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.api_error", message: e.message))
+    navigation(:accounts, :alert, I18n.t("brex_items.errors.unexpected_error"))
   end
 
   def link_new_accounts!(account_ids:, accountable_type:)
