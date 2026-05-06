@@ -240,14 +240,27 @@ en:
     sync:
       success: Sync started
     syncer:
+      account_processing_failed:
+        one: "%{count} Brex account failed while processing."
+        other: "%{count} Brex accounts failed while processing."
+      account_sync_failed:
+        one: "%{count} Brex account sync could not be scheduled."
+        other: "%{count} Brex account syncs could not be scheduled."
       accounts_need_setup:
         one: "%{count} account needs setup..."
         other: "%{count} accounts need setup..."
+      accounts_failed:
+        one: "%{count} Brex account failed to import."
+        other: "%{count} Brex accounts failed to import."
       calculating_balances: Calculating balances...
       checking_account_configuration: Checking account configuration...
       credentials_invalid: Invalid Brex API token or account permissions
       failed: Sync failed. Please try again or contact support.
+      import_failed: Brex import failed.
       importing_accounts: Importing accounts from Brex...
       processing_transactions: Processing transactions...
+      transactions_failed:
+        one: "%{count} Brex account had transaction import failures."
+        other: "%{count} Brex accounts had transaction import failures."
     update:
       success: Brex connection updated

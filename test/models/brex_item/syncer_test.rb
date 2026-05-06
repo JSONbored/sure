@@ -36,6 +36,55 @@ class BrexItem::SyncerTest < ActiveSupport::TestCase
     assert_equal 1, sync.sync_stats["unlinked_accounts"]
   end
 
+  test "records importer failure counts in health stats" do
+    sync = recording_sync(window_start_date: Date.new(2026, 2, 1))
+    @brex_item.expects(:import_latest_brex_data).returns(
+      success: false,
+      accounts_failed: 2,
+      transactions_failed: 1
+    )
+
+    @syncer.perform_sync(sync)
+
+    assert_equal 2, sync.sync_stats["total_errors"]
+    assert_equal [
+      I18n.t("brex_items.syncer.accounts_failed", count: 2),
+      I18n.t("brex_items.syncer.transactions_failed", count: 1)
+    ], sync.sync_stats["errors"].map { |error| error["message"] }
+  end
+
+  test "records account processing and scheduling failures in health stats" do
+    account = @brex_item.family.accounts.create!(
+      name: "Linked Brex Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+    brex_account = @brex_item.brex_accounts.first
+    AccountProvider.create!(account: account, provider: brex_account)
+
+    sync = recording_sync(window_start_date: Date.new(2026, 2, 1))
+    @brex_item.expects(:import_latest_brex_data).returns(
+      success: true,
+      accounts_failed: 0,
+      transactions_failed: 0
+    )
+    @brex_item.expects(:process_accounts).returns([
+      { brex_account_id: brex_account.id, success: false, error: "processing failure" }
+    ])
+    @brex_item.expects(:schedule_account_syncs).returns([
+      { account_id: account.id, success: false, error: "scheduling failure" }
+    ])
+
+    @syncer.perform_sync(sync)
+
+    assert_equal 2, sync.sync_stats["total_errors"]
+    assert_equal [
+      I18n.t("brex_items.syncer.account_processing_failed", count: 1),
+      I18n.t("brex_items.syncer.account_sync_failed", count: 1)
+    ], sync.sync_stats["errors"].map { |error| error["message"] }
+  end
+
   test "raises user safe credential error for Brex auth failures" do
     sync = mock_sync(window_start_date: Date.new(2026, 2, 1))
     @brex_item.expects(:import_latest_brex_data)
@@ -70,11 +119,12 @@ class BrexItem::SyncerTest < ActiveSupport::TestCase
         define_method(:initialize) do |start_date|
           @window_start_date = start_date
           @window_end_date = nil
+          @created_at = Time.current
           @sync_stats = {}
           @updates = []
         end
 
-        attr_reader :window_start_date, :window_end_date
+        attr_reader :window_start_date, :window_end_date, :created_at
 
         def update!(attributes)
           @updates << attributes

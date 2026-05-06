@@ -85,6 +85,37 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
     end
   end
 
+  test "link new accounts converts unexpected errors into navigation alerts" do
+    flow = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item)
+    flow.expects(:link_new_accounts!).raises(StandardError, "link failure")
+
+    result = flow.link_new_accounts_result(
+      account_ids: [ "cash_import_1" ],
+      accountable_type: "Depository"
+    )
+
+    assert_equal :new_account, result.target
+    assert_equal :alert, result.flash_type
+    assert_equal I18n.t("brex_items.link_accounts.api_error", message: "link failure"), result.message
+  end
+
+  test "link existing account converts unexpected errors into navigation alerts" do
+    account = @family.accounts.create!(
+      name: "Manual Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+    flow = BrexItem::AccountFlow.new(family: @family, brex_item: @brex_item)
+    flow.expects(:link_existing_account!).raises(StandardError, "link existing failure")
+
+    result = flow.link_existing_account_result(account: account, brex_account_id: "cash_import_1")
+
+    assert_equal :accounts, result.target
+    assert_equal :alert, result.flash_type
+    assert_equal I18n.t("brex_items.link_existing_account.api_error", message: "link existing failure"), result.message
+  end
+
   test "imports provider accounts into the selected item" do
     brex_item = BrexItem.create!(
       family: @family,

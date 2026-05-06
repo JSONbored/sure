@@ -13,6 +13,7 @@ class BrexItem < ApplicationRecord
   validates :name, presence: true
   validates :token, presence: true, on: :create
   validate :base_url_must_be_official_brex_url
+  validate :token_cannot_be_blank_when_changed
   before_validation :normalize_token
   before_validation :normalize_base_url
 
@@ -158,6 +159,12 @@ class BrexItem < ApplicationRecord
   private
     def normalize_token
       self.token = token&.strip
+    end
+
+    def token_cannot_be_blank_when_changed
+      return unless persisted? && will_save_change_to_token? && token.blank?
+
+      errors.add(:token, :blank)
     end
 
     def normalize_base_url

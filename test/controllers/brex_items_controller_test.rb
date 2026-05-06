@@ -139,7 +139,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     get select_accounts_brex_items_url, params: { accountable_type: "Depository" }
 
     assert_redirected_to settings_providers_path
-    assert_equal "Choose a Brex connection in Provider Settings.", flash[:alert]
+    assert_equal I18n.t("brex_items.select_accounts.select_connection"), flash[:alert]
   end
 
   test "select accounts renders the selected brex item id" do
@@ -265,7 +265,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     }
 
     assert_redirected_to accounts_path
-    assert_equal "No account specified", flash[:alert]
+    assert_equal I18n.t("brex_items.select_existing_account.no_account_specified"), flash[:alert]
   end
 
   test "select existing account renders the selected brex item id" do
@@ -334,7 +334,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to settings_providers_path
-    assert_equal "Choose a Brex connection before linking accounts.", flash[:alert]
+    assert_equal I18n.t("brex_items.link_accounts.select_connection"), flash[:alert]
   end
 
   test "link existing account does not silently use the first connection when multiple items exist" do
@@ -355,7 +355,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to settings_providers_path
-    assert_equal "Choose a Brex connection before linking accounts.", flash[:alert]
+    assert_equal I18n.t("brex_items.link_existing_account.select_connection"), flash[:alert]
   end
 
   test "link existing account requires account id" do
@@ -367,7 +367,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to accounts_path
-    assert_equal "No account specified", flash[:alert]
+    assert_equal I18n.t("brex_items.link_existing_account.no_account_specified"), flash[:alert]
   end
 
   test "link existing account redirects when account id is invalid" do
@@ -380,7 +380,7 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to accounts_path
-    assert_equal "No account specified", flash[:alert]
+    assert_equal I18n.t("brex_items.link_existing_account.no_account_specified"), flash[:alert]
   end
 
   test "sync only queues a sync for the selected brex item" do

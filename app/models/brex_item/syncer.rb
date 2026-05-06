@@ -10,9 +10,12 @@ class BrexItem::Syncer
   end
 
   def perform_sync(sync)
+    sync_errors = []
+
     # Phase 1: Import data from Brex API
     update_status(sync, :importing_accounts)
-    brex_item.import_latest_brex_data(sync_start_date: sync.window_start_date)
+    import_result = brex_item.import_latest_brex_data(sync_start_date: sync.window_start_date)
+    sync_errors.concat(import_result_errors(import_result))
 
     # Phase 2: Collect setup statistics
     update_status(sync, :checking_account_configuration)
@@ -44,16 +47,18 @@ class BrexItem::Syncer
       update_status(sync, :processing_transactions)
       mark_import_started(sync)
       Rails.logger.info "BrexItem::Syncer - Processing #{linked_count} linked accounts"
-      brex_item.process_accounts
+      process_results = brex_item.process_accounts
+      sync_errors.concat(result_failure_errors(process_results, category: :account_processing_error, message_key: :account_processing_failed))
       Rails.logger.info "BrexItem::Syncer - Finished processing accounts"
 
       # Phase 4: Schedule balance calculations for linked accounts
       update_status(sync, :calculating_balances)
-      brex_item.schedule_account_syncs(
+      schedule_results = brex_item.schedule_account_syncs(
         parent_sync: sync,
         window_start_date: sync.window_start_date,
         window_end_date: sync.window_end_date
       )
+      sync_errors.concat(result_failure_errors(schedule_results, category: :account_sync_error, message_key: :account_sync_failed))
 
       # Phase 5: Collect transaction statistics
       account_ids = linked_accounts
@@ -65,7 +70,7 @@ class BrexItem::Syncer
     end
 
     # Mark sync health
-    collect_health_stats(sync, errors: nil)
+    collect_health_stats(sync, errors: sync_errors.presence)
   rescue => e
     safe_message = user_safe_error_message(e)
     Rails.logger.error "BrexItem::Syncer - sync failed for Brex item #{brex_item.id}: #{e.class} - #{e.message}"
@@ -100,6 +105,37 @@ class BrexItem::Syncer
 
       merge_sync_stats(sync, setup_stats)
       setup_stats
+    end
+
+    def import_result_errors(result)
+      return [] if result.is_a?(Hash) && result[:success]
+
+      unless result.is_a?(Hash)
+        return [ sync_error(:import_error, :import_failed) ]
+      end
+
+      errors = []
+      accounts_failed = result[:accounts_failed].to_i
+      transactions_failed = result[:transactions_failed].to_i
+
+      errors << sync_error(:account_import_error, :accounts_failed, count: accounts_failed) if accounts_failed.positive?
+      errors << sync_error(:transaction_import_error, :transactions_failed, count: transactions_failed) if transactions_failed.positive?
+      errors << sync_error(:import_error, :import_failed) if errors.empty?
+      errors
+    end
+
+    def result_failure_errors(results, category:, message_key:)
+      failed_count = Array(results).count { |result| result.is_a?(Hash) && result[:success] == false }
+      return [] unless failed_count.positive?
+
+      [ sync_error(category, message_key, count: failed_count) ]
+    end
+
+    def sync_error(category, message_key, **options)
+      {
+        message: I18n.t("brex_items.syncer.#{message_key}", **options),
+        category: category.to_s
+      }
     end
 
     def user_safe_error_message(error)

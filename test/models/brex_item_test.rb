@@ -63,6 +63,17 @@ class BrexItemTest < ActiveSupport::TestCase
     assert_equal "normalized_token", item.token
   end
 
+  test "token cannot be blanked on update" do
+    original_token = @brex_item.token
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      @brex_item.update!(token: "   ")
+    end
+
+    assert_equal original_token, @brex_item.reload.token
+    assert_includes @brex_item.errors[:token], "can't be blank"
+  end
+
   test "base_url rejects non-Brex hosts and endpoint paths" do
     [
       "http://api.brex.com",

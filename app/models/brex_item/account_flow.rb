@@ -113,6 +113,10 @@ class BrexItem::AccountFlow
     navigation(:new_account, :alert, I18n.t("brex_items.link_accounts.no_api_token"))
   rescue Provider::Brex::BrexError => e
     navigation(:new_account, :alert, I18n.t("brex_items.link_accounts.api_error", message: e.message))
+  rescue StandardError => e
+    Rails.logger.error("Brex account linking failed: #{e.class} - #{e.message}")
+    Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
+    navigation(:new_account, :alert, I18n.t("brex_items.link_accounts.api_error", message: e.message))
   end
 
   def link_existing_account_result(account:, brex_account_id:)
@@ -132,6 +136,10 @@ class BrexItem::AccountFlow
   rescue AccountAlreadyLinkedError
     navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.brex_account_already_linked"))
   rescue Provider::Brex::BrexError => e
+    navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.api_error", message: e.message))
+  rescue StandardError => e
+    Rails.logger.error("Brex existing account linking failed: #{e.class} - #{e.message}")
+    Rails.logger.error(Array(e.backtrace).first(10).join("\n"))
     navigation(:accounts, :alert, I18n.t("brex_items.link_existing_account.api_error", message: e.message))
   end
 
@@ -294,6 +302,11 @@ class BrexItem::AccountFlow
 
     failed_count = 0
 
+    submitted_brex_accounts = brex_item.brex_accounts
+                                    .where(id: account_types.keys)
+                                    .includes(:account_provider)
+                                    .index_by { |brex_account| brex_account.id.to_s }
+
     account_types.each do |brex_account_id, selected_type|
       if selected_type == "skip" || selected_type.blank?
         skipped_count += 1
@@ -306,7 +319,7 @@ class BrexItem::AccountFlow
         next
       end
 
-      brex_account = brex_item.brex_accounts.find_by(id: brex_account_id)
+      brex_account = submitted_brex_accounts[brex_account_id.to_s]
       unless brex_account
         Rails.logger.warn("Brex account #{brex_account_id} not found for item #{brex_item.id}")
         next
