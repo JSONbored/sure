@@ -426,6 +426,8 @@ Rails.application.routes.draw do
       # Production API endpoints
       resources :accounts, only: [ :index, :show ]
       resources :balances, only: [ :index, :show ]
+      resources :budgets, only: [ :index, :show ]
+      resources :budget_categories, only: [ :index, :show ]
       resources :categories, only: [ :index, :show ]
       resources :merchants, only: %i[index show]
       resources :rules, only: [ :index, :show ]
@@ -449,7 +451,10 @@ Rails.application.routes.draw do
       resource :usage, only: [ :show ], controller: :usage
       resource :balance_sheet, only: [ :show ], controller: :balance_sheet
       resource :family_settings, only: [ :show ], controller: :family_settings
-      post :sync, to: "sync#create"
+      post :sync, to: "sync#create", as: :sync_job
+      resources :syncs, only: [ :index, :show ] do
+        get :latest, on: :collection
+      end
 
       resources :chats, only: [ :index, :show, :create, :update, :destroy ] do
         resources :messages, only: [ :create ] do
