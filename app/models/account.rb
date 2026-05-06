@@ -303,12 +303,12 @@ class Account < ApplicationRecord
   end
 
   def logo_url
-    normalized_domain = self.class.normalize_institution_domain(institution_domain)
+    domain = institution_domain
 
-    if normalized_domain.present? && Setting.brand_fetch_client_id.present?
+    if domain.present? && Setting.brand_fetch_client_id.present?
       logo_size = Setting.brand_fetch_logo_size
 
-      "https://cdn.brandfetch.io/#{normalized_domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
+      "https://cdn.brandfetch.io/#{domain}/icon/fallback/lettermark/w/#{logo_size}/h/#{logo_size}?c=#{Setting.brand_fetch_client_id}"
     elsif provider&.logo_url.present?
       provider.logo_url
     elsif logo.attached?

@@ -16,6 +16,8 @@ class MerchantTest < ActiveSupport::TestCase
   test "brandfetch_logo_url_for encodes domain path segment" do
     Setting.stubs(:brand_fetch_client_id).returns("test-client")
     Setting.stubs(:brand_fetch_logo_size).returns(128)
+    # Defensive encoding: extract_domain rejects slashes, but callers should
+    # still encode unexpected domain values.
     Merchant.stubs(:extract_domain).returns("example.com/path")
 
     logo_url = Merchant.brandfetch_logo_url_for("https://example.com/path")

@@ -41,6 +41,7 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     get merge_family_merchants_path
 
     assert_response :success
+    assert_select "nav#mobile-settings-nav"
     assert_includes response.body, FamilyMerchant.default_color
   end
 
@@ -153,6 +154,29 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to merge_family_merchants_path
     assert FamilyMerchant.exists?(source.id)
     assert_nil FamilyMerchant.find_by(family: @user.family, name: "Conflicting Target")
+  end
+
+  test "merge rolls back new target merchant when merge fails" do
+    source = FamilyMerchant.create!(
+      family: @user.family,
+      name: "Rollback Source Merchant",
+      color: "#000000"
+    )
+    source.errors.add(:base, "merge failed")
+    Merchant::Merger.any_instance
+      .stubs(:merge!)
+      .raises(ActiveRecord::RecordInvalid.new(source))
+
+    assert_no_difference("FamilyMerchant.count") do
+      post perform_merge_family_merchants_path, params: {
+        new_target_name: "Rollback Target Merchant",
+        source_ids: [ source.id ]
+      }
+    end
+
+    assert_redirected_to merge_family_merchants_path
+    assert FamilyMerchant.exists?(source.id)
+    assert_nil FamilyMerchant.find_by(family: @user.family, name: "Rollback Target Merchant")
   end
 
   test "bulk website update scopes merchants to current family and refreshes logos" do

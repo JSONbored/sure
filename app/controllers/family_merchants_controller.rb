@@ -1,5 +1,7 @@
 class FamilyMerchantsController < ApplicationController
   InvalidMerchantWebsite = Class.new(StandardError)
+  MergeTargetNotFound = Class.new(StandardError)
+  EmptyMerchantMerge = Class.new(StandardError)
 
   before_action :set_merchant, only: %i[edit update destroy]
 
@@ -103,6 +105,8 @@ class FamilyMerchantsController < ApplicationController
   def merge
     @merchants = all_family_merchants
     @default_merchant_color = FamilyMerchant.default_color
+
+    render layout: "settings"
   end
 
   def bulk_websites
@@ -146,28 +150,19 @@ class FamilyMerchantsController < ApplicationController
       return redirect_to merge_family_merchants_path, alert: t(".invalid_merchants")
     end
 
-    target = merge_target_merchant(valid_merchants, permitted_params)
-    unless target
-      return redirect_to merge_family_merchants_path, alert: t(".target_not_found")
-    end
+    merger = merge_merchants!(valid_merchants, permitted_params, sources)
 
-    merger = Merchant::Merger.new(
-      family: Current.family,
-      target_merchant: target,
-      source_merchants: sources
-    )
-
-    if merger.merge!
-      redirect_to family_merchants_path, notice: t(".success", count: merger.merged_count)
-    else
-      redirect_to merge_family_merchants_path, alert: t(".no_merchants_selected")
-    end
+    redirect_to family_merchants_path, notice: t(".success", count: merger.merged_count)
+  rescue MergeTargetNotFound
+    redirect_to merge_family_merchants_path, alert: t(".target_not_found")
+  rescue EmptyMerchantMerge
+    redirect_to merge_family_merchants_path, alert: t(".no_merchants_selected")
   rescue Merchant::Merger::UnauthorizedMerchantError => e
     redirect_to merge_family_merchants_path, alert: e.message
   rescue InvalidMerchantWebsite
     redirect_to merge_family_merchants_path, alert: t(".invalid_website")
   rescue ActiveRecord::RecordInvalid => e
-    redirect_to merge_family_merchants_path, alert: e.record.errors.full_messages.to_sentence
+    redirect_to merge_family_merchants_path, alert: record_error_message(e)
   end
 
   private
@@ -223,5 +218,25 @@ class FamilyMerchantsController < ApplicationController
       return if permitted_params[:new_target_website_url].blank?
 
       Merchant.extract_domain(permitted_params[:new_target_website_url]).presence || raise(InvalidMerchantWebsite)
+    end
+
+    def merge_merchants!(valid_merchants, permitted_params, sources)
+      Merchant.transaction do
+        target = merge_target_merchant(valid_merchants, permitted_params) || raise(MergeTargetNotFound)
+        merger = Merchant::Merger.new(
+          family: Current.family,
+          target_merchant: target,
+          source_merchants: sources
+        )
+
+        raise EmptyMerchantMerge unless merger.merge!
+
+        merger
+      end
+    end
+
+    def record_error_message(error)
+      record = error.respond_to?(:record) ? error.record : nil
+      record&.errors&.full_messages&.to_sentence.presence || error.message
     end
 end
