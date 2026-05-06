@@ -31,7 +31,7 @@ class ProviderConnectionStatus
     private
 
       def association_includes_for(relation, provider)
-        includes = [ provider[:accounts] ]
+        includes = [ { provider[:accounts] => :account_provider } ]
         includes << provider[:linked_accounts] if provider[:linked_accounts]
         includes << :accounts if relation.klass.reflect_on_association(:accounts)
         includes
@@ -127,12 +127,18 @@ class ProviderConnectionStatus
     end
 
     def provider_account_count
-      return 0 unless item.respond_to?(provider[:accounts])
+      records = provider_account_records
+      return records.size if records
+      return item.total_accounts_count if item.respond_to?(:total_accounts_count)
 
-      item.public_send(provider[:accounts]).size
+      0
     end
 
     def linked_account_count
+      records = provider_account_records
+      return records.count { |provider_account| linked_provider_account?(provider_account) } if records
+      return item.linked_accounts_count if item.respond_to?(:linked_accounts_count)
+
       if provider[:linked_accounts] && item.respond_to?(provider[:linked_accounts])
         return item.public_send(provider[:linked_accounts]).size
       end
@@ -140,6 +146,19 @@ class ProviderConnectionStatus
       return item.accounts.size if item.respond_to?(:accounts)
 
       0
+    end
+
+    def provider_account_records
+      return unless item.respond_to?(provider[:accounts])
+
+      @provider_account_records ||= item.public_send(provider[:accounts]).to_a
+    end
+
+    def linked_provider_account?(provider_account)
+      return false unless provider_account.respond_to?(:account_provider)
+
+      association = provider_account.association(:account_provider)
+      association.loaded? ? association.target.present? : provider_account.account_provider.present?
     end
 
     def sync_payload
@@ -152,7 +171,7 @@ class ProviderConnectionStatus
     end
 
     def sync_status_summary
-      stats = latest_sync_stats
+      stats = latest_completed_sync_stats
       counts = accounts_payload
       total = stats.fetch("total_accounts", counts[:total_count]).to_i
       linked = stats.fetch("linked_accounts", counts[:linked_count]).to_i
@@ -181,8 +200,8 @@ class ProviderConnectionStatus
       sync_context[:latest_completed_sync]
     end
 
-    def latest_sync_stats
-      stats = latest_sync&.sync_stats
+    def latest_completed_sync_stats
+      stats = latest_completed_sync&.sync_stats
       return stats.stringify_keys if stats.is_a?(Hash)
       return {} unless stats.is_a?(String)
 
@@ -209,6 +228,8 @@ class ProviderConnectionStatus
     def sync_error_payload(sync)
       return unless sync.failed? || sync.stale?
 
+      # Provider health treats stale connections as actionable even when the
+      # generic sync API suppresses stale-without-error payloads.
       {
         present: true,
         message: sync.stale? ? "Sync became stale before completion" : "Sync failed"
