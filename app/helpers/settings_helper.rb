@@ -2,7 +2,7 @@ module SettingsHelper
   SETTINGS_ORDER = [
     # General section
     { name: "Accounts", path: :accounts_path },
-    { name: "Statement Vault", path: :account_statements_path, condition: :admin_user? },
+    { name: -> { t("settings.settings_nav.statement_vault_label") }, path: :account_statements_path, condition: :admin_user? },
     { name: "Bank Sync", path: :settings_bank_sync_path },
     { name: "Preferences", path: :settings_preferences_path },
     { name: "Appearance", path: :settings_appearance_path },
@@ -42,7 +42,7 @@ module SettingsHelper
     render partial: "settings/settings_nav_link_large", locals: {
       path: send(adjacent[:path]),
       direction: offset > 0 ? "next" : "previous",
-      title: adjacent[:name]
+      title: setting_name(adjacent)
     }
   end
 
@@ -74,6 +74,11 @@ module SettingsHelper
   private
     def not_self_hosted?
       !self_hosted?
+    end
+
+    def setting_name(setting)
+      name = setting[:name]
+      name.respond_to?(:call) ? instance_exec(&name) : name
     end
 
     # Helper used by SETTINGS_ORDER conditions
