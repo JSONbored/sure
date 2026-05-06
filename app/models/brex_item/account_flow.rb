@@ -68,8 +68,9 @@ class BrexItem::AccountFlow
     return selection_error_payload if !selected?
     return { success: false, error: "no_credentials", has_accounts: false } unless brex_item&.credentials_configured?
 
-    cached = Rails.cache.exist?(cache_key)
-    available_accounts = accounts
+    cached_accounts = Rails.cache.read(cache_key)
+    cached = !cached_accounts.nil?
+    available_accounts = cached ? cached_accounts : fetch_and_cache_accounts
 
     { success: true, has_accounts: available_accounts.any?, cached: cached }
   rescue NoApiTokenError
@@ -558,6 +559,10 @@ class BrexItem::AccountFlow
       cached_accounts = Rails.cache.read(cache_key)
       return cached_accounts unless cached_accounts.nil?
 
+      fetch_and_cache_accounts
+    end
+
+    def fetch_and_cache_accounts
       available_accounts = fetch_accounts
       Rails.cache.write(cache_key, available_accounts, expires_in: CACHE_TTL)
       available_accounts

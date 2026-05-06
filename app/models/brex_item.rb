@@ -4,6 +4,7 @@ class BrexItem < ApplicationRecord
   enum :status, { good: "good", requires_update: "requires_update" }, default: :good
 
   encrypts :token, deterministic: true
+  encrypts :raw_payload
 
   def self.encryption_ready?
     ActiveRecordEncryptionConfig.ready?

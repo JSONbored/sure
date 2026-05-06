@@ -90,8 +90,16 @@ class BrexItemTest < ActiveSupport::TestCase
     assert_equal @brex_item.token, provider.token
   end
 
-  test "declares brex token as encrypted" do
+  test "declares Brex token and raw payload as encrypted" do
     assert_includes BrexItem.encrypted_attributes.map(&:to_s), "token"
+    assert_includes BrexItem.encrypted_attributes.map(&:to_s), "raw_payload"
+  end
+
+  test "schema requires name and token" do
+    columns = BrexItem.columns.index_by(&:name)
+
+    assert_equal false, columns["name"].null
+    assert_equal false, columns["token"].null
   end
 
   test "brex_provider returns nil when credentials not configured" do

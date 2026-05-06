@@ -237,7 +237,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_05_010000) do
 
   create_table "brex_items", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "family_id", null: false
-    t.string "name"
+    t.string "name", null: false
     t.string "institution_id"
     t.string "institution_name"
     t.string "institution_domain"
@@ -249,7 +249,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_05_010000) do
     t.datetime "sync_start_date"
     t.jsonb "raw_payload"
     t.jsonb "raw_institution_payload"
-    t.text "token"
+    t.text "token", null: false
     t.string "base_url"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

@@ -17,6 +17,25 @@ class BrexItem::SyncerTest < ActiveSupport::TestCase
     @syncer.perform_sync(sync)
   end
 
+  test "records localized setup status text and counts" do
+    window_start_date = Date.new(2026, 2, 1)
+    sync = recording_sync(window_start_date: window_start_date)
+
+    @brex_item.expects(:import_latest_brex_data).with(sync_start_date: window_start_date).once
+
+    @syncer.perform_sync(sync)
+
+    assert_equal [
+      I18n.t("brex_items.syncer.importing_accounts"),
+      I18n.t("brex_items.syncer.checking_account_configuration"),
+      I18n.t("brex_items.syncer.accounts_need_setup", count: 1)
+    ], sync.updates.filter_map { |attrs| attrs[:status_text] }
+
+    assert_equal 1, sync.sync_stats["total_accounts"]
+    assert_equal 0, sync.sync_stats["linked_accounts"]
+    assert_equal 1, sync.sync_stats["unlinked_accounts"]
+  end
+
   test "raises user safe credential error for Brex auth failures" do
     sync = mock_sync(window_start_date: Date.new(2026, 2, 1))
     @brex_item.expects(:import_latest_brex_data)
@@ -41,5 +60,27 @@ class BrexItem::SyncerTest < ActiveSupport::TestCase
       sync.stubs(:window_end_date).returns(nil)
       sync.stubs(:update!)
       sync
+    end
+
+    def recording_sync(window_start_date:)
+      Class.new do
+        attr_accessor :sync_stats, :status_text
+        attr_reader :updates
+
+        define_method(:initialize) do |start_date|
+          @window_start_date = start_date
+          @window_end_date = nil
+          @sync_stats = {}
+          @updates = []
+        end
+
+        attr_reader :window_start_date, :window_end_date
+
+        def update!(attributes)
+          @updates << attributes
+          self.sync_stats = attributes[:sync_stats] if attributes.key?(:sync_stats)
+          self.status_text = attributes[:status_text] if attributes.key?(:status_text)
+        end
+      end.new(window_start_date)
     end
 end

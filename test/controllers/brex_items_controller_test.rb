@@ -118,7 +118,6 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "preload accounts uses selected brex item cache key" do
-    Rails.cache.expects(:exist?).with(brex_cache_key(@second_item)).returns(false)
     Rails.cache.expects(:read).with(brex_cache_key(@second_item)).returns(nil)
     Rails.cache.expects(:write).with(brex_cache_key(@second_item), brex_accounts_payload, expires_in: 5.minutes)
 
@@ -200,6 +199,63 @@ class BrexItemsControllerTest < ActionDispatch::IntegrationTest
         assert fields.first["value"].blank?
       end
     end
+  end
+
+  test "select existing account rejects unsafe return paths" do
+    account = @family.accounts.create!(
+      name: "Manual Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+
+    [
+      "//evil.example/accounts",
+      "\\evil.example/accounts",
+      "/\\evil.example/accounts",
+      "/%2fevil.example/accounts",
+      "/%2Fevil.example/accounts",
+      "/%5cevil.example/accounts",
+      "/%5Cevil.example/accounts",
+      "/\naccounts",
+      "/ accounts",
+      "   ",
+      "/"
+    ].each do |return_to|
+      Rails.cache.expects(:read).with(brex_cache_key(@second_item)).returns(brex_accounts_payload)
+
+      get select_existing_account_brex_items_url, params: {
+        brex_item_id: @second_item.id,
+        account_id: account.id,
+        return_to: return_to
+      }
+
+      assert_response :success
+      assert_select %(input[name="return_to"]) do |fields|
+        assert fields.first["value"].blank?
+      end
+    end
+  end
+
+  test "select existing account preserves safe local return path" do
+    account = @family.accounts.create!(
+      name: "Manual Checking",
+      balance: 0,
+      currency: "USD",
+      accountable: Depository.new
+    )
+    return_to = "/accounts?tab=manual"
+
+    Rails.cache.expects(:read).with(brex_cache_key(@second_item)).returns(brex_accounts_payload)
+
+    get select_existing_account_brex_items_url, params: {
+      brex_item_id: @second_item.id,
+      account_id: account.id,
+      return_to: return_to
+    }
+
+    assert_response :success
+    assert_select %(input[name="return_to"][value="#{return_to}"])
   end
 
   test "select existing account redirects when account id is invalid" do

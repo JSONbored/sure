@@ -240,7 +240,14 @@ en:
     sync:
       success: Sync started
     syncer:
+      accounts_need_setup:
+        one: "%{count} account needs setup..."
+        other: "%{count} accounts need setup..."
+      calculating_balances: Calculating balances...
+      checking_account_configuration: Checking account configuration...
       credentials_invalid: Invalid Brex API token or account permissions
       failed: Sync failed. Please try again or contact support.
+      importing_accounts: Importing accounts from Brex...
+      processing_transactions: Processing transactions...
     update:
       success: Brex connection updated

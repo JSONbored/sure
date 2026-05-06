@@ -40,7 +40,6 @@ class BrexItem::AccountFlowTest < ActiveSupport::TestCase
 
   test "preload payload treats cached empty accounts as a cache hit" do
     cache_key = BrexItem::AccountFlow.cache_key(@family, @brex_item)
-    Rails.cache.expects(:exist?).with(cache_key).returns(true)
     Rails.cache.expects(:read).with(cache_key).returns([])
     Rails.cache.expects(:write).never
     @brex_item.expects(:brex_provider).never

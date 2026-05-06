@@ -4,7 +4,7 @@ class CreateBrexItemsAndAccounts < ActiveRecord::Migration[7.2]
   def change
     create_table :brex_items, id: :uuid do |t|
       t.references :family, null: false, foreign_key: true, type: :uuid
-      t.string :name
+      t.string :name, null: false
 
       t.string :institution_id
       t.string :institution_name
@@ -21,7 +21,7 @@ class CreateBrexItemsAndAccounts < ActiveRecord::Migration[7.2]
       t.jsonb :raw_payload
       t.jsonb :raw_institution_payload
 
-      t.text :token
+      t.text :token, null: false
       t.string :base_url
 
       t.timestamps

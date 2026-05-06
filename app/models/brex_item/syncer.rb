@@ -11,35 +11,44 @@ class BrexItem::Syncer
 
   def perform_sync(sync)
     # Phase 1: Import data from Brex API
-    sync.update!(status_text: "Importing accounts from Brex...") if sync.respond_to?(:status_text)
+    update_status(sync, :importing_accounts)
     brex_item.import_latest_brex_data(sync_start_date: sync.window_start_date)
 
-    # Phase 2: Collect setup statistics using shared concern
-    sync.update!(status_text: "Checking account configuration...") if sync.respond_to?(:status_text)
-    collect_setup_stats(sync, provider_accounts: brex_item.brex_accounts)
+    # Phase 2: Collect setup statistics
+    update_status(sync, :checking_account_configuration)
 
-    # Check for unlinked accounts
-    linked_accounts = brex_item.brex_accounts.joins(:account_provider)
-    unlinked_accounts = brex_item.brex_accounts.left_joins(:account_provider).where(account_providers: { id: nil })
+    linked_count = brex_item.brex_accounts.joins(:account_provider).count
+    unlinked_count = brex_item.brex_accounts
+                             .left_joins(:account_provider)
+                             .where(account_providers: { id: nil })
+                             .count
+    total_count = linked_count + unlinked_count
+    collect_brex_setup_stats(
+      sync,
+      total_count: total_count,
+      linked_count: linked_count,
+      unlinked_count: unlinked_count
+    )
 
     # Set pending_account_setup if there are unlinked accounts
-    if unlinked_accounts.any?
+    if unlinked_count.positive?
       brex_item.update!(pending_account_setup: true)
-      sync.update!(status_text: "#{unlinked_accounts.count} accounts need setup...") if sync.respond_to?(:status_text)
+      update_status(sync, :accounts_need_setup, count: unlinked_count)
     else
       brex_item.update!(pending_account_setup: false)
     end
 
     # Phase 3: Process transactions for linked accounts only
-    if linked_accounts.any?
-      sync.update!(status_text: "Processing transactions...") if sync.respond_to?(:status_text)
+    if linked_count.positive?
+      linked_accounts = brex_item.brex_accounts.joins(:account_provider)
+      update_status(sync, :processing_transactions)
       mark_import_started(sync)
-      Rails.logger.info "BrexItem::Syncer - Processing #{linked_accounts.count} linked accounts"
+      Rails.logger.info "BrexItem::Syncer - Processing #{linked_count} linked accounts"
       brex_item.process_accounts
       Rails.logger.info "BrexItem::Syncer - Finished processing accounts"
 
       # Phase 4: Schedule balance calculations for linked accounts
-      sync.update!(status_text: "Calculating balances...") if sync.respond_to?(:status_text)
+      update_status(sync, :calculating_balances)
       brex_item.schedule_account_syncs(
         parent_sync: sync,
         window_start_date: sync.window_start_date,
@@ -47,7 +56,9 @@ class BrexItem::Syncer
       )
 
       # Phase 5: Collect transaction statistics
-      account_ids = linked_accounts.includes(:account_provider).filter_map { |ma| ma.current_account&.id }
+      account_ids = linked_accounts
+                    .includes(account_provider: :account)
+                    .filter_map { |ma| ma.current_account&.id }
       collect_transaction_stats(sync, account_ids: account_ids, source: "brex")
     else
       Rails.logger.info "BrexItem::Syncer - No linked accounts to process"
@@ -71,6 +82,25 @@ class BrexItem::Syncer
   end
 
   private
+
+    def update_status(sync, key, **options)
+      return unless sync.respond_to?(:status_text)
+
+      sync.update!(status_text: I18n.t("brex_items.syncer.#{key}", **options))
+    end
+
+    def collect_brex_setup_stats(sync, total_count:, linked_count:, unlinked_count:)
+      return {} unless sync.respond_to?(:sync_stats)
+
+      setup_stats = {
+        "total_accounts" => total_count,
+        "linked_accounts" => linked_count,
+        "unlinked_accounts" => unlinked_count
+      }
+
+      merge_sync_stats(sync, setup_stats)
+      setup_stats
+    end
 
     def user_safe_error_message(error)
       if error.is_a?(Provider::Brex::BrexError) && error.error_type.in?([ :unauthorized, :access_forbidden ])
