@@ -24,6 +24,10 @@ class Import < ApplicationRecord
     Date.new(1970, 1, 1)..Date.today.next_year(5)
   end
 
+  def self.max_csv_size
+    MAX_CSV_SIZE
+  end
+
   AMOUNT_TYPE_STRATEGIES = %w[signed_amount custom_column].freeze
 
   belongs_to :family

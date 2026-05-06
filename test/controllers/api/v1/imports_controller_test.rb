@@ -573,8 +573,8 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "TransactionImport", data["type"]
     assert_equal true, data["valid"]
     assert_equal 1, data["stats"]["rows_count"]
-    assert_equal 1, data["stats"]["valid_rows_count"]
-    assert_equal 0, data["stats"]["invalid_rows_count"]
+    assert_not data["stats"].key?("valid_rows_count")
+    assert_not data["stats"].key?("invalid_rows_count")
     assert_equal %w[date amount name], data["headers"]
     assert_empty data["missing_required_headers"]
     assert_empty data["errors"]
@@ -600,8 +600,8 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal false, data["valid"]
     assert_equal 1, data["stats"]["rows_count"]
-    assert_equal 1, data["stats"]["valid_rows_count"]
-    assert_equal 0, data["stats"]["invalid_rows_count"]
+    assert_not data["stats"].key?("valid_rows_count")
+    assert_not data["stats"].key?("invalid_rows_count")
     assert_equal [ "date", "amount" ], data["missing_required_headers"]
     assert_equal "missing_required_headers", data["errors"].first["code"]
   end
@@ -690,7 +690,9 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :unprocessable_entity
-    assert_equal "invalid_import_type", JSON.parse(response.body)["error"]
+    response_data = JSON.parse(response.body)
+    assert_equal "invalid_import_type", response_data["error"]
+    assert_not response_data.key?("errors")
   end
 
   test "should reject import types excluded from preflight" do
@@ -706,6 +708,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     response_data = JSON.parse(response.body)
     assert_equal "invalid_import_type", response_data["error"]
+    assert_not response_data.key?("errors")
     assert_not_includes response_data["message"], "QifImport"
     assert_not_includes response_data["message"], "PdfImport"
   end
@@ -838,9 +841,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
       original_filename: "large.csv"
     )
 
-    original_value = Import::MAX_CSV_SIZE
-    Import.send(:remove_const, :MAX_CSV_SIZE)
-    Import.const_set(:MAX_CSV_SIZE, test_limit)
+    Import.stubs(:max_csv_size).returns(test_limit)
 
     assert_no_difference("Import.count") do
       post preflight_api_v1_imports_url,
@@ -850,9 +851,6 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     assert_equal "file_too_large", JSON.parse(response.body)["error"]
-  ensure
-    Import.send(:remove_const, :MAX_CSV_SIZE)
-    Import.const_set(:MAX_CSV_SIZE, original_value)
   end
 
   test "should preflight with read-only API key" do
@@ -1034,9 +1032,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     test_limit = 1.kilobyte
     large_content = "x" * (test_limit + 1)
 
-    original_value = Import::MAX_CSV_SIZE
-    Import.send(:remove_const, :MAX_CSV_SIZE)
-    Import.const_set(:MAX_CSV_SIZE, test_limit)
+    Import.stubs(:max_csv_size).returns(test_limit)
 
     assert_no_difference("Import.count") do
       post api_v1_imports_url,
@@ -1047,9 +1043,6 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     json_response = JSON.parse(response.body)
     assert_equal "content_too_large", json_response["error"]
-  ensure
-    Import.send(:remove_const, :MAX_CSV_SIZE)
-    Import.const_set(:MAX_CSV_SIZE, original_value)
   end
 
   test "should accept file upload with valid csv mime type" do

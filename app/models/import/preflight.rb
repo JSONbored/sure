@@ -47,7 +47,6 @@ class Import::Preflight
 
   UNSUPPORTED_PREFLIGHT_IMPORT_TYPES = %w[PdfImport QifImport].freeze
   IMPORT_TYPES = (Import::TYPES - UNSUPPORTED_PREFLIGHT_IMPORT_TYPES).freeze
-  CSV_IMPORT_TYPES = (IMPORT_TYPES - [ "SureImport" ]).freeze
 
   def initialize(family:, params:)
     @family = family
@@ -78,8 +77,7 @@ class Import::Preflight
         status: :unprocessable_entity,
         payload: {
           error: "invalid_import_type",
-          message: "type must be one of: #{IMPORT_TYPES.join(', ')}",
-          errors: [ "type must be one of: #{IMPORT_TYPES.join(', ')}" ]
+          message: "type must be one of: #{IMPORT_TYPES.join(', ')}"
         }
       )
     end
@@ -141,9 +139,7 @@ class Import::Preflight
             valid: errors.empty?,
             content: content_payload(filename, content_type, content),
             stats: {
-              rows_count: parsed_rows_count,
-              valid_rows_count: parsed_rows_count,
-              invalid_rows_count: 0
+              rows_count: parsed_rows_count
             },
             headers: csv_headers,
             required_headers: required_header_labels(import),
@@ -178,7 +174,7 @@ class Import::Preflight
     end
 
     def csv_file_upload_attributes(file)
-      raise_response csv_file_too_large_response if file.size > Import::MAX_CSV_SIZE
+      raise_response csv_file_too_large_response if file.size > Import.max_csv_size
       raise_response invalid_csv_file_type_response unless Import::ALLOWED_CSV_MIME_TYPES.include?(file.content_type)
 
       [
@@ -189,7 +185,7 @@ class Import::Preflight
     end
 
     def csv_raw_content_attributes(content)
-      raise_response csv_content_too_large_response if content.bytesize > Import::MAX_CSV_SIZE
+      raise_response csv_content_too_large_response if content.bytesize > Import.max_csv_size
 
       [ content, "import.csv", "text/csv" ]
     end
@@ -353,7 +349,7 @@ class Import::Preflight
         status: :unprocessable_entity,
         payload: {
           error: "file_too_large",
-          message: "File is too large. Maximum size is #{Import::MAX_CSV_SIZE / 1.megabyte}MB."
+          message: "File is too large. Maximum size is #{Import.max_csv_size / 1.megabyte}MB."
         }
       )
     end
@@ -363,7 +359,7 @@ class Import::Preflight
         status: :unprocessable_entity,
         payload: {
           error: "content_too_large",
-          message: "Content is too large. Maximum size is #{Import::MAX_CSV_SIZE / 1.megabyte}MB."
+          message: "Content is too large. Maximum size is #{Import.max_csv_size / 1.megabyte}MB."
         }
       )
     end

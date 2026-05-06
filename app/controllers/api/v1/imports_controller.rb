@@ -77,10 +77,10 @@ class Api::V1::ImportsController < Api::V1::BaseController
     if params[:file].present?
       file = params[:file]
 
-      if file.size > Import::MAX_CSV_SIZE
+      if file.size > Import.max_csv_size
         return render json: {
           error: "file_too_large",
-          message: "File is too large. Maximum size is #{Import::MAX_CSV_SIZE / 1.megabyte}MB."
+          message: "File is too large. Maximum size is #{Import.max_csv_size / 1.megabyte}MB."
         }, status: :unprocessable_entity
       end
 
@@ -93,10 +93,10 @@ class Api::V1::ImportsController < Api::V1::BaseController
 
       @import.raw_file_str = file.read
     elsif params[:raw_file_content].present?
-      if params[:raw_file_content].bytesize > Import::MAX_CSV_SIZE
+      if params[:raw_file_content].bytesize > Import.max_csv_size
         return render json: {
           error: "content_too_large",
-          message: "Content is too large. Maximum size is #{Import::MAX_CSV_SIZE / 1.megabyte}MB."
+          message: "Content is too large. Maximum size is #{Import.max_csv_size / 1.megabyte}MB."
         }, status: :unprocessable_entity
       end
 
@@ -137,8 +137,8 @@ class Api::V1::ImportsController < Api::V1::BaseController
   end
 
   def preflight
-    response = Import::Preflight.new(family: current_resource_owner.family, params: preflight_params).call
-    render json: response.payload, status: response.status
+    preflight_result = Import::Preflight.new(family: current_resource_owner.family, params: preflight_params).call
+    render json: preflight_result.payload, status: preflight_result.status
   rescue ActiveRecord::RecordNotFound
     render json: {
       error: "record_not_found",
