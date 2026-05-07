@@ -8,7 +8,8 @@ class Provider::Brex
   STAGING_BASE_URL = "https://api-staging.brex.com"
   ALLOWED_BASE_URLS = [ DEFAULT_BASE_URL, STAGING_BASE_URL ].freeze
   DEFAULT_LIMIT = 1000
-  MAX_PAGES = 250
+  # Transaction syncs are date-window bounded; this is only a runaway cursor guard.
+  MAX_PAGES = 25
 
   headers "User-Agent" => "Sure Finance Brex Client"
   default_options.merge!({ timeout: 120 }.merge(httparty_ssl_options))

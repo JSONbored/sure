@@ -191,7 +191,7 @@ class Provider::BrexTest < ActiveSupport::TestCase
   end
 
   test "guards pagination page cap" do
-    responses = (1..251).map do |page|
+    responses = (1..26).map do |page|
       OpenStruct.new(
         code: 200,
         body: { items: [ { id: "tx_#{page}" } ], next_cursor: "cursor_#{page}" }.to_json,
@@ -206,7 +206,7 @@ class Provider::BrexTest < ActiveSupport::TestCase
     end
 
     assert_equal :pagination_error, error.error_type
-    assert_includes error.message, "exceeded"
+    assert_includes error.message, "exceeded 25 pages"
   end
 
   test "sends posted_at_start as RFC3339 date time" do

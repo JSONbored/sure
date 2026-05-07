@@ -11,6 +11,7 @@ class ProviderConnectionStatus
     { key: "coinstats", type: "CoinstatsItem", association: :coinstats_items, accounts: :coinstats_accounts },
     { key: "snaptrade", type: "SnaptradeItem", association: :snaptrade_items, accounts: :snaptrade_accounts, linked_accounts: :linked_accounts },
     { key: "mercury", type: "MercuryItem", association: :mercury_items, accounts: :mercury_accounts },
+    { key: "brex", type: "BrexItem", association: :brex_items, accounts: :brex_accounts },
     { key: "sophtron", type: "SophtronItem", association: :sophtron_items, accounts: :sophtron_accounts },
     { key: "indexa_capital", type: "IndexaCapitalItem", association: :indexa_capital_items, accounts: :indexa_capital_accounts }
   ].freeze
