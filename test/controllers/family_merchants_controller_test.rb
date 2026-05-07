@@ -83,6 +83,60 @@ class FamilyMerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_not FamilyMerchant.exists?(source.id)
   end
 
+  test "merge reassigns shared provider merchant only for current family" do
+    provider_merchant = ProviderMerchant.create!(
+      name: "Shared Provider Merchant #{SecureRandom.hex(4)}",
+      source: "plaid",
+      provider_merchant_id: "shared-provider-merchant-#{SecureRandom.hex(4)}"
+    )
+    target = FamilyMerchant.create!(
+      family: @user.family,
+      name: "Current Family Target Merchant",
+      color: "#000000"
+    )
+
+    current_family_transaction = Transaction.create!(merchant: provider_merchant)
+    Entry.create!(
+      account: accounts(:depository),
+      entryable: current_family_transaction,
+      name: "Current family provider transaction",
+      date: Date.current,
+      amount: 10,
+      currency: "USD"
+    )
+
+    other_family = Family.create!(name: "Other Family #{SecureRandom.hex(4)}", currency: "USD", locale: "en")
+    other_depository = Depository.create!(subtype: "checking")
+    other_account = Account.create!(
+      family: other_family,
+      accountable: other_depository,
+      name: "Other Family Checking",
+      currency: "USD",
+      balance: 0
+    )
+    other_family_transaction = Transaction.create!(merchant: provider_merchant)
+    Entry.create!(
+      account: other_account,
+      entryable: other_family_transaction,
+      name: "Other family provider transaction",
+      date: Date.current,
+      amount: 10,
+      currency: "USD"
+    )
+
+    assert_no_difference("ProviderMerchant.count") do
+      post perform_merge_family_merchants_path, params: {
+        target_id: target.id,
+        source_ids: [ provider_merchant.id ]
+      }
+    end
+
+    assert_redirected_to family_merchants_path
+    assert_equal target, current_family_transaction.reload.merchant
+    assert_equal provider_merchant, other_family_transaction.reload.merchant
+    assert ProviderMerchant.exists?(provider_merchant.id)
+  end
+
   test "merge preserves reviewed new target merchant color" do
     source = FamilyMerchant.create!(
       family: @user.family,
