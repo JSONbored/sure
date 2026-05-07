@@ -2,7 +2,6 @@ module SettingsHelper
   SETTINGS_ORDER = [
     # General section
     { name: -> { t("settings.settings_nav.accounts_label") }, path: :accounts_path },
-    { name: -> { t("settings.settings_nav.statement_vault_label") }, path: :account_statements_path, condition: :admin_user? },
     { name: -> { t("settings.settings_nav.bank_sync_label") }, path: :settings_bank_sync_path },
     { name: -> { t("settings.settings_nav.preferences_label") }, path: :settings_preferences_path },
     { name: -> { t("settings.settings_nav.appearance_label") }, path: :settings_appearance_path },
@@ -15,6 +14,7 @@ module SettingsHelper
     { name: -> { t("settings.settings_nav.rules_label") }, path: :rules_path },
     { name: -> { t("settings.settings_nav.merchants_label") }, path: :family_merchants_path },
     { name: -> { t("settings.settings_nav.recurring_transactions_label") }, path: :recurring_transactions_path },
+    { name: -> { t("settings.settings_nav.statement_vault_label") }, path: :account_statements_path, condition: :admin_user? },
     # Advanced section
     { name: -> { t("settings.settings_nav.ai_prompts_label") }, path: :settings_ai_prompts_path, condition: :admin_user? },
     { name: -> { t("settings.settings_nav.llm_usage_label") }, path: :settings_llm_usage_path, condition: :admin_user? },
