@@ -27,6 +27,10 @@ class SureImport < Import
       100_000
     end
 
+    def max_ndjson_size
+      MAX_NDJSON_SIZE
+    end
+
     # Counts JSON lines by top-level "type" (used for dry-run summaries and row limits).
     def ndjson_line_type_counts(content)
       return {} unless content.present?

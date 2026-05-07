@@ -199,7 +199,7 @@ class Import::Preflight
     end
 
     def sure_import_file_upload_attributes(file)
-      raise_response sure_file_too_large_response if file.size > SureImport::MAX_NDJSON_SIZE
+      raise_response sure_file_too_large_response if file.size > SureImport.max_ndjson_size
 
       extension = File.extname(file.original_filename.to_s).downcase
       unless SureImport::ALLOWED_NDJSON_CONTENT_TYPES.include?(file.content_type) || extension.in?(%w[.ndjson .json])
@@ -214,7 +214,7 @@ class Import::Preflight
     end
 
     def sure_import_raw_content_attributes(content)
-      raise_response sure_content_too_large_response if content.bytesize > SureImport::MAX_NDJSON_SIZE
+      raise_response sure_content_too_large_response if content.bytesize > SureImport.max_ndjson_size
 
       [ content, "sure-import.ndjson", "application/x-ndjson" ]
     end
@@ -379,7 +379,7 @@ class Import::Preflight
         status: :unprocessable_entity,
         payload: {
           error: "file_too_large",
-          message: "File is too large. Maximum size is #{SureImport::MAX_NDJSON_SIZE / 1.megabyte}MB."
+          message: "File is too large. Maximum size is #{SureImport.max_ndjson_size / 1.megabyte}MB."
         }
       )
     end
@@ -389,7 +389,7 @@ class Import::Preflight
         status: :unprocessable_entity,
         payload: {
           error: "content_too_large",
-          message: "Content is too large. Maximum size is #{SureImport::MAX_NDJSON_SIZE / 1.megabyte}MB."
+          message: "Content is too large. Maximum size is #{SureImport.max_ndjson_size / 1.megabyte}MB."
         }
       )
     end

@@ -311,10 +311,10 @@ class Api::V1::ImportsController < Api::V1::BaseController
     end
 
     def sure_import_file_upload_attributes(file)
-      if file.size > SureImport::MAX_NDJSON_SIZE
+      if file.size > SureImport.max_ndjson_size
         render json: {
           error: "file_too_large",
-          message: "File is too large. Maximum size is #{SureImport::MAX_NDJSON_SIZE / 1.megabyte}MB."
+          message: "File is too large. Maximum size is #{SureImport.max_ndjson_size / 1.megabyte}MB."
         }, status: :unprocessable_entity
         return
       end
@@ -337,10 +337,10 @@ class Api::V1::ImportsController < Api::V1::BaseController
     end
 
     def sure_import_raw_content_attributes(content)
-      if content.bytesize > SureImport::MAX_NDJSON_SIZE
+      if content.bytesize > SureImport.max_ndjson_size
         render json: {
           error: "content_too_large",
-          message: "Content is too large. Maximum size is #{SureImport::MAX_NDJSON_SIZE / 1.megabyte}MB."
+          message: "Content is too large. Maximum size is #{SureImport.max_ndjson_size / 1.megabyte}MB."
         }, status: :unprocessable_entity
         return
       end

@@ -405,9 +405,7 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
       original_filename: "large.ndjson"
     )
 
-    original_value = SureImport::MAX_NDJSON_SIZE
-    SureImport.send(:remove_const, :MAX_NDJSON_SIZE)
-    SureImport.const_set(:MAX_NDJSON_SIZE, test_limit)
+    SureImport.stubs(:max_ndjson_size).returns(test_limit)
 
     assert_no_difference("Import.count") do
       post api_v1_imports_url,
@@ -421,9 +419,6 @@ class Api::V1::ImportsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     json_response = JSON.parse(response.body)
     assert_equal "file_too_large", json_response["error"]
-  ensure
-    SureImport.send(:remove_const, :MAX_NDJSON_SIZE)
-    SureImport.const_set(:MAX_NDJSON_SIZE, original_value)
   end
 
   test "should reject Sure import uploaded file with invalid type" do
