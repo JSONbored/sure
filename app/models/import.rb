@@ -2,6 +2,7 @@ class Import < ApplicationRecord
   MaxRowCountExceededError = Class.new(StandardError)
   MappingError = Class.new(StandardError)
 
+  # Shared CSV upload/content limit for web and API imports, including preflight.
   MAX_CSV_SIZE = 10.megabytes
   MAX_PDF_SIZE = 25.megabytes
   ALLOWED_CSV_MIME_TYPES = %w[text/csv text/plain application/vnd.ms-excel application/csv].freeze

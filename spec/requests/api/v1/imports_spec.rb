@@ -123,7 +123,7 @@ RSpec.describe 'API V1 Imports', type: :request do
     end
 
     post 'Create import' do
-      description 'Create a new import from raw CSV content, inline Sure NDJSON content, or an uploaded Sure NDJSON file.'
+      description 'Create a new import from raw CSV content, inline Sure NDJSON content, or an uploaded Sure NDJSON file. CSV content is limited to 10MB.'
       tags 'Imports'
       security [ { apiKeyAuth: [] } ]
       consumes 'application/json', 'multipart/form-data'
@@ -134,7 +134,7 @@ RSpec.describe 'API V1 Imports', type: :request do
         properties: {
           raw_file_content: {
             type: :string,
-            description: 'Raw CSV or Sure NDJSON content as a string. Required for SureImport unless a multipart file is uploaded.'
+            description: 'Raw CSV or Sure NDJSON content as a string. CSV content is limited to 10MB. Required for SureImport unless a multipart file is uploaded.'
           },
           type: {
             type: :string,
@@ -368,7 +368,7 @@ RSpec.describe 'API V1 Imports', type: :request do
 
   path '/api/v1/imports/preflight' do
     post 'Validate import content without creating an import' do
-      description 'Validate CSV or Sure NDJSON import content and return counts, headers, warnings, and validation errors without persisting an import or enqueueing jobs.'
+      description 'Validate CSV or Sure NDJSON import content and return counts, headers, warnings, and validation errors without persisting an import or enqueueing jobs. CSV content is limited to 10MB.'
       tags 'Imports'
       security [ { apiKeyAuth: [] } ]
       consumes 'application/json', 'multipart/form-data'
@@ -379,12 +379,12 @@ RSpec.describe 'API V1 Imports', type: :request do
         properties: {
           raw_file_content: {
             type: :string,
-            description: 'Raw CSV or Sure NDJSON content as a string'
+            description: 'Raw CSV or Sure NDJSON content as a string. CSV content is limited to 10MB.'
           },
           file: {
             type: :string,
             format: :binary,
-            description: 'CSV or Sure NDJSON upload when using multipart/form-data'
+            description: 'CSV or Sure NDJSON upload when using multipart/form-data. CSV files are limited to 10MB.'
           },
           type: {
             type: :string,

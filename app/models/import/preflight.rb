@@ -2,8 +2,6 @@
 
 class Import::Preflight
   Response = Struct.new(:status, :payload, keyword_init: true)
-  UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
-  private_constant :UUID_PATTERN
 
   class PreflightError < StandardError
     attr_reader :status, :payload
@@ -156,13 +154,9 @@ class Import::Preflight
     end
 
     def preflight_account
-      raise ActiveRecord::RecordNotFound unless valid_uuid?(params[:account_id])
+      raise ActiveRecord::RecordNotFound unless Api::V1::BaseController.valid_uuid?(params[:account_id])
 
       family.accounts.find(params[:account_id])
-    end
-
-    def valid_uuid?(value)
-      value.to_s.match?(UUID_PATTERN)
     end
 
     def csv_upload_attributes
